@@ -1,7 +1,8 @@
 version: '3.8'
+
 services:
   backend:
-    build: .
+    build: ./velasco-backend
     ports:
       - "8080:8080"
     environment:
@@ -19,3 +20,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    networks:
+      - velasco-network
+
+  frontend:
+    build: ./velasco-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - velasco-network
+
+networks:
+  velasco-network:
+    driver: bridge

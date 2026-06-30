@@ -33,5 +33,5 @@ jobs:
             ENVEOF
             
             # Rebuild backend apenas
-            docker compose -f ~/docker-compose.yml up -d --build backend
-            docker compose -f ~/docker-compose.yml logs backend
+            docker compose -f ~/velasco-backend/docker-compose.yml up -d --build backend
+            docker compose -f ~/velasco-backend/docker-compose.yml logs backend
