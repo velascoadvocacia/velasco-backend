@@ -1,0 +1,37 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            cd ~/velasco-backend
+            git pull origin main
+            
+            # Recria .env com secrets
+            cat > .env << 'ENVEOF'
+            DB_JDBC_URL=jdbc:postgresql://${{ secrets.RDS_HOST }}:5432/lawyer
+            DB_USERNAME=${{ secrets.RDS_USER }}
+            DB_PASSWORD=${{ secrets.RDS_PASSWORD }}
+            JWT_ISSUER=${{ secrets.JWT_ISSUER }}
+            JWT_EXPIRES_IN_SECONDS=${{ secrets.JWT_EXPIRES_IN_SECONDS }}
+            BOOTSTRAP_ADMIN_ENABLED=${{ secrets.BOOTSTRAP_ADMIN_ENABLED }}
+            BOOTSTRAP_ADMIN_USERNAME=${{ secrets.BOOTSTRAP_ADMIN_USERNAME }}
+            BOOTSTRAP_ADMIN_PASSWORD=${{ secrets.BOOTSTRAP_ADMIN_PASSWORD }}
+            ENVEOF
+            
+            # Rebuild backend apenas
+            docker compose -f ~/docker-compose.yml up -d --build backend
+            docker compose -f ~/docker-compose.yml logs backend
