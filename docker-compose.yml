@@ -2,8 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build:
-      context: .
+    image: 029180756761.dkr.ecr.sa-east-1.amazonaws.com/velasco-backend:latest
     ports:
       - "8080:8080"
     environment:

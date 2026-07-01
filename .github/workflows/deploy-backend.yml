@@ -9,7 +9,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        env:
+          ECR_REGISTRY: 029180756761.dkr.ecr.sa-east-1.amazonaws.com
+          IMAGE_TAG: latest
+        run: |
+          docker build -t "$ECR_REGISTRY/velasco-backend:$IMAGE_TAG" .
+          docker push "$ECR_REGISTRY/velasco-backend:$IMAGE_TAG"
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -19,7 +38,7 @@ jobs:
           script: |
             cd ~/velasco-backend
             git pull origin main
-            
+
             # Recria .env com secrets
             cat > .env << 'ENVEOF'
             DB_JDBC_URL=jdbc:postgresql://${{ secrets.RDS_HOST }}:5432/lawyer
@@ -31,35 +50,8 @@ jobs:
             BOOTSTRAP_ADMIN_USERNAME=${{ secrets.BOOTSTRAP_ADMIN_USERNAME }}
             BOOTSTRAP_ADMIN_PASSWORD=${{ secrets.BOOTSTRAP_ADMIN_PASSWORD }}
             ENVEOF
-            
-            echo "Espaço antes da limpeza:"
-            df -h
 
-            AVAILABLE=$(df --output=avail / | tail -1)
-
-            # Menos de 1 GB livre
-            if [ "$AVAILABLE" -lt 1048576 ]; then
-              echo "Pouco espaço em disco. Limpando caches..."
-
-              # Remove cache de build do Docker
-              docker builder prune -af || true
-
-              # Remove cache local do Maven
-              rm -rf ~/.m2/repository || true
-
-              # Remove apenas imagens dangling (não remove imagens utilizadas pelos containers)
-              docker image prune -f || true
-
-              echo "Espaço após limpeza:"
-              df -h
-            fi
-
-            # Rebuild backend apenas
-            docker compose up -d --build
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 029180756761.dkr.ecr.sa-east-1.amazonaws.com
+            docker compose pull
+            docker compose up -d
             docker compose logs backend
-
-            echo "Limpando cache de build..."
-            docker builder prune -af || true
-
-            echo "Espaço final:"
-            df -h
