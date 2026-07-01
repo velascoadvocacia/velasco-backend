@@ -48,5 +48,5 @@ jobs:
             df -h
 
             # Rebuild backend apenas
-            docker compose -f ~/velasco-backend/docker-compose.yml up -d --build backend
-            docker compose -f ~/velasco-backend/docker-compose.yml logs backend
+            docker compose up -d --build
+            docker compose logs backend
