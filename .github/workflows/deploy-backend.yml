@@ -39,14 +39,27 @@ jobs:
 
             # Menos de 1 GB livre
             if [ "$AVAILABLE" -lt 1048576 ]; then
-              echo "Pouco espaço em disco. Limpando cache de build do Docker e cache do Maven..."
-              docker builder prune -af || true
-              rm -rf ~/.m2/repository || true
-            fi
+              echo "Pouco espaço em disco. Limpando caches..."
 
-            echo "Espaço após limpeza:"
-            df -h
+              # Remove cache de build do Docker
+              docker builder prune -af || true
+
+              # Remove cache local do Maven
+              rm -rf ~/.m2/repository || true
+
+              # Remove apenas imagens dangling (não remove imagens utilizadas pelos containers)
+              docker image prune -f || true
+
+              echo "Espaço após limpeza:"
+              df -h
+            fi
 
             # Rebuild backend apenas
             docker compose up -d --build
             docker compose logs backend
+
+            echo "Limpando cache de build..."
+            docker builder prune -af || true
+
+            echo "Espaço final:"
+            df -h
