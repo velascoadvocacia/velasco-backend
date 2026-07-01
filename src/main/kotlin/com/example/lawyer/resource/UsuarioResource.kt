@@ -33,7 +33,7 @@ class UsuarioResource(private val service: UsuarioService) {
         Response.status(Response.Status.CREATED).entity(service.create(request)).build()
 
     @GET
-    @RolesAllowed("ADMIN")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
     fun list(
         @QueryParam("username") username: String?,
         @QueryParam("perfil") perfil: PerfilUsuario?,
@@ -43,7 +43,7 @@ class UsuarioResource(private val service: UsuarioService) {
 
     @GET
     @Path("/{id}")
-    @RolesAllowed("ADMIN")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
     fun getById(@PathParam("id") id: Long): UsuarioDTO = service.getById(id)
 
     @PUT
