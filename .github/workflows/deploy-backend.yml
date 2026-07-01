@@ -32,6 +32,21 @@ jobs:
             BOOTSTRAP_ADMIN_PASSWORD=${{ secrets.BOOTSTRAP_ADMIN_PASSWORD }}
             ENVEOF
             
+            echo "Espaço antes da limpeza:"
+            df -h
+
+            AVAILABLE=$(df --output=avail / | tail -1)
+
+            # Menos de 1 GB livre
+            if [ "$AVAILABLE" -lt 1048576 ]; then
+              echo "Pouco espaço em disco. Limpando cache de build do Docker e cache do Maven..."
+              docker builder prune -af || true
+              rm -rf ~/.m2/repository || true
+            fi
+
+            echo "Espaço após limpeza:"
+            df -h
+
             # Rebuild backend apenas
             docker compose -f ~/velasco-backend/docker-compose.yml up -d --build backend
             docker compose -f ~/velasco-backend/docker-compose.yml logs backend
