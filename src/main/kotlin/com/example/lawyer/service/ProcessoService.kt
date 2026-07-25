@@ -45,7 +45,7 @@ class ProcessoService(
             contratoTrabalho = toContratoTrabalho(request.contratoTrabalho),
             estrategiaProcessual = toEstrategiaProcessual(request.estrategiaProcessual),
             status = request.status!!,
-            ativo = request.ativo,
+            ativo = request.ativo ?: true,
             rtDescricaoAcidente = request.rtDescricaoAcidente,
             rtCctPeriodo = request.rtCctPeriodo,
             rtClausulaConvencional = request.rtClausulaConvencional,
@@ -56,8 +56,8 @@ class ProcessoService(
             rtValorPagoPorFora = request.rtValorPagoPorFora,
             rtMediaHorasExtras = request.rtMediaHorasExtras
         )
-        processo.reclamadas = resolvePessoas(request.reclamadasIds)
-        processo.sociosResponsaveis = resolvePessoas(request.sociosResponsaveisIds)
+        processo.reclamadas = resolvePessoas(request.reclamadasIds.orEmpty())
+        processo.sociosResponsaveis = resolvePessoas(request.sociosResponsaveisIds.orEmpty())
         repository.persist(processo)
         logger.infof("Processo criado id=%s numero=%s", processo.id, processo.numeroProcesso)
         return processoMapper.toResponse(processo)
@@ -115,10 +115,10 @@ class ProcessoService(
         processo.dataAbertura = request.dataAbertura!!
         processo.contratoTrabalho = toContratoTrabalho(request.contratoTrabalho)
         processo.estrategiaProcessual = toEstrategiaProcessual(request.estrategiaProcessual)
-        processo.reclamadas = resolvePessoas(request.reclamadasIds)
-        processo.sociosResponsaveis = resolvePessoas(request.sociosResponsaveisIds)
+        processo.reclamadas = resolvePessoas(request.reclamadasIds.orEmpty())
+        processo.sociosResponsaveis = resolvePessoas(request.sociosResponsaveisIds.orEmpty())
         processo.status = request.status!!
-        processo.ativo = request.ativo
+        processo.ativo = request.ativo ?: processo.ativo
         processo.rtDescricaoAcidente = request.rtDescricaoAcidente
         processo.rtCctPeriodo = request.rtCctPeriodo
         processo.rtClausulaConvencional = request.rtClausulaConvencional

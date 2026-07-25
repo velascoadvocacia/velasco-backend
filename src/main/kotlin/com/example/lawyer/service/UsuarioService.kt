@@ -34,7 +34,7 @@ class UsuarioService(
             senha = BcryptUtil.bcryptHash(request.senha!!),
             pessoa = pessoa,
             perfil = request.perfil!!,
-            ativo = request.ativo
+            ativo = request.ativo ?: true
         )
         repository.persist(usuario)
         logger.infof("Usuario criado id=%s perfil=%s", usuario.id, usuario.perfil)
@@ -75,7 +75,7 @@ class UsuarioService(
         request.senha?.takeIf { it.isNotBlank() }?.let { usuario.senha = BcryptUtil.bcryptHash(it) }
         usuario.pessoa = pessoaService.findEntity(request.pessoaId!!)
         usuario.perfil = request.perfil!!
-        usuario.ativo = request.ativo
+        usuario.ativo = request.ativo ?: usuario.ativo
         logger.infof("Usuario atualizado id=%s", usuario.id)
         return usuarioMapper.toResponse(usuario)
     }
