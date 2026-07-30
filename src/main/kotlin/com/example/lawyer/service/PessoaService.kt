@@ -75,19 +75,43 @@ class PessoaService(
     }
 
     private fun validatePessoa(request: PessoaRequestDTO, id: Long?) {
-        val cleanCpf = DocumentValidator.onlyDigits(request.cpf)
-        val cleanCnpj = DocumentValidator.onlyDigits(request.cnpj)
-        if (request.tipoPessoa == TipoPessoa.FISICA) {
-            if (!DocumentValidator.isValidCpf(cleanCpf)) throw ValidationException("CPF invalido")
-            if (repository.existsCpfForAnotherPessoa(cleanCpf!!, id)) throw BusinessException("CPF ja cadastrado")
-            if (cleanCnpj != null) throw ValidationException("Pessoa fisica nao pode possuir CNPJ")
+        val tipoPessoa = request.tipoPessoa ?: TipoPessoa.FISICA
+        val email = normalizeEmail(request.email)
+
+        when (tipoPessoa) {
+            TipoPessoa.FISICA -> {
+                val cleanCpf = normalizeDocument(request.cpf)
+                if (cleanCpf != null) {
+                    if (!DocumentValidator.isValidCpf(cleanCpf)) throw ValidationException("CPF invalido")
+                    if (repository.existsCpfForAnotherPessoa(cleanCpf, id)) throw BusinessException("CPF ja cadastrado")
+                }
+            }
+            TipoPessoa.JURIDICA -> {
+                val cleanCnpj = normalizeDocument(request.cnpj)
+                if (cleanCnpj != null) {
+                    if (!DocumentValidator.isValidCnpj(cleanCnpj)) throw ValidationException("CNPJ invalido")
+                    if (repository.existsCnpjForAnotherPessoa(cleanCnpj, id)) throw BusinessException("CNPJ ja cadastrado")
+                }
+            }
         }
-        if (request.tipoPessoa == TipoPessoa.JURIDICA) {
-            if (!DocumentValidator.isValidCnpj(cleanCnpj)) throw ValidationException("CNPJ invalido")
-            if (repository.existsCnpjForAnotherPessoa(cleanCnpj!!, id)) throw BusinessException("CNPJ ja cadastrado")
-            if (cleanCpf != null) throw ValidationException("Pessoa juridica nao pode possuir CPF")
+
+        if (email.isNotEmpty() && repository.existsEmailForAnotherPessoa(email, id)) {
+            throw BusinessException("Email ja cadastrado")
         }
-        val email = request.email!!.trim().lowercase()
-        if (repository.existsEmailForAnotherPessoa(email, id)) throw BusinessException("Email ja cadastrado")
+    }
+
+    private fun normalizeDocument(value: String?): String? =
+        DocumentValidator.onlyDigits(value)?.takeIf { it.isNotEmpty() }
+
+    private fun normalizeEmail(value: String?): String {
+        val email = value.trimToNull() ?: return ""
+        if (!EMAIL_REGEX.matches(email)) throw ValidationException("Email invalido")
+        return email.lowercase()
+    }
+
+    private fun String?.trimToNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
+    private companion object {
+        val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     }
 }

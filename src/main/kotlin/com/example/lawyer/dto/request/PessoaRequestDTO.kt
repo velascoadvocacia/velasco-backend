@@ -3,25 +3,19 @@ package com.example.lawyer.dto.request
 import com.example.lawyer.domain.enums.EstadoCivil
 import com.example.lawyer.domain.enums.TipoPessoa
 import jakarta.validation.Valid
-import jakarta.validation.constraints.Email
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import java.time.LocalDate
 
 data class PessoaRequestDTO(
-    @field:NotBlank
     @field:Size(max = 150)
     val nome: String?,
 
-    @field:Size(min = 11, max = 11)
+    @field:Size(max = 11)
     val cpf: String? = null,
 
-    @field:Size(min = 14, max = 14)
+    @field:Size(max = 14)
     val cnpj: String? = null,
 
-    @field:NotBlank
-    @field:Email
     @field:Size(max = 180)
     val email: String?,
 
@@ -57,7 +51,6 @@ data class PessoaRequestDTO(
     @field:Size(max = 30)
     val inscricaoEstadual: String? = null,
 
-    @field:NotNull
     val tipoPessoa: TipoPessoa?,
 
     val dataNascimento: LocalDate? = null,

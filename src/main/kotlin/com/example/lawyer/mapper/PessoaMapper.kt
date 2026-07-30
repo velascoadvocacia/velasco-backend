@@ -2,6 +2,7 @@ package com.example.lawyer.mapper
 
 import com.example.lawyer.domain.model.Endereco
 import com.example.lawyer.domain.model.Pessoa
+import com.example.lawyer.domain.enums.TipoPessoa
 import com.example.lawyer.dto.request.EnderecoRequest
 import com.example.lawyer.dto.request.PessoaRequestDTO
 import com.example.lawyer.dto.response.EnderecoResponse
@@ -13,10 +14,10 @@ import jakarta.enterprise.context.ApplicationScoped
 @ApplicationScoped
 class PessoaMapper {
     fun toEntity(request: PessoaRequestDTO): Pessoa = Pessoa(
-        nome = request.nome!!.trim(),
+        nome = resolveNome(request),
         cpf = DocumentValidator.onlyDigits(request.cpf),
         cnpj = DocumentValidator.onlyDigits(request.cnpj),
-        email = request.email!!.trim().lowercase(),
+        email = request.email?.trim()?.lowercase() ?: "",
         telefone = request.telefone?.trim(),
         nacionalidade = request.nacionalidade?.trim(),
         estadoCivil = request.estadoCivil,
@@ -28,7 +29,7 @@ class PessoaMapper {
         razaoSocial = request.razaoSocial?.trim(),
         nomeFantasia = request.nomeFantasia?.trim(),
         inscricaoEstadual = request.inscricaoEstadual?.trim(),
-        tipoPessoa = request.tipoPessoa!!,
+        tipoPessoa = request.tipoPessoa ?: TipoPessoa.FISICA,
         dataNascimento = request.dataNascimento,
         endereco = toEndereco(request.endereco),
         observacoes = request.observacoes?.trim(),
@@ -36,10 +37,10 @@ class PessoaMapper {
     )
 
     fun updateEntity(target: Pessoa, request: PessoaRequestDTO) {
-        target.nome = request.nome!!.trim()
+        target.nome = resolveNome(request)
         target.cpf = DocumentValidator.onlyDigits(request.cpf)
         target.cnpj = DocumentValidator.onlyDigits(request.cnpj)
-        target.email = request.email!!.trim().lowercase()
+        target.email = request.email?.trim()?.lowercase() ?: ""
         target.telefone = request.telefone?.trim()
         target.nacionalidade = request.nacionalidade?.trim()
         target.estadoCivil = request.estadoCivil
@@ -51,7 +52,7 @@ class PessoaMapper {
         target.razaoSocial = request.razaoSocial?.trim()
         target.nomeFantasia = request.nomeFantasia?.trim()
         target.inscricaoEstadual = request.inscricaoEstadual?.trim()
-        target.tipoPessoa = request.tipoPessoa!!
+        target.tipoPessoa = request.tipoPessoa ?: TipoPessoa.FISICA
         target.dataNascimento = request.dataNascimento
         target.endereco = toEndereco(request.endereco)
         target.observacoes = request.observacoes?.trim()
@@ -101,4 +102,15 @@ class PessoaMapper {
 
     private fun toEnderecoResponse(entity: Endereco): EnderecoResponse =
         EnderecoResponse(entity.rua, entity.numero, entity.complemento, entity.bairro, entity.cidade, entity.estado, entity.cep)
+
+    private fun resolveNome(request: PessoaRequestDTO): String {
+        val nome = request.nome?.trim()?.takeIf { it.isNotEmpty() }
+        if (request.tipoPessoa == TipoPessoa.JURIDICA) {
+            return nome
+                ?: request.nomeFantasia?.trim()?.takeIf { it.isNotEmpty() }
+                ?: request.razaoSocial?.trim()?.takeIf { it.isNotEmpty() }
+                ?: ""
+        }
+        return nome ?: ""
+    }
 }
