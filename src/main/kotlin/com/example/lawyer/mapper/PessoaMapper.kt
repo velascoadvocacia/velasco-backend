@@ -15,22 +15,22 @@ import jakarta.enterprise.context.ApplicationScoped
 class PessoaMapper {
     fun toEntity(request: PessoaRequestDTO): Pessoa = Pessoa(
         nome = resolveNome(request),
-        cpf = DocumentValidator.onlyDigits(request.cpf),
-        cnpj = DocumentValidator.onlyDigits(request.cnpj),
+        cpf = cpfFor(request),
+        cnpj = cnpjFor(request),
         email = request.email?.trim()?.lowercase() ?: "",
         telefone = request.telefone?.trim(),
         nacionalidade = request.nacionalidade?.trim(),
-        estadoCivil = request.estadoCivil,
-        rg = DocumentValidator.onlyDigits(request.rg),
-        orgaoEmissorRg = request.orgaoEmissorRg?.trim()?.uppercase(),
-        pis = DocumentValidator.onlyDigits(request.pis),
-        nomeMae = request.nomeMae?.trim(),
+        estadoCivil = fisicaValue(request) { request.estadoCivil },
+        rg = fisicaValue(request) { DocumentValidator.onlyDigits(request.rg) },
+        orgaoEmissorRg = fisicaValue(request) { request.orgaoEmissorRg?.trim()?.uppercase() },
+        pis = fisicaValue(request) { DocumentValidator.onlyDigits(request.pis) },
+        nomeMae = fisicaValue(request) { request.nomeMae?.trim() },
         profissao = request.profissao?.trim(),
-        razaoSocial = request.razaoSocial?.trim(),
-        nomeFantasia = request.nomeFantasia?.trim(),
-        inscricaoEstadual = request.inscricaoEstadual?.trim(),
+        razaoSocial = juridicaValue(request) { request.razaoSocial?.trim() },
+        nomeFantasia = juridicaValue(request) { request.nomeFantasia?.trim() },
+        inscricaoEstadual = juridicaValue(request) { request.inscricaoEstadual?.trim() },
         tipoPessoa = request.tipoPessoa ?: TipoPessoa.FISICA,
-        dataNascimento = request.dataNascimento,
+        dataNascimento = fisicaValue(request) { request.dataNascimento },
         endereco = toEndereco(request.endereco),
         observacoes = request.observacoes?.trim(),
         ativo = request.ativo
@@ -38,22 +38,22 @@ class PessoaMapper {
 
     fun updateEntity(target: Pessoa, request: PessoaRequestDTO) {
         target.nome = resolveNome(request)
-        target.cpf = DocumentValidator.onlyDigits(request.cpf)
-        target.cnpj = DocumentValidator.onlyDigits(request.cnpj)
+        target.cpf = cpfFor(request)
+        target.cnpj = cnpjFor(request)
         target.email = request.email?.trim()?.lowercase() ?: ""
         target.telefone = request.telefone?.trim()
         target.nacionalidade = request.nacionalidade?.trim()
-        target.estadoCivil = request.estadoCivil
-        target.rg = DocumentValidator.onlyDigits(request.rg)
-        target.orgaoEmissorRg = request.orgaoEmissorRg?.trim()?.uppercase()
-        target.pis = DocumentValidator.onlyDigits(request.pis)
-        target.nomeMae = request.nomeMae?.trim()
+        target.estadoCivil = fisicaValue(request) { request.estadoCivil }
+        target.rg = fisicaValue(request) { DocumentValidator.onlyDigits(request.rg) }
+        target.orgaoEmissorRg = fisicaValue(request) { request.orgaoEmissorRg?.trim()?.uppercase() }
+        target.pis = fisicaValue(request) { DocumentValidator.onlyDigits(request.pis) }
+        target.nomeMae = fisicaValue(request) { request.nomeMae?.trim() }
         target.profissao = request.profissao?.trim()
-        target.razaoSocial = request.razaoSocial?.trim()
-        target.nomeFantasia = request.nomeFantasia?.trim()
-        target.inscricaoEstadual = request.inscricaoEstadual?.trim()
+        target.razaoSocial = juridicaValue(request) { request.razaoSocial?.trim() }
+        target.nomeFantasia = juridicaValue(request) { request.nomeFantasia?.trim() }
+        target.inscricaoEstadual = juridicaValue(request) { request.inscricaoEstadual?.trim() }
         target.tipoPessoa = request.tipoPessoa ?: TipoPessoa.FISICA
-        target.dataNascimento = request.dataNascimento
+        target.dataNascimento = fisicaValue(request) { request.dataNascimento }
         target.endereco = toEndereco(request.endereco)
         target.observacoes = request.observacoes?.trim()
         target.ativo = request.ativo
@@ -113,4 +113,16 @@ class PessoaMapper {
         }
         return nome ?: ""
     }
+
+    private fun cpfFor(request: PessoaRequestDTO): String? =
+        if (request.tipoPessoa == TipoPessoa.JURIDICA) null else DocumentValidator.onlyDigits(request.cpf)
+
+    private fun cnpjFor(request: PessoaRequestDTO): String? =
+        if (request.tipoPessoa == TipoPessoa.FISICA) null else DocumentValidator.onlyDigits(request.cnpj)
+
+    private fun <T> fisicaValue(request: PessoaRequestDTO, value: () -> T): T? =
+        if (request.tipoPessoa == TipoPessoa.JURIDICA) null else value()
+
+    private fun <T> juridicaValue(request: PessoaRequestDTO, value: () -> T): T? =
+        if (request.tipoPessoa == TipoPessoa.FISICA) null else value()
 }
