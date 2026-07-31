@@ -1,7 +1,10 @@
 package com.example.lawyer.resource
 
 import com.example.lawyer.dto.request.RtExportRequest
+import com.example.lawyer.dto.request.RtPreviewRequest
+import com.example.lawyer.dto.response.RtPreviewResponse
 import com.example.lawyer.service.RtExportService
+import com.example.lawyer.service.RtTemplateService
 import jakarta.annotation.security.RolesAllowed
 import jakarta.validation.Valid
 import jakarta.ws.rs.Consumes
@@ -14,7 +17,22 @@ import jakarta.ws.rs.core.Response
 
 @Path("/rt")
 @Consumes(MediaType.APPLICATION_JSON)
-class RtExportResource(private val service: RtExportService) {
+class RtExportResource(
+    private val service: RtExportService,
+    private val templateService: RtTemplateService
+) {
+    @POST
+    @Path("/preview")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun preview(@Valid request: RtPreviewRequest): RtPreviewResponse {
+        val processoId = request.processoId!!
+        return RtPreviewResponse(
+            processoId,
+            templateService.generateSelectedBlocks(processoId, request.blocosSelecionados, request.advogadosIds)
+        )
+    }
+
     @POST
     @Path("/export")
     @Produces(DOCX_MEDIA_TYPE)

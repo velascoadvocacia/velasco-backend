@@ -5,6 +5,7 @@ import com.example.lawyer.domain.model.EstrategiaProcessual
 import com.example.lawyer.domain.model.Movimentacao
 import com.example.lawyer.domain.model.Processo
 import com.example.lawyer.dto.response.ContratoTrabalhoResponse
+import com.example.lawyer.dto.response.AdvogadoResumoResponse
 import com.example.lawyer.dto.response.EstrategiaProcessualResponse
 import com.example.lawyer.dto.response.MovimentacaoResumoResponse
 import com.example.lawyer.dto.response.ProcessoDTO
@@ -15,19 +16,21 @@ import jakarta.enterprise.context.ApplicationScoped
 class ProcessoMapper(private val pessoaMapper: PessoaMapper) {
     fun toResponse(entity: Processo): ProcessoDTO {
         val reclamantes = entity.reclamantes.filter { it.ativo }.map(pessoaMapper::toResumoResponse)
-        val advogados = entity.advogados.filter { it.ativo }.map(pessoaMapper::toResumoResponse)
+        val advogados = entity.advogados.filter { it.ativo }.map {
+            AdvogadoResumoResponse(it.id!!, it.pessoa?.nome ?: "não informado", it.oab)
+        }
         val dados = entity.dadosVariaveis.groupBy { it.blocoId }
             .mapValues { (_, values) -> values.associate { it.campo to it.valor } }
         val reclamante = reclamantes.first()
-        val advogado = advogados.first()
+        val advogadoPessoa = entity.advogados.first { it.ativo }.pessoa!!
         return ProcessoDTO(
             id = entity.id!!,
             numeroProcesso = entity.numeroProcesso,
             descricao = entity.descricao,
             reclamante = reclamante,
-            advogadoResponsavel = advogado,
+            advogadoResponsavel = pessoaMapper.toResumoResponse(advogadoPessoa),
             cliente = reclamante,
-            advogado = advogado,
+            advogado = pessoaMapper.toResumoResponse(advogadoPessoa),
             reclamantes = reclamantes,
             advogados = advogados,
             reclamadas = entity.reclamadas.filter { it.ativo }.map(pessoaMapper::toResumoResponse),

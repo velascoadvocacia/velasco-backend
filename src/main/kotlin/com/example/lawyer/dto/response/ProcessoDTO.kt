@@ -13,7 +13,7 @@ data class ProcessoDTO(
     val cliente: PessoaResumoResponse,
     val advogado: PessoaResumoResponse,
     val reclamantes: List<PessoaResumoResponse>,
-    val advogados: List<PessoaResumoResponse>,
+    val advogados: List<AdvogadoResumoResponse>,
     val reclamadas: List<PessoaResumoResponse>,
     val sociosResponsaveis: List<PessoaResumoResponse>,
     val dataAbertura: LocalDate,

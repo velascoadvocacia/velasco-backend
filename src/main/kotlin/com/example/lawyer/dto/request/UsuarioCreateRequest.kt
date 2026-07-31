@@ -14,5 +14,7 @@ data class UsuarioCreateRequest(
 
     val perfil: PerfilUsuario?,
 
+    val oab: String? = null,
+
     val ativo: Boolean? = true
 )

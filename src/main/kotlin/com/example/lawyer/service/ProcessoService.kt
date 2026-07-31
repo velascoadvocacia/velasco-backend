@@ -6,6 +6,7 @@ import com.example.lawyer.domain.model.Pessoa
 import com.example.lawyer.domain.enums.StatusProcesso
 import com.example.lawyer.domain.model.Processo
 import com.example.lawyer.domain.model.ProcessoDadoVariavel
+import com.example.lawyer.domain.model.Usuario
 import com.example.lawyer.dto.common.PageResponse
 import com.example.lawyer.dto.request.ContratoTrabalhoRequest
 import com.example.lawyer.dto.request.EstrategiaProcessualRequest
@@ -16,6 +17,7 @@ import com.example.lawyer.exception.BusinessException
 import com.example.lawyer.exception.ResourceNotFoundException
 import com.example.lawyer.mapper.ProcessoMapper
 import com.example.lawyer.repository.ProcessoRepository
+import com.example.lawyer.repository.UsuarioRepository
 import io.quarkus.panache.common.Page
 import io.quarkus.panache.common.Sort
 import jakarta.enterprise.context.ApplicationScoped
@@ -26,6 +28,7 @@ import org.jboss.logging.Logger
 @ApplicationScoped
 class ProcessoService(
     private val repository: ProcessoRepository,
+    private val usuarioRepository: UsuarioRepository,
     private val pessoaService: PessoaService,
     private val processoMapper: ProcessoMapper
 ) {
@@ -35,7 +38,7 @@ class ProcessoService(
     fun create(request: ProcessoCreateRequest): ProcessoDTO {
         ensureUniqueNumero(request.numeroProcesso!!, null)
         val reclamantes = resolveRequiredPessoas(reclamantesIds(request.reclamantesIds, request.clienteId), "reclamante")
-        val advogados = resolveRequiredPessoas(advogadosIds(request.advogadosIds, request.advogadoId), "advogado")
+        val advogados = resolveRequiredAdvogados(advogadosIds(request.advogadosIds, request.advogadoId))
         val reclamadas = resolveRequiredPessoas(request.reclamadasIds.orEmpty(), "reclamada")
         val processo = Processo(
             numeroProcesso = request.numeroProcesso.trim(),
@@ -108,7 +111,7 @@ class ProcessoService(
         val processo = findEntity(id)
         ensureUniqueNumero(request.numeroProcesso!!, id)
         val reclamantes = resolveRequiredPessoas(reclamantesIds(request.reclamantesIds, request.clienteId), "reclamante")
-        val advogados = resolveRequiredPessoas(advogadosIds(request.advogadosIds, request.advogadoId), "advogado")
+        val advogados = resolveRequiredAdvogados(advogadosIds(request.advogadosIds, request.advogadoId))
         val reclamadas = resolveRequiredPessoas(request.reclamadasIds.orEmpty(), "reclamada")
         processo.numeroProcesso = request.numeroProcesso.trim()
         processo.descricao = request.descricao!!.trim()
@@ -158,6 +161,22 @@ class ProcessoService(
         val pessoas = resolvePessoas(ids)
         if (pessoas.isEmpty()) throw BusinessException("Processo deve possuir ao menos um $label")
         return pessoas
+    }
+
+    private fun resolveRequiredAdvogados(ids: List<Long>): MutableSet<Usuario> {
+        val advogados = ids.asSequence()
+            .distinct()
+            .map(usuarioRepository::findActiveById)
+            .map { it ?: throw ResourceNotFoundException("Advogado nao encontrado") }
+            .onEach {
+                if (it.perfil != com.example.lawyer.domain.enums.PerfilUsuario.ADVOGADO) {
+                    throw BusinessException("Usuario selecionado nao possui perfil de advogado")
+                }
+                if (it.oab.isNullOrBlank()) throw BusinessException("Advogado deve possuir OAB")
+            }
+            .toCollection(linkedSetOf())
+        if (advogados.isEmpty()) throw BusinessException("Processo deve possuir ao menos um advogado")
+        return advogados
     }
 
     private fun reclamantesIds(ids: List<Long>?, legacyId: Long?): List<Long> =

@@ -8,6 +8,7 @@ data class UsuarioDTO(
     val username: String,
     val pessoa: PessoaResumoResponse,
     val perfil: PerfilUsuario,
+    val oab: String?,
     val ativo: Boolean,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime

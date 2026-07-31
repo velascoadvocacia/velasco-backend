@@ -82,7 +82,7 @@ open class Processo(
         joinColumns = [JoinColumn(name = "processo_id")],
         inverseJoinColumns = [JoinColumn(name = "pessoa_id")]
     )
-    open var advogados: MutableSet<Pessoa> = linkedSetOf(),
+    open var advogados: MutableSet<Usuario> = linkedSetOf(),
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
