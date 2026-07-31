@@ -9,6 +9,7 @@ import com.example.lawyer.exception.ResourceNotFoundException
 import com.example.lawyer.repository.UsuarioRepository
 import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import java.time.format.DateTimeFormatter
 
 @ApplicationScoped
 class RtTemplateService(
@@ -18,6 +19,21 @@ class RtTemplateService(
     @ConfigProperty(name = "rt.escritorio.endereco")
     private val enderecoEscritorio: String
 ) {
+    private val blockDefinitions = linkedMapOf(
+        QUALIFICACAO_RECLAMANTE to RtBlockDefinition(
+            titulo = "Qualificação do Reclamante",
+            generate = { processo, advogados -> qualificacaoReclamante(processo, advogados) }
+        ),
+        QUALIFICACAO_RECLAMADA to RtBlockDefinition(
+            titulo = "Qualificação da Reclamada",
+            generate = { processo, _ -> qualificacaoReclamada(processo) }
+        ),
+        DADOS_RECLAMANTE to RtBlockDefinition(
+            titulo = "Dados do(a) Reclamante",
+            generate = { processo, _ -> dadosReclamante(processo) }
+        )
+    )
+
     fun generateSelectedBlocks(request: RtPreviewRequest): List<RtPreviewBlockResponse> {
         val precisaProcesso = request.processoId != null &&
             (request.reclamantesIds.isEmpty() || request.reclamadasIds.isEmpty() || request.advogadosIds.isEmpty())
@@ -38,22 +54,26 @@ class RtTemplateService(
             resolveAdvogados(request.advogadosIds)
         }
         return request.blocosSelecionados.map { it.trim() }
-            .filter { it == QUALIFICACAO_RECLAMANTE || it == QUALIFICACAO_RECLAMADA }
-            .distinct().map {
-            when (it) {
-                QUALIFICACAO_RECLAMANTE -> RtPreviewBlockResponse(
-                    id = QUALIFICACAO_RECLAMANTE,
-                    titulo = "Qualificação do Reclamante",
-                    texto = qualificacaoReclamante(processo, advogados)
-                )
-                else -> RtPreviewBlockResponse(
-                    id = QUALIFICACAO_RECLAMADA,
-                    titulo = "Qualificação da Reclamada",
-                    texto = qualificacaoReclamada(processo)
-                )
+            .distinct()
+            .mapNotNull { blockId ->
+                blockDefinitions[blockId]?.let { definition ->
+                    RtPreviewBlockResponse(
+                        id = blockId,
+                        titulo = definition.titulo,
+                        texto = definition.generate(processo, advogados)
+                    )
+                }
             }
-        }
     }
+
+    private fun dadosReclamante(processo: Processo): String =
+        processo.reclamantes.mapNotNull { reclamante ->
+            listOfNotNull(
+                reclamante.cpf?.trim()?.takeIf { it.isNotEmpty() }?.let { "CPF: $it" },
+                reclamante.dataNascimento?.format(DATE_FORMATTER)?.let { "D.N.: $it" },
+                reclamante.nomeMae?.trim()?.takeIf { it.isNotEmpty() }?.let { "Mãe: $it" }
+            ).joinToString("\n").takeIf { it.isNotEmpty() }
+        }.joinToString("\n\n")
 
     private fun qualificacaoReclamante(processo: Processo, advogados: Set<Usuario>): String {
         val reclamante = processo.reclamantes.firstOrNull()
@@ -194,8 +214,15 @@ class RtTemplateService(
         .map(pessoaService::findEntity)
         .toCollection(linkedSetOf())
 
+    private data class RtBlockDefinition(
+        val titulo: String,
+        val generate: (Processo, Set<Usuario>) -> String
+    )
+
     companion object {
         const val QUALIFICACAO_RECLAMANTE = "qualificacao_reclamante"
         const val QUALIFICACAO_RECLAMADA = "qualificacao_reclamada"
+        const val DADOS_RECLAMANTE = "dados_reclamante"
+        private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     }
 }
