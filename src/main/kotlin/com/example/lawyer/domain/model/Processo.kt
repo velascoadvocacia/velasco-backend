@@ -80,7 +80,7 @@ open class Processo(
     @JoinTable(
         name = "processos_advogados",
         joinColumns = [JoinColumn(name = "processo_id")],
-        inverseJoinColumns = [JoinColumn(name = "pessoa_id")]
+        inverseJoinColumns = [JoinColumn(name = "usuario_id")]
     )
     open var advogados: MutableSet<Usuario> = linkedSetOf(),
 
