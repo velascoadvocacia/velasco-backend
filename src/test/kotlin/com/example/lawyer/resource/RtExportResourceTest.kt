@@ -86,6 +86,41 @@ class RtExportResourceTest {
             )
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview general contract aspects with dynamic title`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("contrato_aspectos_gerais"),
+                    dadosVariaveis = mapOf(
+                        "dataContratacao" to "2023-01-10",
+                        "funcaoContrato" to "Auxiliar de produção",
+                        "remuneracao" to "1800.00",
+                        "motivoExtincao" to "1",
+                        "dataExtincao" to "2024-05-20",
+                        "dataProjecaoAviso" to "2024-06-19",
+                        "informacoesComplementares" to ""
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].titulo", equalTo("Opção 1.1 – Dispensa sem justa causa"))
+            .body(
+                "blocos[0].texto",
+                equalTo(
+                    "A parte autora foi contratada pela parte ré em 10/01/2023, para exercer a função de " +
+                        "Auxiliar de produção, com última remuneração de R$ 1.800,00, com a extinção do vínculo " +
+                        "empregatício (sem justa causa) em 20/05/2024 (data de projeção do aviso prévio: 19/06/2024)."
+                )
+            )
+    }
+
     private fun pessoaRequest(
         suffix: String,
         cpf: String?,

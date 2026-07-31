@@ -9,7 +9,11 @@ import com.example.lawyer.exception.ResourceNotFoundException
 import com.example.lawyer.repository.UsuarioRepository
 import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import java.math.BigDecimal
+import java.text.NumberFormat
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @ApplicationScoped
 class RtTemplateService(
@@ -21,23 +25,25 @@ class RtTemplateService(
 ) {
     private val blockDefinitions = linkedMapOf(
         QUALIFICACAO_RECLAMANTE to RtBlockDefinition(
-            titulo = "Qualificação do Reclamante",
-            generate = { processo, advogados -> qualificacaoReclamante(processo, advogados) }
+            titulo = { "Qualificação do Reclamante" },
+            generate = { processo, advogados, _ -> qualificacaoReclamante(processo, advogados) }
         ),
         QUALIFICACAO_RECLAMADA to RtBlockDefinition(
-            titulo = "Qualificação da Reclamada",
-            generate = { processo, _ -> qualificacaoReclamada(processo) }
+            titulo = { "Qualificação da Reclamada" },
+            generate = { processo, _, _ -> qualificacaoReclamada(processo) }
         ),
         DADOS_RECLAMANTE to RtBlockDefinition(
-            titulo = "Dados do(a) Reclamante",
-            generate = { processo, _ -> dadosReclamante(processo) }
+            titulo = { "Dados do(a) Reclamante" },
+            generate = { processo, _, _ -> dadosReclamante(processo) }
+        ),
+        CONTRATO_ASPECTOS_GERAIS to RtBlockDefinition(
+            titulo = { variaveis -> opcaoMotivoExtincao(variaveis["motivoExtincao"])?.titulo ?: "Opção ___ – ___" },
+            generate = { _, _, variaveis -> contratoAspectosGerais(variaveis) }
         )
     )
 
     fun generateSelectedBlocks(request: RtPreviewRequest): List<RtPreviewBlockResponse> {
-        val precisaProcesso = request.processoId != null &&
-            (request.reclamantesIds.isEmpty() || request.reclamadasIds.isEmpty() || request.advogadosIds.isEmpty())
-        val processo = if (precisaProcesso) {
+        val processo = if (request.processoId != null) {
             processoService.findEntity(request.processoId!!)
         } else {
             Processo()
@@ -57,14 +63,68 @@ class RtTemplateService(
             .distinct()
             .mapNotNull { blockId ->
                 blockDefinitions[blockId]?.let { definition ->
+                    val variaveis = variaveisDoBloco(processo, blockId) + request.dadosVariaveis
                     RtPreviewBlockResponse(
                         id = blockId,
-                        titulo = definition.titulo,
-                        texto = definition.generate(processo, advogados)
+                        titulo = definition.titulo(variaveis),
+                        texto = definition.generate(processo, advogados, variaveis)
                     )
                 }
             }
     }
+
+    private fun variaveisDoBloco(processo: Processo, blocoId: String): Map<String, String?> =
+        processo.dadosVariaveis
+            .asSequence()
+            .filter { it.blocoId == blocoId }
+            .associate { it.campo to it.valor }
+
+    private fun contratoAspectosGerais(variaveis: Map<String, String?>): String {
+        val motivo = opcaoMotivoExtincao(variaveis["motivoExtincao"])?.motivo ?: PLACEHOLDER
+        val informacoesComplementares = variaveis["informacoesComplementares"]
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+        return buildString {
+            append("A parte autora foi contratada pela parte ré em ")
+            append(formatVariableDate(variaveis["dataContratacao"]))
+            append(", para exercer a função de ")
+            append(variaveis["funcaoContrato"].orPlaceholder())
+            append(", com última remuneração de R$ ")
+            append(formatCurrency(variaveis["remuneracao"]))
+            append(", com a extinção do vínculo empregatício (")
+            append(motivo)
+            append(") em ")
+            append(formatVariableDate(variaveis["dataExtincao"]))
+            append(" (data de projeção do aviso prévio: ")
+            append(formatVariableDate(variaveis["dataProjecaoAviso"]))
+            append(").")
+            informacoesComplementares?.let { append(" ").append(it) }
+        }
+    }
+
+    private fun opcaoMotivoExtincao(value: String?): OpcaoMotivoExtincao? =
+        OPCOES_MOTIVO_EXTINCAO[value?.trim()]
+
+    private fun formatVariableDate(value: String?): String =
+        value?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { runCatching { LocalDate.parse(it).format(DATE_FORMATTER) }.getOrNull() }
+            ?: PLACEHOLDER
+
+    private fun formatCurrency(value: String?): String =
+        value?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let {
+                runCatching {
+                    NumberFormat.getNumberInstance(Locale("pt", "BR")).apply {
+                        minimumFractionDigits = 2
+                        maximumFractionDigits = 2
+                    }.format(BigDecimal(it))
+                }.getOrNull()
+            }
+            ?: PLACEHOLDER
+
+    private fun String?.orPlaceholder(): String =
+        this?.trim()?.takeIf { it.isNotEmpty() } ?: PLACEHOLDER
 
     private fun dadosReclamante(processo: Processo): String =
         processo.reclamantes.mapNotNull { reclamante ->
@@ -215,14 +275,28 @@ class RtTemplateService(
         .toCollection(linkedSetOf())
 
     private data class RtBlockDefinition(
-        val titulo: String,
-        val generate: (Processo, Set<Usuario>) -> String
+        val titulo: (Map<String, String?>) -> String,
+        val generate: (Processo, Set<Usuario>, Map<String, String?>) -> String
     )
+
+    private data class OpcaoMotivoExtincao(val titulo: String, val motivo: String)
 
     companion object {
         const val QUALIFICACAO_RECLAMANTE = "qualificacao_reclamante"
         const val QUALIFICACAO_RECLAMADA = "qualificacao_reclamada"
         const val DADOS_RECLAMANTE = "dados_reclamante"
+        const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
+        private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        private val OPCOES_MOTIVO_EXTINCAO = mapOf(
+            "1" to OpcaoMotivoExtincao("Opção 1.1 – Dispensa sem justa causa", "sem justa causa"),
+            "2" to OpcaoMotivoExtincao("Opção 1.2 – Dispensa com justa causa", "com justa causa"),
+            "3" to OpcaoMotivoExtincao("Opção 1.3 – Pedido de demissão", "por pedido de demissão"),
+            "4" to OpcaoMotivoExtincao("Opção 1.4 – Rescisão indireta", "por rescisão indireta"),
+            "5" to OpcaoMotivoExtincao(
+                "Opção 1.5 – Reversão do pedido de demissão - Nulidade",
+                "por reversão do pedido de demissão"
+            )
+        )
     }
 }
