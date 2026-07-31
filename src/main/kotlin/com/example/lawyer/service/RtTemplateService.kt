@@ -20,7 +20,7 @@ class RtTemplateService(
 ) {
     fun generateSelectedBlocks(request: RtPreviewRequest): List<RtPreviewBlockResponse> {
         val precisaProcesso = request.processoId != null &&
-            (request.reclamantesIds.isEmpty() || request.advogadosIds.isEmpty())
+            (request.reclamantesIds.isEmpty() || request.reclamadasIds.isEmpty() || request.advogadosIds.isEmpty())
         val processo = if (precisaProcesso) {
             processoService.findEntity(request.processoId!!)
         } else {
@@ -29,19 +29,29 @@ class RtTemplateService(
         if (request.reclamantesIds.isNotEmpty()) {
             processo.reclamantes = resolvePessoas(request.reclamantesIds)
         }
+        if (request.reclamadasIds.isNotEmpty()) {
+            processo.reclamadas = resolvePessoas(request.reclamadasIds)
+        }
         val advogados = if (request.advogadosIds.isEmpty()) {
             processo.advogados
         } else {
             resolveAdvogados(request.advogadosIds)
         }
         return request.blocosSelecionados.map { it.trim() }
-            .filter { it == QUALIFICACAO_RECLAMANTE }
+            .filter { it == QUALIFICACAO_RECLAMANTE || it == QUALIFICACAO_RECLAMADA }
             .distinct().map {
-            RtPreviewBlockResponse(
-                id = QUALIFICACAO_RECLAMANTE,
-                titulo = "Qualificação do Reclamante",
-                texto = qualificacaoReclamante(processo, advogados)
-            )
+            when (it) {
+                QUALIFICACAO_RECLAMANTE -> RtPreviewBlockResponse(
+                    id = QUALIFICACAO_RECLAMANTE,
+                    titulo = "Qualificação do Reclamante",
+                    texto = qualificacaoReclamante(processo, advogados)
+                )
+                else -> RtPreviewBlockResponse(
+                    id = QUALIFICACAO_RECLAMADA,
+                    titulo = "Qualificação da Reclamada",
+                    texto = qualificacaoReclamada(processo)
+                )
+            }
         }
     }
 
@@ -60,6 +70,64 @@ class RtTemplateService(
             "devidamente qualificado(a) no item 1, através de seus procuradores que subscreve, $listaAdvogados, " +
             "com endereço profissional na $enderecoEscritorio, onde recebem intimações, " +
             "vem à presença de Vossa Excelência, com fundamento no art. 840 da CLT, ajuizar esta"
+    }
+
+    private fun qualificacaoReclamada(processo: Processo): String {
+        val reclamadas = processo.reclamadas.toList()
+        if (reclamadas.isEmpty()) return "contra, pelas razões de fato e de Direito que passa a expor."
+
+        val qualificacoes = reclamadas.mapIndexed { index, pessoa ->
+            val ordinal = ordinalReclamada(index + 1)
+            val nome = pessoa.nome.ifBlank { "não informado" }
+            val tipo = if (pessoa.tipoPessoa == com.example.lawyer.domain.enums.TipoPessoa.JURIDICA) {
+                "pessoa jurídica de direito privado"
+            } else {
+                "pessoa física"
+            }
+            val documento = if (pessoa.tipoPessoa == com.example.lawyer.domain.enums.TipoPessoa.JURIDICA) {
+                pessoa.cnpj?.takeIf { it.isNotBlank() }?.let { "CNPJ n.º $it" }
+            } else {
+                pessoa.cpf?.takeIf { it.isNotBlank() }?.let { "CPF n.º $it" }
+            }
+            val endereco = formatReclamadaAddress(pessoa.endereco)
+            buildString {
+                if (reclamadas.size > 1) append("$ordinal RECLAMADA, ")
+                append(nome).append(", ").append(tipo)
+                documento?.let { append(", ").append(it) }
+                if (endereco.isNotBlank()) append(", com endereço à ").append(endereco)
+            }
+        }
+
+        return "contra ${qualificacoes.joinToString("; e ")}, pelas razões de fato e de Direito que passa a expor."
+    }
+
+    private fun formatReclamadaAddress(endereco: com.example.lawyer.domain.model.Endereco?): String {
+        if (endereco == null) return ""
+        val rua = endereco.rua?.trim()?.takeIf { it.isNotEmpty() }?.let {
+            if (it.startsWith("Rua ", ignoreCase = true)) it else "Rua $it"
+        }
+        return buildList {
+            rua?.let(::add)
+            endereco.numero?.trim()?.takeIf { it.isNotEmpty() }?.let { add("n.º $it") }
+            endereco.cep?.trim()?.takeIf { it.isNotEmpty() }?.let { add("CEP n.º ${formatCep(it)}") }
+            endereco.bairro?.trim()?.takeIf { it.isNotEmpty() }?.let { add("Bairro $it") }
+            listOfNotNull(
+                endereco.cidade?.trim()?.takeIf { it.isNotEmpty() },
+                endereco.estado?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
+            ).takeIf { it.isNotEmpty() }?.let { add(it.joinToString(", ")) }
+        }.joinToString(", ")
+    }
+
+    private fun ordinalReclamada(numero: Int): String {
+        val unidades = listOf("", "PRIMEIRA", "SEGUNDA", "TERCEIRA", "QUARTA", "QUINTA", "SEXTA", "SÉTIMA", "OITAVA", "NONA")
+        val dezenas = mapOf(10 to "DÉCIMA", 20 to "VIGÉSIMA", 30 to "TRIGÉSIMA", 40 to "QUADRAGÉSIMA", 50 to "QUINQUAGÉSIMA", 60 to "SEXAGÉSIMA", 70 to "SEPTUAGÉSIMA", 80 to "OCTOGÉSIMA", 90 to "NONAGÉSIMA")
+        return when {
+            numero < 1 -> ""
+            numero < 10 -> unidades[numero]
+            numero < 20 -> "DÉCIMA ${unidades[numero - 10]}"
+            numero % 10 == 0 -> dezenas[numero] ?: numero.toString()
+            else -> "${dezenas[numero / 10 * 10] ?: numero.toString()} ${unidades[numero % 10]}"
+        }
     }
 
     private fun List<Usuario>.joinAdvogados(): String {
@@ -128,5 +196,6 @@ class RtTemplateService(
 
     companion object {
         const val QUALIFICACAO_RECLAMANTE = "qualificacao_reclamante"
+        const val QUALIFICACAO_RECLAMADA = "qualificacao_reclamada"
     }
 }
