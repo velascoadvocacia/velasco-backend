@@ -12,9 +12,13 @@ data class ProcessoUpdateRequest(
     @field:Size(max = 100000)
     val descricao: String?,
 
-    val clienteId: Long?,
+    val clienteId: Long? = null,
 
-    val advogadoId: Long?,
+    val advogadoId: Long? = null,
+
+    val reclamantesIds: List<Long>? = emptyList(),
+
+    val advogadosIds: List<Long>? = emptyList(),
 
     val dataAbertura: LocalDate?,
 
@@ -40,5 +44,9 @@ data class ProcessoUpdateRequest(
     val rtSalarioFuncaoOriginal: String? = null,
     val rtSalarioFuncaoAcumulada: String? = null,
     val rtValorPagoPorFora: String? = null,
-    val rtMediaHorasExtras: String? = null
+    val rtMediaHorasExtras: String? = null,
+
+    val blocosSelecionados: List<String> = emptyList(),
+
+    val dadosVariaveis: Map<String, Map<String, String?>> = emptyMap()
 )

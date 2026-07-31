@@ -13,37 +13,49 @@ import jakarta.enterprise.context.ApplicationScoped
 
 @ApplicationScoped
 class ProcessoMapper(private val pessoaMapper: PessoaMapper) {
-    fun toResponse(entity: Processo): ProcessoDTO = ProcessoDTO(
-        id = entity.id!!,
-        numeroProcesso = entity.numeroProcesso,
-        descricao = entity.descricao,
-        reclamante = pessoaMapper.toResumoResponse(entity.cliente!!),
-        advogadoResponsavel = pessoaMapper.toResumoResponse(entity.advogado!!),
-        cliente = pessoaMapper.toResumoResponse(entity.cliente!!),
-        advogado = pessoaMapper.toResumoResponse(entity.advogado!!),
-        reclamadas = entity.reclamadas.filter { it.ativo }.map(pessoaMapper::toResumoResponse),
-        sociosResponsaveis = entity.sociosResponsaveis.filter { it.ativo }.map(pessoaMapper::toResumoResponse),
-        dataAbertura = entity.dataAbertura,
-        contratoTrabalho = entity.contratoTrabalho?.let(::toContratoResponse),
-        estrategiaProcessual = entity.estrategiaProcessual?.let(::toEstrategiaResponse),
-        status = entity.status,
-        ativo = entity.ativo,
-        createdAt = entity.createdAt,
-        updatedAt = entity.updatedAt,
-        movimentacoes = entity.movimentacoes
-            .filter { it.ativo }
-            .sortedByDescending { it.dataMovimentacao }
-            .map(::toResumoMovimentacao),
-        rtDescricaoAcidente = entity.rtDescricaoAcidente,
-        rtCctPeriodo = entity.rtCctPeriodo,
-        rtClausulaConvencional = entity.rtClausulaConvencional,
-        rtAssuntoClausula = entity.rtAssuntoClausula,
-        rtRedacaoClausula = entity.rtRedacaoClausula,
-        rtSalarioFuncaoOriginal = entity.rtSalarioFuncaoOriginal,
-        rtSalarioFuncaoAcumulada = entity.rtSalarioFuncaoAcumulada,
-        rtValorPagoPorFora = entity.rtValorPagoPorFora,
-        rtMediaHorasExtras = entity.rtMediaHorasExtras
-    )
+    fun toResponse(entity: Processo): ProcessoDTO {
+        val reclamantes = entity.reclamantes.filter { it.ativo }.map(pessoaMapper::toResumoResponse)
+        val advogados = entity.advogados.filter { it.ativo }.map(pessoaMapper::toResumoResponse)
+        val dados = entity.dadosVariaveis.groupBy { it.blocoId }
+            .mapValues { (_, values) -> values.associate { it.campo to it.valor } }
+        val reclamante = reclamantes.first()
+        val advogado = advogados.first()
+        return ProcessoDTO(
+            id = entity.id!!,
+            numeroProcesso = entity.numeroProcesso,
+            descricao = entity.descricao,
+            reclamante = reclamante,
+            advogadoResponsavel = advogado,
+            cliente = reclamante,
+            advogado = advogado,
+            reclamantes = reclamantes,
+            advogados = advogados,
+            reclamadas = entity.reclamadas.filter { it.ativo }.map(pessoaMapper::toResumoResponse),
+            sociosResponsaveis = entity.sociosResponsaveis.filter { it.ativo }.map(pessoaMapper::toResumoResponse),
+            dataAbertura = entity.dataAbertura,
+            contratoTrabalho = entity.contratoTrabalho?.let(::toContratoResponse),
+            estrategiaProcessual = entity.estrategiaProcessual?.let(::toEstrategiaResponse),
+            status = entity.status,
+            ativo = entity.ativo,
+            createdAt = entity.createdAt,
+            updatedAt = entity.updatedAt,
+            movimentacoes = entity.movimentacoes
+                .filter { it.ativo }
+                .sortedByDescending { it.dataMovimentacao }
+                .map(::toResumoMovimentacao),
+            rtDescricaoAcidente = entity.rtDescricaoAcidente,
+            rtCctPeriodo = entity.rtCctPeriodo,
+            rtClausulaConvencional = entity.rtClausulaConvencional,
+            rtAssuntoClausula = entity.rtAssuntoClausula,
+            rtRedacaoClausula = entity.rtRedacaoClausula,
+            rtSalarioFuncaoOriginal = entity.rtSalarioFuncaoOriginal,
+            rtSalarioFuncaoAcumulada = entity.rtSalarioFuncaoAcumulada,
+            rtValorPagoPorFora = entity.rtValorPagoPorFora,
+            rtMediaHorasExtras = entity.rtMediaHorasExtras,
+            blocosSelecionados = entity.blocosSelecionados.toList(),
+            dadosVariaveis = dados
+        )
+    }
 
     fun toResumoResponse(entity: Processo): ProcessoResumoResponse =
         ProcessoResumoResponse(entity.id!!, entity.numeroProcesso, entity.status)

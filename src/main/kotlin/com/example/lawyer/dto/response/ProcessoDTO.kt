@@ -12,6 +12,8 @@ data class ProcessoDTO(
     val advogadoResponsavel: PessoaResumoResponse,
     val cliente: PessoaResumoResponse,
     val advogado: PessoaResumoResponse,
+    val reclamantes: List<PessoaResumoResponse>,
+    val advogados: List<PessoaResumoResponse>,
     val reclamadas: List<PessoaResumoResponse>,
     val sociosResponsaveis: List<PessoaResumoResponse>,
     val dataAbertura: LocalDate,
@@ -30,5 +32,7 @@ data class ProcessoDTO(
     val rtSalarioFuncaoOriginal: String? = null,
     val rtSalarioFuncaoAcumulada: String? = null,
     val rtValorPagoPorFora: String? = null,
-    val rtMediaHorasExtras: String? = null
+    val rtMediaHorasExtras: String? = null,
+    val blocosSelecionados: List<String> = emptyList(),
+    val dadosVariaveis: Map<String, Map<String, String?>> = emptyMap()
 )

@@ -3,6 +3,8 @@ package com.example.lawyer.domain.model
 import com.example.lawyer.domain.enums.StatusProcesso
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
+import jakarta.persistence.CollectionTable
+import jakarta.persistence.ElementCollection
 import jakarta.persistence.Entity
 import jakarta.persistence.Embedded
 import jakarta.persistence.EnumType
@@ -13,7 +15,6 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.JoinTable
-import jakarta.persistence.ManyToOne
 import jakarta.persistence.ManyToMany
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
@@ -31,14 +32,6 @@ open class Processo(
 
     @Column(nullable = false, columnDefinition = "TEXT")
     open var descricao: String = "",
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "cliente_id", nullable = false)
-    open var cliente: Pessoa? = null,
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "advogado_id", nullable = false)
-    open var advogado: Pessoa? = null,
 
     @Column(nullable = false)
     open var dataAbertura: LocalDate = LocalDate.now(),
@@ -85,6 +78,22 @@ open class Processo(
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
+        name = "processos_advogados",
+        joinColumns = [JoinColumn(name = "processo_id")],
+        inverseJoinColumns = [JoinColumn(name = "pessoa_id")]
+    )
+    open var advogados: MutableSet<Pessoa> = linkedSetOf(),
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "processos_reclamantes",
+        joinColumns = [JoinColumn(name = "processo_id")],
+        inverseJoinColumns = [JoinColumn(name = "pessoa_id")]
+    )
+    open var reclamantes: MutableSet<Pessoa> = linkedSetOf(),
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
         name = "processos_reclamadas",
         joinColumns = [JoinColumn(name = "processo_id")],
         inverseJoinColumns = [JoinColumn(name = "pessoa_id")]
@@ -98,6 +107,14 @@ open class Processo(
         inverseJoinColumns = [JoinColumn(name = "pessoa_id")]
     )
     open var sociosResponsaveis: MutableSet<Pessoa> = linkedSetOf(),
+
+    @ElementCollection
+    @CollectionTable(name = "processos_blocos", joinColumns = [JoinColumn(name = "processo_id")])
+    @Column(name = "bloco_id", nullable = false, length = 100)
+    open var blocosSelecionados: MutableSet<String> = linkedSetOf(),
+
+    @OneToMany(mappedBy = "processo", cascade = [CascadeType.ALL], orphanRemoval = true)
+    open var dadosVariaveis: MutableList<ProcessoDadoVariavel> = mutableListOf(),
 
     @OneToMany(mappedBy = "processo", cascade = [CascadeType.ALL], orphanRemoval = true)
     open var movimentacoes: MutableList<Movimentacao> = mutableListOf()

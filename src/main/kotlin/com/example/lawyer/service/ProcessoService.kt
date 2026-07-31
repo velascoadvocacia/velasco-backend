@@ -5,6 +5,7 @@ import com.example.lawyer.domain.model.EstrategiaProcessual
 import com.example.lawyer.domain.model.Pessoa
 import com.example.lawyer.domain.enums.StatusProcesso
 import com.example.lawyer.domain.model.Processo
+import com.example.lawyer.domain.model.ProcessoDadoVariavel
 import com.example.lawyer.dto.common.PageResponse
 import com.example.lawyer.dto.request.ContratoTrabalhoRequest
 import com.example.lawyer.dto.request.EstrategiaProcessualRequest
@@ -33,14 +34,12 @@ class ProcessoService(
     @Transactional
     fun create(request: ProcessoCreateRequest): ProcessoDTO {
         ensureUniqueNumero(request.numeroProcesso!!, null)
-        if (request.clienteId == null || request.advogadoId == null) {
-            throw BusinessException("Processo deve possuir cliente e advogado")
-        }
+        val reclamantes = resolveRequiredPessoas(reclamantesIds(request.reclamantesIds, request.clienteId), "reclamante")
+        val advogados = resolveRequiredPessoas(advogadosIds(request.advogadosIds, request.advogadoId), "advogado")
+        val reclamadas = resolveRequiredPessoas(request.reclamadasIds.orEmpty(), "reclamada")
         val processo = Processo(
             numeroProcesso = request.numeroProcesso.trim(),
             descricao = request.descricao!!.trim(),
-            cliente = pessoaService.findEntity(request.clienteId!!),
-            advogado = pessoaService.findEntity(request.advogadoId!!),
             dataAbertura = request.dataAbertura!!,
             contratoTrabalho = toContratoTrabalho(request.contratoTrabalho),
             estrategiaProcessual = toEstrategiaProcessual(request.estrategiaProcessual),
@@ -56,8 +55,11 @@ class ProcessoService(
             rtValorPagoPorFora = request.rtValorPagoPorFora,
             rtMediaHorasExtras = request.rtMediaHorasExtras
         )
-        processo.reclamadas = resolvePessoas(request.reclamadasIds.orEmpty())
+        processo.reclamantes = reclamantes
+        processo.advogados = advogados
+        processo.reclamadas = reclamadas
         processo.sociosResponsaveis = resolvePessoas(request.sociosResponsaveisIds.orEmpty())
+        replaceVariaveis(processo, request.blocosSelecionados, request.dadosVariaveis)
         repository.persist(processo)
         logger.infof("Processo criado id=%s numero=%s", processo.id, processo.numeroProcesso)
         return processoMapper.toResponse(processo)
@@ -78,11 +80,11 @@ class ProcessoService(
             params["numeroProcesso"] = "%${it.lowercase()}%"
         }
         clienteId?.let {
-            where += "cliente.id = :clienteId"
+            where += "reclamantes.id = :clienteId"
             params["clienteId"] = it
         }
         advogadoId?.let {
-            where += "advogado.id = :advogadoId"
+            where += "advogados.id = :advogadoId"
             params["advogadoId"] = it
         }
         status?.let {
@@ -105,18 +107,19 @@ class ProcessoService(
     fun update(id: Long, request: ProcessoUpdateRequest): ProcessoDTO {
         val processo = findEntity(id)
         ensureUniqueNumero(request.numeroProcesso!!, id)
-        if (request.clienteId == null || request.advogadoId == null) {
-            throw BusinessException("Processo deve possuir cliente e advogado")
-        }
+        val reclamantes = resolveRequiredPessoas(reclamantesIds(request.reclamantesIds, request.clienteId), "reclamante")
+        val advogados = resolveRequiredPessoas(advogadosIds(request.advogadosIds, request.advogadoId), "advogado")
+        val reclamadas = resolveRequiredPessoas(request.reclamadasIds.orEmpty(), "reclamada")
         processo.numeroProcesso = request.numeroProcesso.trim()
         processo.descricao = request.descricao!!.trim()
-        processo.cliente = pessoaService.findEntity(request.clienteId!!)
-        processo.advogado = pessoaService.findEntity(request.advogadoId!!)
+        processo.reclamantes = reclamantes
+        processo.advogados = advogados
         processo.dataAbertura = request.dataAbertura!!
         processo.contratoTrabalho = toContratoTrabalho(request.contratoTrabalho)
         processo.estrategiaProcessual = toEstrategiaProcessual(request.estrategiaProcessual)
-        processo.reclamadas = resolvePessoas(request.reclamadasIds.orEmpty())
+        processo.reclamadas = reclamadas
         processo.sociosResponsaveis = resolvePessoas(request.sociosResponsaveisIds.orEmpty())
+        replaceVariaveis(processo, request.blocosSelecionados, request.dadosVariaveis)
         processo.status = request.status!!
         processo.ativo = request.ativo ?: processo.ativo
         processo.rtDescricaoAcidente = request.rtDescricaoAcidente
@@ -150,6 +153,39 @@ class ProcessoService(
             .distinct()
             .map(pessoaService::findEntity)
             .toCollection(linkedSetOf())
+
+    private fun resolveRequiredPessoas(ids: List<Long>, label: String): MutableSet<Pessoa> {
+        val pessoas = resolvePessoas(ids)
+        if (pessoas.isEmpty()) throw BusinessException("Processo deve possuir ao menos um $label")
+        return pessoas
+    }
+
+    private fun reclamantesIds(ids: List<Long>?, legacyId: Long?): List<Long> =
+        ids.orEmpty().ifEmpty { listOfNotNull(legacyId) }
+
+    private fun advogadosIds(ids: List<Long>?, legacyId: Long?): List<Long> =
+        ids.orEmpty().ifEmpty { listOfNotNull(legacyId) }
+
+    private fun replaceVariaveis(
+        processo: Processo,
+        blocosSelecionados: List<String>,
+        dadosVariaveis: Map<String, Map<String, String?>>
+    ) {
+        val blocos = blocosSelecionados.map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toCollection(linkedSetOf())
+        processo.blocosSelecionados.clear()
+        processo.blocosSelecionados.addAll(blocos)
+        processo.dadosVariaveis.clear()
+        blocos.forEach { blocoId ->
+            dadosVariaveis[blocoId].orEmpty().forEach { (campo, valor) ->
+                val nomeCampo = campo.trim()
+                if (nomeCampo.isNotEmpty()) {
+                    processo.dadosVariaveis += ProcessoDadoVariavel(processo = processo, blocoId = blocoId, campo = nomeCampo, valor = valor)
+                }
+            }
+        }
+    }
 
     private fun toContratoTrabalho(request: ContratoTrabalhoRequest?): ContratoTrabalho? = request?.let {
         ContratoTrabalho(
