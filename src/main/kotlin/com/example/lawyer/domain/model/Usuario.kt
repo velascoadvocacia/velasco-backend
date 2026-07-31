@@ -35,8 +35,11 @@ open class Usuario(
     @Column(nullable = false, length = 20)
     open var perfil: PerfilUsuario = PerfilUsuario.ASSISTENTE,
 
-    @Column(length = 30)
-    open var oab: String? = null,
+    @Column(name = "uf_oab", length = 2)
+    open var ufOab: String? = null,
+
+    @Column(name = "numero_oab", length = 30)
+    open var numeroOab: String? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(length = 10)

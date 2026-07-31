@@ -17,7 +17,7 @@ class ProcessoMapper(private val pessoaMapper: PessoaMapper) {
     fun toResponse(entity: Processo): ProcessoDTO {
         val reclamantes = entity.reclamantes.filter { it.ativo }.map(pessoaMapper::toResumoResponse)
         val advogados = entity.advogados.filter { it.ativo }.map {
-            AdvogadoResumoResponse(it.id!!, it.pessoa?.nome ?: "não informado", it.oab)
+            AdvogadoResumoResponse(it.id!!, it.pessoa?.nome ?: "não informado", it.ufOab, it.numeroOab)
         }
         val dados = entity.dadosVariaveis.groupBy { it.blocoId }
             .mapValues { (_, values) -> values.associate { it.campo to it.valor } }

@@ -35,7 +35,8 @@ class UsuarioService(
             senha = BcryptUtil.bcryptHash(request.senha!!),
             pessoa = pessoa,
             perfil = perfil,
-            oab = normalizeOab(request.oab),
+            ufOab = normalizeUfOab(request.ufOab, perfil),
+            numeroOab = normalizeNumeroOab(request.numeroOab, perfil),
             tratamento = request.tratamento,
             ativo = request.ativo ?: true
         )
@@ -78,7 +79,8 @@ class UsuarioService(
         request.senha?.takeIf { it.isNotBlank() }?.let { usuario.senha = BcryptUtil.bcryptHash(it) }
         usuario.pessoa = pessoaService.findEntity(request.pessoaId!!)
         usuario.perfil = request.perfil!!
-        usuario.oab = normalizeOab(request.oab)
+        usuario.ufOab = normalizeUfOab(request.ufOab, usuario.perfil)
+        usuario.numeroOab = normalizeNumeroOab(request.numeroOab, usuario.perfil)
         usuario.tratamento = request.tratamento
         usuario.ativo = request.ativo ?: usuario.ativo
         logger.infof("Usuario atualizado id=%s", usuario.id)
@@ -98,5 +100,19 @@ class UsuarioService(
         }
     }
 
-    private fun normalizeOab(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }
+    private fun normalizeUfOab(value: String?, perfil: PerfilUsuario): String? {
+        val uf = value?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
+        if (perfil == PerfilUsuario.ADVOGADO && uf == null) {
+            throw BusinessException("UF da OAB obrigatoria para advogado")
+        }
+        return uf
+    }
+
+    private fun normalizeNumeroOab(value: String?, perfil: PerfilUsuario): String? {
+        val numero = value?.trim()?.takeIf { it.isNotEmpty() }
+        if (perfil == PerfilUsuario.ADVOGADO && numero == null) {
+            throw BusinessException("Numero da OAB obrigatorio para advogado")
+        }
+        return numero
+    }
 }

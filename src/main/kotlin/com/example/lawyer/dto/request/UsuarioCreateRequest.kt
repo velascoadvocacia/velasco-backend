@@ -15,7 +15,9 @@ data class UsuarioCreateRequest(
 
     val perfil: PerfilUsuario?,
 
-    val oab: String? = null,
+    val ufOab: String? = null,
+
+    val numeroOab: String? = null,
 
     val tratamento: TratamentoAdvogado? = null,
 

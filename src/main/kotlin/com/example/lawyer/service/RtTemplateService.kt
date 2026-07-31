@@ -66,7 +66,7 @@ class RtTemplateService(
         val formatted = map { advogado ->
             val nome = advogado.pessoa?.nome ?: ""
             val tratamento = advogado.tratamento?.abreviacao ?: "Dr(a)."
-            val oab = formatOab(advogado.oab)?.let { ", OAB/$it" } ?: ""
+            val oab = formatOab(advogado.ufOab, advogado.numeroOab)?.let { ", $it" } ?: ""
             "$tratamento $nome$oab".trim()
         }
         return when (formatted.size) {
@@ -77,9 +77,10 @@ class RtTemplateService(
         }
     }
 
-    private fun formatOab(oab: String?): String? {
-        val value = oab?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        return value.replaceFirst(Regex("^OAB/", RegexOption.IGNORE_CASE), "")
+    private fun formatOab(uf: String?, numero: String?): String? {
+        val estado = uf?.trim()?.uppercase()?.takeIf { it.isNotEmpty() } ?: return null
+        val inscricao = numero?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return "OAB/$estado nº $inscricao"
     }
 
     private fun neutralizeGender(value: String): String =
