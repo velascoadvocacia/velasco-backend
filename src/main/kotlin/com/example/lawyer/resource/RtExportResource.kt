@@ -1,6 +1,7 @@
 package com.example.lawyer.resource
 
 import com.example.lawyer.dto.request.RtExportRequest
+import com.example.lawyer.dto.request.RtExportBlockRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.response.RtPreviewResponse
 import com.example.lawyer.service.RtExportService
@@ -26,10 +27,9 @@ class RtExportResource(
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
     fun preview(@Valid request: RtPreviewRequest): RtPreviewResponse {
-        val processoId = request.processoId!!
         return RtPreviewResponse(
-            processoId,
-            templateService.generateSelectedBlocks(processoId, request.blocosSelecionados, request.advogadosIds)
+            request.processoId,
+            templateService.generateSelectedBlocks(request)
         )
     }
 
@@ -38,7 +38,24 @@ class RtExportResource(
     @Produces(DOCX_MEDIA_TYPE)
     @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
     fun export(@Valid request: RtExportRequest): Response {
-        val buffer = service.generate(request)
+        val generatedBlocks = if (request.blocosSelecionados.isNotEmpty()) {
+            templateService.generateSelectedBlocks(
+                RtPreviewRequest(
+                    processoId = request.processoId,
+                    reclamantesIds = request.reclamantesIds,
+                    reclamadasIds = request.reclamadasIds,
+                    advogadosIds = request.advogadosIds,
+                    blocosSelecionados = request.blocosSelecionados,
+                    dadosVariaveis = request.dadosVariaveis
+                )
+            ).map { RtExportBlockRequest(it.titulo, it.texto) }
+        } else {
+            request.blocks
+        }
+        if (generatedBlocks.isEmpty()) {
+            throw com.example.lawyer.exception.BusinessException("Informe ao menos um bloco para exportação")
+        }
+        val buffer = service.generate(request.copy(blocks = generatedBlocks))
 
         return Response.ok(buffer, DOCX_MEDIA_TYPE)
             .header(

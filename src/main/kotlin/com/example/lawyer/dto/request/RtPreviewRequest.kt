@@ -1,14 +1,18 @@
 package com.example.lawyer.dto.request
 
 import jakarta.validation.constraints.NotEmpty
-import jakarta.validation.constraints.NotNull
 
 data class RtPreviewRequest(
-    @field:NotNull
-    val processoId: Long?,
+    val processoId: Long? = null,
+
+    val reclamantesIds: List<Long> = emptyList(),
+
+    val reclamadasIds: List<Long> = emptyList(),
 
     @field:NotEmpty
-    val blocosSelecionados: List<String>,
+    val blocosSelecionados: List<String> = emptyList(),
 
-    val advogadosIds: List<Long> = emptyList()
+    val advogadosIds: List<Long> = emptyList(),
+
+    val dadosVariaveis: Map<String, String?> = emptyMap()
 )

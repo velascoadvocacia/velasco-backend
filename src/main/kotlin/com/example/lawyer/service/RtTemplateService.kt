@@ -2,6 +2,7 @@ package com.example.lawyer.service
 
 import com.example.lawyer.domain.model.Processo
 import com.example.lawyer.domain.model.Usuario
+import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.response.RtPreviewBlockResponse
 import com.example.lawyer.exception.BusinessException
 import com.example.lawyer.exception.ResourceNotFoundException
@@ -12,20 +13,32 @@ import org.eclipse.microprofile.config.inject.ConfigProperty
 @ApplicationScoped
 class RtTemplateService(
     private val processoService: ProcessoService,
+    private val pessoaService: PessoaService,
     private val usuarioRepository: UsuarioRepository,
     @ConfigProperty(name = "rt.escritorio.endereco")
     private val enderecoEscritorio: String
 ) {
-    fun generateSelectedBlocks(
-        processoId: Long,
-        selectedBlocks: List<String>,
-        advogadosIds: List<Long> = emptyList()
-    ): List<RtPreviewBlockResponse> {
-        val processo = processoService.findEntity(processoId)
-        val advogados = if (advogadosIds.isEmpty()) processo.advogados else resolveAdvogados(advogadosIds)
-        return selectedBlocks.map { it.trim() }.filter { it == QUALIFICACAO_RECLAMANTE }.distinct().map {
+    fun generateSelectedBlocks(request: RtPreviewRequest): List<RtPreviewBlockResponse> {
+        val precisaProcesso = request.processoId != null &&
+            (request.reclamantesIds.isEmpty() || request.advogadosIds.isEmpty())
+        val processo = if (precisaProcesso) {
+            processoService.findEntity(request.processoId!!)
+        } else {
+            Processo()
+        }
+        if (request.reclamantesIds.isNotEmpty()) {
+            processo.reclamantes = resolvePessoas(request.reclamantesIds)
+        }
+        val advogados = if (request.advogadosIds.isEmpty()) {
+            processo.advogados
+        } else {
+            resolveAdvogados(request.advogadosIds)
+        }
+        return request.blocosSelecionados.map { it.trim() }
+            .filter { it == QUALIFICACAO_RECLAMANTE }
+            .distinct().map {
             RtPreviewBlockResponse(
-                blocoId = QUALIFICACAO_RECLAMANTE,
+                id = QUALIFICACAO_RECLAMANTE,
                 titulo = "Qualificação do Reclamante",
                 texto = qualificacaoReclamante(processo, advogados)
             )
@@ -108,7 +121,11 @@ class RtTemplateService(
         return advogados.toSet()
     }
 
+    private fun resolvePessoas(ids: List<Long>) = ids.distinct()
+        .map(pessoaService::findEntity)
+        .toCollection(linkedSetOf())
+
     companion object {
-        const val QUALIFICACAO_RECLAMANTE = "qualificacao-reclamante"
+        const val QUALIFICACAO_RECLAMANTE = "qualificacao_reclamante"
     }
 }
