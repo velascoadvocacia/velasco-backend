@@ -1,6 +1,7 @@
 package com.example.lawyer.domain.model
 
 import com.example.lawyer.domain.enums.PerfilUsuario
+import com.example.lawyer.domain.enums.TratamentoAdvogado
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -36,6 +37,10 @@ open class Usuario(
 
     @Column(length = 30)
     open var oab: String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    open var tratamento: TratamentoAdvogado? = null,
 
     @Column(nullable = false)
     open var ativo: Boolean = true

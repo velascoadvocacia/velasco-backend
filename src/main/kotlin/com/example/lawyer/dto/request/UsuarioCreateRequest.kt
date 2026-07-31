@@ -1,6 +1,7 @@
 package com.example.lawyer.dto.request
 
 import com.example.lawyer.domain.enums.PerfilUsuario
+import com.example.lawyer.domain.enums.TratamentoAdvogado
 import jakarta.validation.constraints.Size
 
 data class UsuarioCreateRequest(
@@ -15,6 +16,8 @@ data class UsuarioCreateRequest(
     val perfil: PerfilUsuario?,
 
     val oab: String? = null,
+
+    val tratamento: TratamentoAdvogado? = null,
 
     val ativo: Boolean? = true
 )

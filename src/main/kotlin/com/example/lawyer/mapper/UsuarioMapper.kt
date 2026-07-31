@@ -12,6 +12,7 @@ class UsuarioMapper(private val pessoaMapper: PessoaMapper) {
         pessoa = pessoaMapper.toResumoResponse(entity.pessoa!!),
         perfil = entity.perfil,
         oab = entity.oab,
+        tratamento = entity.tratamento,
         ativo = entity.ativo,
         createdAt = entity.createdAt,
         updatedAt = entity.updatedAt

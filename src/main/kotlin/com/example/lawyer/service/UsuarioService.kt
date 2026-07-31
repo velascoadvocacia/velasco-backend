@@ -36,6 +36,7 @@ class UsuarioService(
             pessoa = pessoa,
             perfil = perfil,
             oab = normalizeOab(request.oab),
+            tratamento = request.tratamento,
             ativo = request.ativo ?: true
         )
         repository.persist(usuario)
@@ -78,6 +79,7 @@ class UsuarioService(
         usuario.pessoa = pessoaService.findEntity(request.pessoaId!!)
         usuario.perfil = request.perfil!!
         usuario.oab = normalizeOab(request.oab)
+        usuario.tratamento = request.tratamento
         usuario.ativo = request.ativo ?: usuario.ativo
         logger.infof("Usuario atualizado id=%s", usuario.id)
         return usuarioMapper.toResponse(usuario)
