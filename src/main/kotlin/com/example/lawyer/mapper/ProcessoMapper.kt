@@ -21,16 +21,16 @@ class ProcessoMapper(private val pessoaMapper: PessoaMapper) {
         }
         val dados = entity.dadosVariaveis.groupBy { it.blocoId }
             .mapValues { (_, values) -> values.associate { it.campo to it.valor } }
-        val reclamante = reclamantes.first()
-        val advogadoPessoa = entity.advogados.first { it.ativo }.pessoa!!
+        val reclamante = reclamantes.firstOrNull()
+        val advogadoPessoa = entity.advogados.firstOrNull { it.ativo }?.pessoa
         return ProcessoDTO(
             id = entity.id!!,
             numeroProcesso = entity.numeroProcesso,
             descricao = entity.descricao,
             reclamante = reclamante,
-            advogadoResponsavel = pessoaMapper.toResumoResponse(advogadoPessoa),
+            advogadoResponsavel = advogadoPessoa?.let(pessoaMapper::toResumoResponse),
             cliente = reclamante,
-            advogado = pessoaMapper.toResumoResponse(advogadoPessoa),
+            advogado = advogadoPessoa?.let(pessoaMapper::toResumoResponse),
             reclamantes = reclamantes,
             advogados = advogados,
             reclamadas = entity.reclamadas.filter { it.ativo }.map(pessoaMapper::toResumoResponse),
