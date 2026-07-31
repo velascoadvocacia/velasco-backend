@@ -82,7 +82,6 @@ class RtTemplateService(
             if (it.perfil != com.example.lawyer.domain.enums.PerfilUsuario.ADVOGADO) {
                 throw BusinessException("Usuario selecionado nao possui perfil de advogado")
             }
-            if (it.oab.isNullOrBlank()) throw BusinessException("Advogado deve possuir OAB")
         }
         if (advogados.isEmpty()) throw BusinessException("Processo deve possuir ao menos um advogado")
         return advogados.toSet()

@@ -80,9 +80,6 @@ class PessoaService(
 
         when (tipoPessoa) {
             TipoPessoa.FISICA -> {
-                if (request.profissao?.trim().isNullOrEmpty()) {
-                    throw ValidationException("Funcao obrigatoria para pessoa fisica")
-                }
                 val cleanCpf = normalizeDocument(request.cpf)
                 if (cleanCpf != null) {
                     if (!DocumentValidator.isValidCpf(cleanCpf)) throw ValidationException("CPF invalido")

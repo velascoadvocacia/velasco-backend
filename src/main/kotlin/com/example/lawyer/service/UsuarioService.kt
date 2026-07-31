@@ -35,7 +35,7 @@ class UsuarioService(
             senha = BcryptUtil.bcryptHash(request.senha!!),
             pessoa = pessoa,
             perfil = perfil,
-            oab = normalizeOab(request.oab, perfil),
+            oab = normalizeOab(request.oab),
             ativo = request.ativo ?: true
         )
         repository.persist(usuario)
@@ -77,7 +77,7 @@ class UsuarioService(
         request.senha?.takeIf { it.isNotBlank() }?.let { usuario.senha = BcryptUtil.bcryptHash(it) }
         usuario.pessoa = pessoaService.findEntity(request.pessoaId!!)
         usuario.perfil = request.perfil!!
-        usuario.oab = normalizeOab(request.oab, usuario.perfil)
+        usuario.oab = normalizeOab(request.oab)
         usuario.ativo = request.ativo ?: usuario.ativo
         logger.infof("Usuario atualizado id=%s", usuario.id)
         return usuarioMapper.toResponse(usuario)
@@ -96,11 +96,5 @@ class UsuarioService(
         }
     }
 
-    private fun normalizeOab(value: String?, perfil: PerfilUsuario): String? {
-        val oab = value?.trim()?.takeIf { it.isNotEmpty() }
-        if (perfil == PerfilUsuario.ADVOGADO && oab == null) {
-            throw BusinessException("OAB obrigatoria para advogado")
-        }
-        return oab
-    }
+    private fun normalizeOab(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }
 }
