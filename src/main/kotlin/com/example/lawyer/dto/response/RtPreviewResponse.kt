@@ -8,5 +8,6 @@ data class RtPreviewResponse(
 data class RtPreviewBlockResponse(
     val id: String,
     val titulo: String,
-    val texto: String
+    val texto: String,
+    val anexos: List<ProcessoAnexoResponse> = emptyList()
 )

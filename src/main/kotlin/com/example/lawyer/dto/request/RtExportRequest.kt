@@ -23,5 +23,13 @@ data class RtExportBlockRequest(
     val title: String,
 
     @field:NotBlank
-    val content: String
+    val content: String,
+
+    val anexos: List<RtExportImageRequest> = emptyList()
+)
+
+data class RtExportImageRequest(
+    val url: String,
+    val contentType: String,
+    val nomeOriginal: String
 )

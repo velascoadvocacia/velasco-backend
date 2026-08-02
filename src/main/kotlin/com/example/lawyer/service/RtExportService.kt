@@ -1,6 +1,7 @@
 package com.example.lawyer.service
 
 import com.example.lawyer.dto.request.RtExportRequest
+import com.example.lawyer.dto.request.RtExportBlockRequest
 import jakarta.enterprise.context.ApplicationScoped
 import org.apache.poi.util.Units
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy
@@ -16,6 +17,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.STLineSpacingRule
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STPageOrientation
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.net.URL
 import java.math.BigInteger
 
 @ApplicationScoped
@@ -33,7 +35,7 @@ class RtExportService {
 
             request.blocks.forEach { block ->
                 createSectionHeader(document, block.title)
-                createBodyParagraph(document, block.content)
+                createBodyContent(document, block)
                 createEmptyParagraph(document)
             }
 
@@ -158,6 +160,15 @@ class RtExportService {
     }
 
     // Corpo de texto — Garamond 12pt, justificado
+    private fun createBodyContent(document: XWPFDocument, block: RtExportBlockRequest) {
+        block.content.split("\n\n").forEachIndexed { index, paragraphText ->
+            createBodyParagraph(document, paragraphText)
+            if (index == 0) {
+                block.anexos.forEach { image -> addBodyImage(document, image.url, image.contentType, image.nomeOriginal) }
+            }
+        }
+    }
+
     private fun createBodyParagraph(document: XWPFDocument, text: String) {
         val p = document.createParagraph()
         p.alignment = ParagraphAlignment.BOTH
@@ -169,10 +180,46 @@ class RtExportService {
         spacing.lineRule = STLineSpacingRule.AUTO
         spacing.after = BigInteger.valueOf(120)
 
-        val run = p.createRun()
+        val tokenPattern = Regex("(\\*\\*|__)(.+?)\\1")
+        var cursor = 0
+        tokenPattern.findAll(text).forEach { match ->
+            addFormattedRun(p, text.substring(cursor, match.range.first), false, false)
+            val marker = match.value.take(2)
+            addFormattedRun(p, match.groupValues[2], marker == "**", marker == "__")
+            cursor = match.range.last + 1
+        }
+        addFormattedRun(p, text.substring(cursor), false, false)
+    }
+
+    private fun addFormattedRun(paragraph: XWPFParagraph, text: String, bold: Boolean, underline: Boolean) {
+        if (text.isEmpty()) return
+        val run = paragraph.createRun()
         run.fontFamily = "Garamond"
         run.fontSize = 12
+        run.isBold = bold
+        run.underline = if (underline) org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE else org.apache.poi.xwpf.usermodel.UnderlinePatterns.NONE
         run.setText(text)
+    }
+
+    private fun addBodyImage(document: XWPFDocument, url: String, contentType: String, name: String) {
+        runCatching {
+            URL(url).openStream().use { input ->
+                val paragraph = document.createParagraph()
+                paragraph.alignment = ParagraphAlignment.CENTER
+                paragraph.createRun().addPicture(
+                    input,
+                    pictureType(contentType),
+                    name,
+                    Units.toEMU(450.0),
+                    Units.toEMU(300.0)
+                )
+            }
+        }
+    }
+
+    private fun pictureType(contentType: String): Int = when (contentType.lowercase()) {
+        "image/png" -> XWPFDocument.PICTURE_TYPE_PNG
+        else -> XWPFDocument.PICTURE_TYPE_JPEG
     }
 
     // Parágrafo vazio

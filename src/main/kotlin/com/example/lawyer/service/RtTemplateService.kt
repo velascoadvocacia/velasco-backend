@@ -20,6 +20,7 @@ class RtTemplateService(
     private val processoService: ProcessoService,
     private val pessoaService: PessoaService,
     private val usuarioRepository: UsuarioRepository,
+    private val processoAnexoService: ProcessoAnexoService,
     @ConfigProperty(name = "rt.escritorio.endereco")
     private val enderecoEscritorio: String
 ) {
@@ -39,6 +40,10 @@ class RtTemplateService(
         CONTRATO_ASPECTOS_GERAIS to RtBlockDefinition(
             titulo = { variaveis -> opcaoMotivoExtincao(variaveis["motivoExtincao"])?.titulo ?: "Opção ___ – ___" },
             generate = { _, _, variaveis -> contratoAspectosGerais(variaveis) }
+        ),
+        BAIXA_CTPS_TUTELA to RtBlockDefinition(
+            titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
+            generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
         )
     )
 
@@ -67,7 +72,10 @@ class RtTemplateService(
                     RtPreviewBlockResponse(
                         id = blockId,
                         titulo = definition.titulo(variaveis),
-                        texto = definition.generate(processo, advogados, variaveis)
+                        texto = definition.generate(processo, advogados, variaveis),
+                        anexos = if (blockId == BAIXA_CTPS_TUTELA && processo.id != null) {
+                            processoAnexoService.list(processo.id!!)
+                        } else emptyList()
                     )
                 }
             }
@@ -99,6 +107,13 @@ class RtTemplateService(
             append(".")
             informacoesComplementares?.let { append(" ").append(it) }
         }
+    }
+
+    private fun baixaCtpsTutela(variaveis: Map<String, String?>): String {
+        val dataExtincao = formatVariableDate(variaveis["dataExtincao"])
+        return "Conquanto a parte autora tenha sido dispensada sem justa causa, não houve a baixa na sua CTPS física pela ré, pelo que deve ser concedida tutela de urgência antecipada, nos termos do art. 300 do CPC, pois estão presentes o periculum in mora e o fumus boni juris, para que haja a baixa na CTPS:\n\n" +
+            "Pelo exposto, **REQUER** seja concedida tutela de urgência antecipada, nos termos do art. 300 do CPC, para que seja determinado à ré que proceda à baixa na CTPS física, considerando como data do término da relação empregatícia o dia $dataExtincao. Consequentemente, em caso de descumprimento da obrigação, **REQUER** seja arbitrada multa diária, revertida em favor da parte autora, em valor a ser estabelecido por este Juízo, e, neste caso, sejam realizadas as anotações pela secretaria da Vara do Trabalho, nos termos do art. 39, § 1º, da CLT.\n\n" +
+            "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela antecipada acima formulado, com o seu integral acolhimento."
     }
 
     private fun opcaoMotivoExtincao(value: String?): OpcaoMotivoExtincao? =
@@ -284,6 +299,7 @@ class RtTemplateService(
         const val QUALIFICACAO_RECLAMADA = "qualificacao_reclamada"
         const val DADOS_RECLAMANTE = "dados_reclamante"
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
+        const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         private val OPCOES_MOTIVO_EXTINCAO = mapOf(

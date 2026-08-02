@@ -2,6 +2,7 @@ package com.example.lawyer.resource
 
 import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtExportBlockRequest
+import com.example.lawyer.dto.request.RtExportImageRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.response.RtPreviewResponse
 import com.example.lawyer.service.RtExportService
@@ -48,7 +49,13 @@ class RtExportResource(
                     blocosSelecionados = request.blocosSelecionados,
                     dadosVariaveis = request.dadosVariaveis
                 )
-            ).map { RtExportBlockRequest(it.titulo, it.texto) }
+            ).map { block ->
+                RtExportBlockRequest(
+                    title = block.titulo,
+                    content = block.texto,
+                    anexos = block.anexos.map { RtExportImageRequest(it.url, it.contentType, it.nomeOriginal) }
+                )
+            }
         } else {
             request.blocks
         }
