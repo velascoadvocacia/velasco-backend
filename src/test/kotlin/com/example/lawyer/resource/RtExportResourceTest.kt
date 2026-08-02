@@ -116,7 +116,7 @@ class RtExportResourceTest {
                 equalTo(
                     "A parte autora foi contratada pela parte ré em 10/01/2023, para exercer a função de " +
                         "Auxiliar de produção, com última remuneração de R$ 1.800,00, com a extinção do vínculo " +
-                        "empregatício (sem justa causa) em 20/05/2024 (data de projeção do aviso prévio: 19/06/2024)."
+                        "empregatício sem justa causa em 20/05/2024."
                 )
             )
     }

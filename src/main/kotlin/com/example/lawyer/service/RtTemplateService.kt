@@ -92,13 +92,11 @@ class RtTemplateService(
             append(variaveis["funcaoContrato"].orPlaceholder())
             append(", com última remuneração de R$ ")
             append(formatCurrency(variaveis["remuneracao"]))
-            append(", com a extinção do vínculo empregatício (")
+            append(", com a extinção do vínculo empregatício ")
             append(motivo)
-            append(") em ")
+            append(" em ")
             append(formatVariableDate(variaveis["dataExtincao"]))
-            append(" (data de projeção do aviso prévio: ")
-            append(formatVariableDate(variaveis["dataProjecaoAviso"]))
-            append(").")
+            append(".")
             informacoesComplementares?.let { append(" ").append(it) }
         }
     }
