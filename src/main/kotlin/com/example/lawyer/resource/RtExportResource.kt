@@ -49,25 +49,35 @@ class RtExportResource(
     @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
     fun export(
         @RestForm("payload") @PartType(MediaType.TEXT_PLAIN) payload: String?,
-        @RestForm("arquivos") arquivos: List<FileUpload>
+        @RestForm("documento") @PartType(MediaType.TEXT_PLAIN) documentoLegado: String?,
+        @RestForm("arquivos") arquivos: List<FileUpload>,
+        @RestForm("arquivosCtps") arquivosLegados: List<FileUpload>
     ): Response {
-        if (payload.isNullOrBlank()) {
+        val payloadJson = payload ?: documentoLegado
+        if (payloadJson.isNullOrBlank()) {
             throw com.example.lawyer.exception.BusinessException(
                 "Campo multipart 'payload' é obrigatório e deve conter o JSON da exportação"
             )
         }
-        val request = runCatching { objectMapper.readValue(payload, RtExportRequest::class.java) }
+        val request = runCatching { objectMapper.readValue(payloadJson, RtExportRequest::class.java) }
             .getOrElse { error ->
                 throw com.example.lawyer.exception.BusinessException("Campo multipart 'payload' contém JSON inválido")
             }
-        return exportRequest(request, arquivos)
+        return exportRequest(request, arquivos + arquivosLegados)
     }
 
     private fun exportRequest(request: RtExportRequest, arquivos: List<FileUpload>): Response {
         val imagensPorBloco = arquivos
-            .filter { it.name().matches(Regex("anexo_.+_\\d+")) }
-            .groupBy { it.name().removePrefix("anexo_").replace(Regex("_\\d+$"), "") }
-            .mapValues { (_, files) -> files.map { file ->
+            .mapIndexed { index, file ->
+                val campo = if (file.name().matches(Regex("anexo_.+_\\d+"))) {
+                    file.name()
+                } else {
+                    "anexo_baixa_ctps_tutela_$index"
+                }
+                campo to file
+            }
+            .groupBy { (campo, _) -> campo.removePrefix("anexo_").replace(Regex("_\\d+$"), "") }
+            .mapValues { (_, entries) -> entries.map { (_, file) ->
                 val contentType = file.contentType().lowercase()
                 if (contentType !in ALLOWED_IMAGE_TYPES) {
                     throw com.example.lawyer.exception.BusinessException("Tipo de imagem não permitido: $contentType")
