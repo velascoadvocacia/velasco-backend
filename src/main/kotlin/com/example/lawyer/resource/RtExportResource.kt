@@ -19,6 +19,7 @@ import jakarta.ws.rs.core.HttpHeaders
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import org.jboss.resteasy.reactive.RestForm
+import org.jboss.resteasy.reactive.PartType
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import java.nio.file.Files
 
@@ -47,10 +48,18 @@ class RtExportResource(
     @Produces(DOCX_MEDIA_TYPE)
     @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
     fun export(
-        @RestForm("payload") payload: String,
-        @RestForm arquivos: List<FileUpload>
+        @RestForm("payload") @PartType(MediaType.TEXT_PLAIN) payload: String?,
+        @RestForm("arquivos") arquivos: List<FileUpload>
     ): Response {
-        val request = objectMapper.readValue(payload, RtExportRequest::class.java)
+        if (payload.isNullOrBlank()) {
+            throw com.example.lawyer.exception.BusinessException(
+                "Campo multipart 'payload' é obrigatório e deve conter o JSON da exportação"
+            )
+        }
+        val request = runCatching { objectMapper.readValue(payload, RtExportRequest::class.java) }
+            .getOrElse { error ->
+                throw com.example.lawyer.exception.BusinessException("Campo multipart 'payload' contém JSON inválido")
+            }
         return exportRequest(request, arquivos)
     }
 
