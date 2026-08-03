@@ -6,10 +6,16 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.AttributeOverride
+import jakarta.persistence.AttributeOverrides
 import java.time.OffsetDateTime
 
 @Entity
 @Table(name = "processo_anexos")
+@AttributeOverrides(
+    AttributeOverride(name = "createdAt", column = Column(name = "created_at", nullable = false, updatable = false)),
+    AttributeOverride(name = "updatedAt", column = Column(name = "updated_at", nullable = false))
+)
 open class ProcessoAnexo(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
