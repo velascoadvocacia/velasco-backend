@@ -163,8 +163,10 @@ class RtExportService {
 
     // Corpo de texto — Garamond 12pt, justificado
     private fun createBodyContent(document: XWPFDocument, block: RtExportBlockRequest) {
+        logger.infof("DOCX bloco '%s': anexos.size=%d; iniciando criação de parágrafos", block.title, block.anexos.size)
         block.content.split("\n\n").forEachIndexed { index, paragraphText ->
             createBodyParagraph(document, paragraphText)
+            logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             if (index == 0) {
                 block.anexos.forEach { image -> addBodyImage(document, image.url, image.contentType, image.nomeOriginal) }
             }
@@ -204,7 +206,8 @@ class RtExportService {
     }
 
     private fun addBodyImage(document: XWPFDocument, url: String, contentType: String, name: String) {
-        runCatching {
+        logger.infof("DOCX imagem '%s': abrindo URL exata: %s", name, url)
+        try {
             URL(url).openStream().use { input ->
                 val paragraph = document.createParagraph()
                 paragraph.alignment = ParagraphAlignment.CENTER
@@ -215,9 +218,11 @@ class RtExportService {
                     Units.toEMU(450.0),
                     Units.toEMU(300.0)
                 )
+                logger.infof("DOCX imagem '%s': addPicture concluído; mediaCount=%d", name, document.allPictures.size)
             }
-        }.onFailure { error ->
-            logger.warnf(error, "Não foi possível inserir a imagem anexada %s no DOCX", name)
+        } catch (error: Exception) {
+            logger.errorf(error, "DOCX imagem '%s': falha ao abrir URL ou inserir imagem; URL=%s", name, url)
+            throw error
         }
     }
 
