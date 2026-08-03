@@ -8,6 +8,7 @@ import com.example.lawyer.dto.response.RtPreviewResponse
 import com.example.lawyer.service.RtExportService
 import com.example.lawyer.service.ProcessoAnexoService
 import com.example.lawyer.service.RtTemplateService
+import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.security.RolesAllowed
 import jakarta.validation.Valid
 import jakarta.ws.rs.Consumes
@@ -17,13 +18,17 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.HttpHeaders
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import org.jboss.resteasy.reactive.RestForm
+import org.jboss.resteasy.reactive.multipart.FileUpload
+import java.nio.file.Files
 
 @Path("/rt")
 @Consumes(MediaType.APPLICATION_JSON)
 class RtExportResource(
     private val service: RtExportService,
     private val templateService: RtTemplateService,
-    private val processoAnexoService: ProcessoAnexoService
+    private val processoAnexoService: ProcessoAnexoService,
+    private val objectMapper: ObjectMapper
 ) {
     @POST
     @Path("/preview")
@@ -38,9 +43,32 @@ class RtExportResource(
 
     @POST
     @Path("/export")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Produces(DOCX_MEDIA_TYPE)
     @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
-    fun export(@Valid request: RtExportRequest): Response {
+    fun export(
+        @RestForm("payload") payload: String,
+        @RestForm arquivos: List<FileUpload>
+    ): Response {
+        val request = objectMapper.readValue(payload, RtExportRequest::class.java)
+        return exportRequest(request, arquivos)
+    }
+
+    private fun exportRequest(request: RtExportRequest, arquivos: List<FileUpload>): Response {
+        val imagensPorBloco = arquivos
+            .filter { it.name().matches(Regex("anexo_.+_\\d+")) }
+            .groupBy { it.name().removePrefix("anexo_").replace(Regex("_\\d+$"), "") }
+            .mapValues { (_, files) -> files.map { file ->
+                val contentType = file.contentType().lowercase()
+                if (contentType !in ALLOWED_IMAGE_TYPES) {
+                    throw com.example.lawyer.exception.BusinessException("Tipo de imagem não permitido: $contentType")
+                }
+                RtExportImageRequest(
+                    bytes = Files.readAllBytes(file.uploadedFile()),
+                    contentType = contentType,
+                    nomeOriginal = file.fileName()
+                )
+            } }
         val generatedBlocks = if (request.blocosSelecionados.isNotEmpty()) {
             templateService.generateSelectedBlocks(
                 RtPreviewRequest(
@@ -55,14 +83,18 @@ class RtExportResource(
                 RtExportBlockRequest(
                     title = block.titulo,
                     content = block.texto,
-                    anexos = block.anexos.map { RtExportImageRequest(it.url, it.contentType, it.nomeOriginal) }
+                    anexos = imagensPorBloco[block.id].orEmpty().ifEmpty {
+                        block.anexos.map { RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url) }
+                    }
                 )
             }
         } else {
             val anexosCtps = request.processoId?.let(processoAnexoService::list).orEmpty()
             request.blocks.map { block ->
                 if (block.title == "3. Baixa na CTPS física. Tutela antecipada" && block.anexos.isEmpty()) {
-                    block.copy(anexos = anexosCtps.map { RtExportImageRequest(it.url, it.contentType, it.nomeOriginal) })
+                    block.copy(anexos = imagensPorBloco["baixa_ctps_tutela"].orEmpty().ifEmpty {
+                        anexosCtps.map { RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url) }
+                    })
                 } else block
             }
         }
@@ -84,5 +116,6 @@ class RtExportResource(
 
     private companion object {
         const val DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/png")
     }
 }

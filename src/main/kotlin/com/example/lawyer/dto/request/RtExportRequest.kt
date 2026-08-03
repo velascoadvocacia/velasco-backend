@@ -29,7 +29,8 @@ data class RtExportBlockRequest(
 )
 
 data class RtExportImageRequest(
-    val url: String,
+    val bytes: ByteArray? = null,
     val contentType: String,
-    val nomeOriginal: String
+    val nomeOriginal: String,
+    val url: String? = null
 )

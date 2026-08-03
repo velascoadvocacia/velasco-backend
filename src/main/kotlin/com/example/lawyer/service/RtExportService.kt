@@ -2,6 +2,7 @@ package com.example.lawyer.service
 
 import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtExportBlockRequest
+import com.example.lawyer.dto.request.RtExportImageRequest
 import jakarta.enterprise.context.ApplicationScoped
 import org.apache.poi.util.Units
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy
@@ -168,7 +169,7 @@ class RtExportService {
             createBodyParagraph(document, paragraphText)
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             if (index == 0) {
-                block.anexos.forEach { image -> addBodyImage(document, image.url, image.contentType, image.nomeOriginal) }
+                block.anexos.forEach { image -> addBodyImage(document, image) }
             }
         }
     }
@@ -205,15 +206,17 @@ class RtExportService {
         run.setText(text)
     }
 
-    private fun addBodyImage(document: XWPFDocument, url: String, contentType: String, name: String) {
-        logger.infof("DOCX imagem '%s': abrindo URL exata: %s", name, url)
+    private fun addBodyImage(document: XWPFDocument, image: RtExportImageRequest) {
+        val name = image.nomeOriginal
+        logger.infof("DOCX imagem '%s': bytes=%d, url=%s", name, image.bytes?.size ?: 0, image.url ?: "<bytes>")
         try {
-            URL(url).openStream().use { input ->
+            val input = image.bytes?.inputStream() ?: URL(image.url ?: error("Imagem sem bytes e sem URL")).openStream()
+            input.use {
                 val paragraph = document.createParagraph()
                 paragraph.alignment = ParagraphAlignment.CENTER
                 paragraph.createRun().addPicture(
-                    input,
-                    pictureType(contentType),
+                    it,
+                    pictureType(image.contentType),
                     name,
                     Units.toEMU(450.0),
                     Units.toEMU(300.0)
@@ -221,7 +224,7 @@ class RtExportService {
                 logger.infof("DOCX imagem '%s': addPicture concluído; mediaCount=%d", name, document.allPictures.size)
             }
         } catch (error: Exception) {
-            logger.errorf(error, "DOCX imagem '%s': falha ao abrir URL ou inserir imagem; URL=%s", name, url)
+            logger.errorf(error, "DOCX imagem '%s': falha ao abrir bytes/URL ou inserir imagem; URL=%s", name, image.url ?: "<bytes>")
             throw error
         }
     }
