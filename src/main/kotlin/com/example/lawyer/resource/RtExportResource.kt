@@ -6,6 +6,7 @@ import com.example.lawyer.dto.request.RtExportImageRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.response.RtPreviewResponse
 import com.example.lawyer.service.RtExportService
+import com.example.lawyer.service.ProcessoAnexoService
 import com.example.lawyer.service.RtTemplateService
 import jakarta.annotation.security.RolesAllowed
 import jakarta.validation.Valid
@@ -21,7 +22,8 @@ import jakarta.ws.rs.core.Response
 @Consumes(MediaType.APPLICATION_JSON)
 class RtExportResource(
     private val service: RtExportService,
-    private val templateService: RtTemplateService
+    private val templateService: RtTemplateService,
+    private val processoAnexoService: ProcessoAnexoService
 ) {
     @POST
     @Path("/preview")
@@ -57,7 +59,12 @@ class RtExportResource(
                 )
             }
         } else {
-            request.blocks
+            val anexosCtps = request.processoId?.let(processoAnexoService::list).orEmpty()
+            request.blocks.map { block ->
+                if (block.title == "3. Baixa na CTPS física. Tutela antecipada" && block.anexos.isEmpty()) {
+                    block.copy(anexos = anexosCtps.map { RtExportImageRequest(it.url, it.contentType, it.nomeOriginal) })
+                } else block
+            }
         }
         if (generatedBlocks.isEmpty()) {
             throw com.example.lawyer.exception.BusinessException("Informe ao menos um bloco para exportação")
