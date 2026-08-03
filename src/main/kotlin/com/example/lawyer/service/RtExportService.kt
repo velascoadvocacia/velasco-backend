@@ -19,9 +19,11 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URL
 import java.math.BigInteger
+import org.jboss.logging.Logger
 
 @ApplicationScoped
 class RtExportService {
+    private val logger = Logger.getLogger(RtExportService::class.java)
 
     fun generate(request: RtExportRequest): ByteArray {
         XWPFDocument().use { document ->
@@ -214,6 +216,8 @@ class RtExportService {
                     Units.toEMU(300.0)
                 )
             }
+        }.onFailure { error ->
+            logger.warnf(error, "Não foi possível inserir a imagem anexada %s no DOCX", name)
         }
     }
 

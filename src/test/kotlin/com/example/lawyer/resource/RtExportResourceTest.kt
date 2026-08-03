@@ -110,7 +110,7 @@ class RtExportResourceTest {
             .then()
             .statusCode(200)
             .body("blocos.size()", equalTo(1))
-            .body("blocos[0].titulo", equalTo("Opção 1.1 – Dispensa sem justa causa"))
+            .body("blocos[0].titulo", equalTo("Contrato de trabalho - Aspectos gerais"))
             .body(
                 "blocos[0].texto",
                 equalTo(

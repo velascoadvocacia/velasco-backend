@@ -38,7 +38,7 @@ class RtTemplateService(
             generate = { processo, _, _ -> dadosReclamante(processo) }
         ),
         CONTRATO_ASPECTOS_GERAIS to RtBlockDefinition(
-            titulo = { variaveis -> opcaoMotivoExtincao(variaveis["motivoExtincao"])?.titulo ?: "Opção ___ – ___" },
+            titulo = { "Contrato de trabalho - Aspectos gerais" },
             generate = { _, _, variaveis -> contratoAspectosGerais(variaveis) }
         ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
@@ -64,6 +64,7 @@ class RtTemplateService(
         } else {
             resolveAdvogados(request.advogadosIds)
         }
+        val anexosBaixaCtps = request.processoId?.let(processoAnexoService::list).orEmpty()
         return request.blocosSelecionados.map { it.trim() }
             .distinct()
             .mapNotNull { blockId ->
@@ -73,9 +74,7 @@ class RtTemplateService(
                         id = blockId,
                         titulo = definition.titulo(variaveis),
                         texto = definition.generate(processo, advogados, variaveis),
-                        anexos = if (blockId == BAIXA_CTPS_TUTELA && processo.id != null) {
-                            processoAnexoService.list(processo.id!!)
-                        } else emptyList()
+                        anexos = if (blockId == BAIXA_CTPS_TUTELA) anexosBaixaCtps else emptyList()
                     )
                 }
             }
