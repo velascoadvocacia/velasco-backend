@@ -50,8 +50,7 @@ class RtExportResource(
     fun export(
         @RestForm("payload") @PartType(MediaType.TEXT_PLAIN) payload: String?,
         @RestForm("documento") @PartType(MediaType.TEXT_PLAIN) documentoLegado: String?,
-        @RestForm("arquivos") arquivos: List<FileUpload>,
-        @RestForm("arquivosCtps") arquivosLegados: List<FileUpload>
+        @RestForm(FileUpload.ALL) arquivos: List<FileUpload>
     ): Response {
         val payloadJson = payload ?: documentoLegado
         if (payloadJson.isNullOrBlank()) {
@@ -63,7 +62,7 @@ class RtExportResource(
             .getOrElse { error ->
                 throw com.example.lawyer.exception.BusinessException("Campo multipart 'payload' contém JSON inválido")
             }
-        return exportRequest(request, arquivos + arquivosLegados)
+        return exportRequest(request, arquivos)
     }
 
     private fun exportRequest(request: RtExportRequest, arquivos: List<FileUpload>): Response {

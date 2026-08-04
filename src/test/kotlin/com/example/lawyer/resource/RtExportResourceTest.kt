@@ -2,8 +2,6 @@ package com.example.lawyer.resource
 
 import com.example.lawyer.domain.enums.TipoPessoa
 import com.example.lawyer.dto.request.PessoaRequestDTO
-import com.example.lawyer.dto.request.RtExportBlockRequest
-import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.service.PessoaService
 import io.quarkus.test.junit.QuarkusTest
@@ -14,7 +12,11 @@ import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.startsWith
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertTrue
+import java.io.ByteArrayInputStream
 import java.time.LocalDate
+import java.util.Base64
+import java.util.zip.ZipInputStream
 
 @QuarkusTest
 class RtExportResourceTest {
@@ -25,17 +27,10 @@ class RtExportResourceTest {
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should export rt docx`() {
         given()
-            .contentType("application/json")
-            .body(
-                RtExportRequest(
-                    claimantName = "Maria Silva",
-                    blocks = listOf(
-                        RtExportBlockRequest(
-                            title = "Dos Fatos",
-                            content = "Conteúdo da reclamatória trabalhista."
-                        )
-                    )
-                )
+            .multiPart(
+                "payload",
+                """{"claimantName":"Maria Silva","blocks":[{"title":"Dos Fatos","content":"Conteúdo da reclamatória trabalhista."}]}""",
+                "text/plain"
             )
             .`when`()
             .post("/rt/export")
@@ -44,6 +39,40 @@ class RtExportResourceTest {
             .header("Content-Type", equalTo("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
             .header("Content-Disposition", equalTo("attachment; filename=\"RT - Maria Silva.docx\""))
             .body(startsWith("PK"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export economic group image inside docx`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["responsabilidade_solidaria_grupo_economico"],
+            "dadosVariaveis":{"descricaoAtividadePrincipal":"comércio varejista"}
+        }""".trimIndent()
+        val png = Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_0", "grupo.png", png, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        val entries = ZipInputStream(ByteArrayInputStream(docx)).use { zip ->
+            buildList {
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    add(entry.name)
+                    entry = zip.nextEntry
+                }
+            }
+        }
+        assertTrue(entries.any { it.startsWith("word/media/") }, "DOCX deveria conter a imagem anexada")
     }
 
     @Test
