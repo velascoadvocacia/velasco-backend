@@ -108,7 +108,7 @@ class RtExportResource(
                 )
             }
         } else {
-            val anexosCtps = request.processoId?.let(processoAnexoService::list).orEmpty()
+            val anexosCtps = request.processoId?.let { processoAnexoService.list(it) }.orEmpty()
             request.blocks.map { block ->
                 if (block.title == "3. Baixa na CTPS física. Tutela antecipada" && block.anexos.isEmpty()) {
                     block.copy(anexos = imagensPorBloco["baixa_ctps_tutela"].orEmpty().ifEmpty {

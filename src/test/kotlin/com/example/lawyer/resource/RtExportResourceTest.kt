@@ -11,6 +11,7 @@ import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import jakarta.inject.Inject
 import org.hamcrest.CoreMatchers.equalTo
+import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.startsWith
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -119,6 +120,49 @@ class RtExportResourceTest {
                         "empregatício sem justa causa em 20/05/2024."
                 )
             )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview economic group liability with formatting`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("responsabilidade_solidaria_grupo_economico"),
+                    dadosVariaveis = mapOf("descricaoAtividadePrincipal" to "comércio varejista de alimentos")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("responsabilidade_solidaria_grupo_economico"))
+            .body("blocos[0].titulo", equalTo("Responsabilidade solidária. Grupo econômico"))
+            .body("blocos[0].texto", containsString("de comércio varejista de alimentos:"))
+            .body("blocos[0].texto", containsString("**art. 2º, § 2º, da CLT**"))
+            .body("blocos[0].texto", containsString("__a direção, controle ou administração de outra"))
+            .body("blocos[0].texto", containsString("**REQUER-SE** a condenação solidária das rés."))
+            .body("blocos[0].anexos.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholder when economic activity is blank`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("responsabilidade_solidaria_grupo_economico"),
+                    dadosVariaveis = mapOf("descricaoAtividadePrincipal" to "  ")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("semelhantes, de ___:"))
     }
 
     private fun pessoaRequest(

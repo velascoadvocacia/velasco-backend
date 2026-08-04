@@ -30,20 +30,24 @@ class ProcessoAnexoService(
     @ConfigProperty(name = "aws.s3.presigned-url-expiration-seconds") private val expirationSeconds: Long,
     @ConfigProperty(name = "aws.s3.max-file-size-bytes") private val maxFileSize: Long
 ) {
-    private val blocoId = "baixa_ctps_tutela"
     private val s3 = S3Client.builder().region(Region.of(region)).build()
     private val presigner = S3Presigner.builder().region(Region.of(region)).build()
 
     @Transactional
-    fun upload(processoId: Long, files: List<FileUpload>): List<ProcessoAnexoResponse> {
+    fun upload(
+        processoId: Long,
+        files: List<FileUpload>,
+        blocoId: String = BAIXA_CTPS_TUTELA
+    ): List<ProcessoAnexoResponse> {
         processoService.findEntity(processoId)
+        validateBlocoId(blocoId)
         if (files.isEmpty()) throw BusinessException("Informe ao menos uma imagem")
         return files.map { file ->
             val contentType = file.contentType().lowercase()
             if (contentType !in ALLOWED_TYPES) throw BusinessException("Tipo de arquivo não permitido: $contentType")
             if (file.size() > maxFileSize) throw BusinessException("Arquivo excede o tamanho máximo permitido")
             val extension = contentType.substringAfter('/', "bin")
-            val key = "processos/$processoId/ctps/${UUID.randomUUID()}.$extension"
+            val key = "processos/$processoId/$blocoId/${UUID.randomUUID()}.$extension"
             s3.putObject(
                 PutObjectRequest.builder().bucket(bucket).key(key).contentType(contentType).build(),
                 RequestBody.fromFile(file.uploadedFile())
@@ -63,18 +67,26 @@ class ProcessoAnexoService(
         }
     }
 
-    fun list(processoId: Long): List<ProcessoAnexoResponse> {
+    fun list(processoId: Long, blocoId: String = BAIXA_CTPS_TUTELA): List<ProcessoAnexoResponse> {
         processoService.findEntity(processoId)
+        validateBlocoId(blocoId)
         return repository.findByProcesso(processoId, blocoId).map(::toResponse)
     }
 
     @Transactional
-    fun delete(processoId: Long, anexoId: Long) {
+    fun delete(processoId: Long, anexoId: Long, blocoId: String = BAIXA_CTPS_TUTELA) {
         processoService.findEntity(processoId)
+        validateBlocoId(blocoId)
         val anexo = repository.findByProcessoAndId(processoId, anexoId, blocoId)
             ?: throw ResourceNotFoundException("Anexo $anexoId nao encontrado")
         s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(anexo.s3Key).build())
         repository.delete(anexo)
+    }
+
+    private fun validateBlocoId(blocoId: String) {
+        if (blocoId !in BLOCOS_COM_ANEXOS) {
+            throw BusinessException("Bloco não permite anexos: $blocoId")
+        }
     }
 
     private fun toResponse(anexo: ProcessoAnexo): ProcessoAnexoResponse =
@@ -99,6 +111,9 @@ class ProcessoAnexoService(
     }
 
     companion object {
+        const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
+        const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
+        private val BLOCOS_COM_ANEXOS = setOf(BAIXA_CTPS_TUTELA, RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO)
         private val ALLOWED_TYPES = setOf("image/jpeg", "image/png")
     }
 }

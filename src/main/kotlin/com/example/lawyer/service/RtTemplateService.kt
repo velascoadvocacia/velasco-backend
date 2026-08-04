@@ -45,6 +45,10 @@ class RtTemplateService(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
         ),
+        RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO to RtBlockDefinition(
+            titulo = { "Responsabilidade solidária. Grupo econômico" },
+            generate = { _, _, variaveis -> responsabilidadeSolidariaGrupoEconomico(variaveis) }
+        ),
         LEGITIMIDADE_PASSIVA_SOCIOS to RtBlockDefinition(
             titulo = { "Legitimidade passiva dos sócios das rés" },
             generate = { _, _, _ -> legitimidadePassivaSocios() }
@@ -68,7 +72,6 @@ class RtTemplateService(
         } else {
             resolveAdvogados(request.advogadosIds)
         }
-        val anexosBaixaCtps = request.processoId?.let(processoAnexoService::list).orEmpty()
         return request.blocosSelecionados.map { it.trim() }
             .distinct()
             .mapNotNull { blockId ->
@@ -78,7 +81,11 @@ class RtTemplateService(
                         id = blockId,
                         titulo = definition.titulo(variaveis),
                         texto = definition.generate(processo, advogados, variaveis),
-                        anexos = if (blockId == BAIXA_CTPS_TUTELA) anexosBaixaCtps else emptyList()
+                        anexos = if (blockId in BLOCOS_COM_ANEXOS) {
+                            request.processoId?.let { processoAnexoService.list(it, blockId) }.orEmpty()
+                        } else {
+                            emptyList()
+                        }
                     )
                 }
             }
@@ -117,6 +124,17 @@ class RtTemplateService(
         return "Conquanto a parte autora tenha sido dispensada sem justa causa, não houve a baixa na sua CTPS física pela ré, pelo que deve ser concedida tutela de urgência antecipada, nos termos do art. 300 do CPC, pois estão presentes o periculum in mora e o fumus boni juris, para que haja a baixa na CTPS:\n\n" +
             "Pelo exposto, **REQUER** seja concedida tutela de urgência antecipada, nos termos do art. 300 do CPC, para que seja determinado à ré que proceda à baixa na CTPS física, considerando como data do término da relação empregatícia o dia $dataExtincao. Consequentemente, em caso de descumprimento da obrigação, **REQUER** seja arbitrada multa diária, revertida em favor da parte autora, em valor a ser estabelecido por este Juízo, e, neste caso, sejam realizadas as anotações pela secretaria da Vara do Trabalho, nos termos do art. 39, § 1º, da CLT.\n\n" +
             "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela antecipada acima formulado, com o seu integral acolhimento."
+    }
+
+    private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
+        val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
+        return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
+            "havendo comunhão de interesses, administração integrada, com a finalidade de explorar de forma " +
+            "integrada atividades econômicas semelhantes, de $atividade:\n\n" +
+            "Pelo exposto, com fundamento no **art. 2º, § 2º, da CLT** (Sempre que uma ou mais empresas, tendo, embora, cada uma delas, " +
+            "personalidade jurídica própria, estiverem sob __a direção, controle ou administração de outra, constituindo grupo industrial, comercial ou de qualquer outra atividade econômica, " +
+            "serão, para os efeitos da relação de emprego, solidariamente responsáveis a empresa principal__ e " +
+            "cada uma das subordinadas.), **REQUER-SE** a condenação solidária das rés."
     }
 
     private fun legitimidadePassivaSocios(): String =
@@ -308,7 +326,9 @@ class RtTemplateService(
         const val DADOS_RECLAMANTE = "dados_reclamante"
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
+        const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val LEGITIMIDADE_PASSIVA_SOCIOS = "legitimidade_passiva_socios"
+        private val BLOCOS_COM_ANEXOS = setOf(BAIXA_CTPS_TUTELA, RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO)
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         private val OPCOES_MOTIVO_EXTINCAO = mapOf(
