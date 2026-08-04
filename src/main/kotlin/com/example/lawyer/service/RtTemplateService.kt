@@ -44,6 +44,10 @@ class RtTemplateService(
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
+        ),
+        LEGITIMIDADE_PASSIVA_SOCIOS to RtBlockDefinition(
+            titulo = { "Legitimidade passiva dos sócios das rés" },
+            generate = { _, _, _ -> legitimidadePassivaSocios() }
         )
     )
 
@@ -114,6 +118,11 @@ class RtTemplateService(
             "Pelo exposto, **REQUER** seja concedida tutela de urgência antecipada, nos termos do art. 300 do CPC, para que seja determinado à ré que proceda à baixa na CTPS física, considerando como data do término da relação empregatícia o dia $dataExtincao. Consequentemente, em caso de descumprimento da obrigação, **REQUER** seja arbitrada multa diária, revertida em favor da parte autora, em valor a ser estabelecido por este Juízo, e, neste caso, sejam realizadas as anotações pela secretaria da Vara do Trabalho, nos termos do art. 39, § 1º, da CLT.\n\n" +
             "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela antecipada acima formulado, com o seu integral acolhimento."
     }
+
+    private fun legitimidadePassivaSocios(): String =
+        "As pessoas físicas indicadas como rés são sócias entre si no âmbito do grupo econômico familiar; também há indícios de fraude, considerando que os sócios das empresas se configuram como **sócios ocultos** no grupo econômico, gerenciando todas as empresas do referido grupo econômico.\n\n" +
+            "Assim, é inegável que os sócios das empresas rés também devem responder a título solidário relativamente aos encargos trabalhistas descumpridos, sob pena de violar o **princípio da dignidade humana e da valorização do trabalho**.\n\n" +
+            "Pelo exposto, **REQUER** sejam os sócios condenados solidariamente. __Sucessivamente__, **REQUER** sua condenação a título subsidiário."
 
     private fun opcaoMotivoExtincao(value: String?): OpcaoMotivoExtincao? =
         OPCOES_MOTIVO_EXTINCAO[value?.trim()]
@@ -299,6 +308,7 @@ class RtTemplateService(
         const val DADOS_RECLAMANTE = "dados_reclamante"
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
+        const val LEGITIMIDADE_PASSIVA_SOCIOS = "legitimidade_passiva_socios"
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         private val OPCOES_MOTIVO_EXTINCAO = mapOf(
