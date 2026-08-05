@@ -198,7 +198,9 @@ class RtTemplateService(
         val objeto = variaveis["objetoContratoAdministrativo"].orPlaceholder()
         val clausula = variaveis["clausulaNumeroContrato"].orPlaceholder()
         val fornecimento = variaveis["fornecimentoPrestadora"].orPlaceholder()
-        val complemento = variaveis["informacoesComplementares"]?.trim().orEmpty()
+        val complemento = variaveis["informacoesComplementaresContratoAdministrativo"]
+            ?.trim()
+            .orEmpty()
 
         return buildString {
             append("A parte autora, conquanto tenha sido contratada pela 1ª ré ($primeiraRe), sempre exerceu seu trabalho em benefício da 2ª ré ($segundaRe), pelo que se impõe a **responsabilização subsidiária**, tendo em vista a celebração de **contrato administrativo** (anexo) entre as rés para *“$objeto”*:\n\n")

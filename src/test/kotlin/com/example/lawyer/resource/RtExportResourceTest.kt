@@ -11,6 +11,7 @@ import jakarta.inject.Inject
 import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.startsWith
+import org.hamcrest.CoreMatchers.not
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -91,7 +92,7 @@ class RtExportResourceTest {
                 "objetoContratoAdministrativo":"serviços de limpeza",
                 "clausulaNumeroContrato":"cláusula 8ª do Contrato nº 123",
                 "fornecimentoPrestadora":"mão de obra",
-                "informacoesComplementares":"Informação adicional."
+                "informacoesComplementaresContratoAdministrativo":"Complemento administrativo exportado."
             }
         }""".trimIndent()
 
@@ -106,6 +107,9 @@ class RtExportResourceTest {
             .asByteArray()
 
         assertDocxImages(docx, listOf(TEST_IMAGE_1), listOf("A parte autora, conquanto tenha sido contratada"))
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            assertTrue(document.paragraphs.any { it.text.contains("Complemento administrativo exportado.") })
+        }
     }
 
     @Test
@@ -521,7 +525,7 @@ class RtExportResourceTest {
                         "objetoContratoAdministrativo" to "serviços de limpeza",
                         "clausulaNumeroContrato" to "cláusula 8ª do Contrato nº 123",
                         "fornecimentoPrestadora" to "mão de obra e equipamentos",
-                        "informacoesComplementares" to "Informação adicional."
+                        "informacoesComplementaresContratoAdministrativo" to "Informação adicional administrativa."
                     )
                 )
             )
@@ -535,7 +539,35 @@ class RtExportResourceTest {
             .body("blocos[0].texto", containsString("conforme cláusula 8ª do Contrato nº 123"))
             .body("blocos[0].texto", containsString("fornece mão de obra e equipamentos"))
             .body("blocos[0].texto", containsString("__***responderão pelos danos***__"))
-            .body("blocos[0].texto", containsString("Informação adicional."))
+            .body("blocos[0].texto", containsString("Informação adicional administrativa."))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should keep complementary information isolated between contract blocks`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "contrato_aspectos_gerais",
+                        "responsabilidade_subsidiaria_contrato_administrativo"
+                    ),
+                    dadosVariaveis = mapOf(
+                        "informacoesComplementares" to "Complemento exclusivo do contrato geral.",
+                        "informacoesComplementaresContratoAdministrativo" to
+                            "Complemento exclusivo do contrato administrativo."
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("Complemento exclusivo do contrato geral."))
+            .body("blocos[0].texto", not(containsString("Complemento exclusivo do contrato administrativo.")))
+            .body("blocos[1].texto", containsString("Complemento exclusivo do contrato administrativo."))
+            .body("blocos[1].texto", not(containsString("Complemento exclusivo do contrato geral.")))
     }
 
     private fun pessoaRequest(
