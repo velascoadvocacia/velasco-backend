@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.apache.poi.xwpf.usermodel.XWPFDocument
+import org.apache.poi.xwpf.usermodel.UnderlinePatterns
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.awt.Color
@@ -45,6 +46,36 @@ class RtExportResourceTest {
             .header("Content-Type", equalTo("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
             .header("Content-Disposition", equalTo("attachment; filename=\"RT - Maria Silva.docx\""))
             .body(startsWith("PK"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should render all supported text styles in docx`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocks":[{"title":"Formatação","content":"**negrito** *italico* __sublinhado__ __**ambosBU**__ ***ambosBI***"}]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val runs = document.paragraphs.first { it.text.contains("negrito italico") }.runs
+                .associateBy { it.text() }
+            assertTrue(runs.getValue("negrito").isBold)
+            assertTrue(runs.getValue("italico").isItalic)
+            assertEquals(UnderlinePatterns.SINGLE, runs.getValue("sublinhado").underline)
+            assertTrue(runs.getValue("ambosBU").isBold)
+            assertEquals(UnderlinePatterns.SINGLE, runs.getValue("ambosBU").underline)
+            assertTrue(runs.getValue("ambosBI").isBold)
+            assertTrue(runs.getValue("ambosBI").isItalic)
+        }
     }
 
     @Test
@@ -350,6 +381,49 @@ class RtExportResourceTest {
             .then()
             .statusCode(200)
             .body("blocos[0].texto", containsString("semelhantes, de ___:"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview subsidiary liability preserving defendant order`() {
+        val suffix = System.nanoTime().toString()
+        val first = pessoaService.create(pessoaRequest("primeira-$suffix", null, null, null))
+        val second = pessoaService.create(pessoaRequest("segunda-$suffix", null, null, null))
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    reclamadasIds = listOf(first.id!!, second.id!!),
+                    blocosSelecionados = listOf("responsabilidade_subsidiaria")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("responsabilidade_subsidiaria"))
+            .body("blocos[0].titulo", equalTo("Responsabilidade subsidiária"))
+            .body("blocos[0].texto", containsString("1ª ré (Reclamante primeira-$suffix)"))
+            .body("blocos[0].texto", containsString("2ª ré (Reclamante segunda-$suffix)"))
+            .body("blocos[0].texto", containsString("__**§ 5º. A empresa contratante"))
+            .body("blocos[0].texto", containsString("***O inadimplemento das obrigações"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should reject subsidiary liability with fewer than two defendants`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("responsabilidade_subsidiaria")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(400)
+            .body(
+                "message",
+                equalTo("O bloco \"Responsabilidade subsidiária\" requer ao menos 2 reclamadas selecionadas.")
+            )
     }
 
     private fun pessoaRequest(

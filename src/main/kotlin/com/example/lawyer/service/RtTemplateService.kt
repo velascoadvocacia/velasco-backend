@@ -49,6 +49,10 @@ class RtTemplateService(
             titulo = { "Responsabilidade solidária. Grupo econômico" },
             generate = { _, _, variaveis -> responsabilidadeSolidariaGrupoEconomico(variaveis) }
         ),
+        RESPONSABILIDADE_SUBSIDIARIA to RtBlockDefinition(
+            titulo = { "Responsabilidade subsidiária" },
+            generate = { processo, _, _ -> responsabilidadeSubsidiaria(processo) }
+        ),
         LEGITIMIDADE_PASSIVA_SOCIOS to RtBlockDefinition(
             titulo = { "Legitimidade passiva dos sócios das rés" },
             generate = { _, _, _ -> legitimidadePassivaSocios() }
@@ -141,6 +145,49 @@ class RtTemplateService(
         "As pessoas físicas indicadas como rés são sócias entre si no âmbito do grupo econômico familiar; também há indícios de fraude, considerando que os sócios das empresas se configuram como **sócios ocultos** no grupo econômico, gerenciando todas as empresas do referido grupo econômico.\n\n" +
             "Assim, é inegável que os sócios das empresas rés também devem responder a título solidário relativamente aos encargos trabalhistas descumpridos, sob pena de violar o **princípio da dignidade humana e da valorização do trabalho**.\n\n" +
             "Pelo exposto, **REQUER** sejam os sócios condenados solidariamente. __Sucessivamente__, **REQUER** sua condenação a título subsidiário."
+
+    private fun responsabilidadeSubsidiaria(processo: Processo): String {
+        val reclamadas = processo.reclamadas.toList()
+        if (reclamadas.size < 2) {
+            throw BusinessException(
+                "O bloco \"Responsabilidade subsidiária\" requer ao menos 2 reclamadas selecionadas."
+            )
+        }
+        val nomePrimeiraRe = reclamadas[0].nome.ifBlank { "não informado" }
+        val nomeSegundaRe = reclamadas[1].nome.ifBlank { "não informado" }
+        return responsabilidadeSubsidiariaTexto(nomePrimeiraRe, nomeSegundaRe)
+    }
+
+    private fun responsabilidadeSubsidiariaTexto(nomePrimeiraRe: String, nomeSegundaRe: String): String =
+        buildString {
+            append(
+                "A parte autora, conquanto tenha sido contratada pela 1ª ré ($nomePrimeiraRe), sempre " +
+                    "exerceu seu trabalho em benefício da 2ª ré ($nomeSegundaRe), pelo que se impõe a " +
+                    "**responsabilização subsidiária**, pelo vínculo de terceirização entre ambas.\n\n"
+            )
+            append(
+                "A atual redação dada pelo legislador nas Leis nº 13.429/2017 e 13.467/2017 determina a " +
+                    "**responsabilização subsidiária** da tomadora, bem como o art. 5º-A, § 5º, da Lei " +
+                    "6.019/74, com redação dada pela Lei 13.429/2017 e mantida pela Lei 13.467/2017, "
+            )
+            append("impõe, categoricamente, a responsabilização subsidiária da tomadora: ")
+            append("*Art. 5º-A. Contratante é a pessoa física ou jurídica que celebra contrato com empresa ")
+            append("de presta\u00e7\u00e3o de serviços relacionados a quaisquer de suas atividades, ")
+            append("inclusive sua atividade principal. (Redação dada pela Lei nº 13.467, de 2017) [...]* ")
+            append("__**§ 5º. A empresa contratante é subsidiariamente responsável pelas obrigações ")
+            append("trabalhistas referentes ao período em que ocorrer a presta\u00e7\u00e3o de serviços,**__ ")
+            append("e o recolhimento das contribuições previdenciárias observará o disposto no art. 31 ")
+            append("da Lei nº 8.212, de 24 de julho de 1991.\n\n")
+            append("Ainda, a responsabilidade subsidiária do tomador de serviços é resguardada pela Súmula 331 do TST: ")
+            append("IV - ***O inadimplemento das obrigações trabalhistas, por parte do empregador, implica a ")
+            append("responsabilidade subsidiária do tomador dos serviços quanto àquelas obrigações,*** ")
+            append("desde que haja participado da relação processual e conste também do título executivo judicial. ")
+            append("VI – A responsabilidade subsidiária do tomador de serviços abrange todas as verbas decorrentes ")
+            append("da condenação referentes ao período da presta\u00e7\u00e3o laboral.\n\n")
+            append("Pelo exposto, à luz dos **arts. 186 e 927 do Código Civil** (considerando que a ré ")
+            append("$nomePrimeiraRe se beneficiou do trabalho prestado pela parte autora, o que atrai a teoria da ")
+            append("responsabilidade civil), **REQUER** seja a 2ª ré condenada subsidiariamente.")
+        }
 
     private fun opcaoMotivoExtincao(value: String?): OpcaoMotivoExtincao? =
         OPCOES_MOTIVO_EXTINCAO[value?.trim()]
@@ -327,6 +374,7 @@ class RtTemplateService(
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
+        const val RESPONSABILIDADE_SUBSIDIARIA = "responsabilidade_subsidiaria"
         const val LEGITIMIDADE_PASSIVA_SOCIOS = "legitimidade_passiva_socios"
         private val BLOCOS_COM_ANEXOS = setOf(BAIXA_CTPS_TUTELA, RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO)
         private const val PLACEHOLDER = "___"

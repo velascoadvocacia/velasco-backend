@@ -185,26 +185,54 @@ class RtExportService {
         spacing.lineRule = STLineSpacingRule.AUTO
         spacing.after = BigInteger.valueOf(120)
 
-        val tokenPattern = Regex("(\\*\\*|__)(.+?)\\1")
+        // **negrito**, *itálico*, __sublinhado__, __**negrito+sublinhado**__ e ***negrito+itálico***
+        val tokenPattern = Regex("__\\*\\*.+?\\*\\*__|\\*\\*\\*.+?\\*\\*\\*|\\*\\*.+?\\*\\*|__.+?__|\\*.+?\\*")
         var cursor = 0
         tokenPattern.findAll(text).forEach { match ->
-            addFormattedRun(p, text.substring(cursor, match.range.first), false, false)
-            val marker = match.value.take(2)
-            addFormattedRun(p, match.groupValues[2], marker == "**", marker == "__")
+            addFormattedRun(p, text.substring(cursor, match.range.first))
+            val token = match.value
+            val style = when {
+                token.startsWith("__**") -> TextStyle(bold = true, underline = true, markerLength = 4)
+                token.startsWith("***") -> TextStyle(bold = true, italic = true, markerLength = 3)
+                token.startsWith("**") -> TextStyle(bold = true, markerLength = 2)
+                token.startsWith("__") -> TextStyle(underline = true, markerLength = 2)
+                else -> TextStyle(italic = true, markerLength = 1)
+            }
+            addFormattedRun(
+                p,
+                token.substring(style.markerLength, token.length - style.markerLength),
+                style.bold,
+                style.underline,
+                style.italic
+            )
             cursor = match.range.last + 1
         }
-        addFormattedRun(p, text.substring(cursor), false, false)
+        addFormattedRun(p, text.substring(cursor))
     }
 
-    private fun addFormattedRun(paragraph: XWPFParagraph, text: String, bold: Boolean, underline: Boolean) {
+    private fun addFormattedRun(
+        paragraph: XWPFParagraph,
+        text: String,
+        bold: Boolean = false,
+        underline: Boolean = false,
+        italic: Boolean = false
+    ) {
         if (text.isEmpty()) return
         val run = paragraph.createRun()
         run.fontFamily = "Garamond"
         run.fontSize = 12
         run.isBold = bold
+        run.isItalic = italic
         run.underline = if (underline) org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE else org.apache.poi.xwpf.usermodel.UnderlinePatterns.NONE
         run.setText(text)
     }
+
+    private data class TextStyle(
+        val bold: Boolean = false,
+        val underline: Boolean = false,
+        val italic: Boolean = false,
+        val markerLength: Int
+    )
 
     private fun addBodyImage(document: XWPFDocument, image: RtExportImageRequest) {
         val name = image.nomeOriginal
