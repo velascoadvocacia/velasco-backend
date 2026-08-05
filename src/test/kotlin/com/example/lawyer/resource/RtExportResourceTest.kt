@@ -461,8 +461,8 @@ class RtExportResourceTest {
                 RtPreviewRequest(
                     blocosSelecionados = listOf("periodo_sem_registro_ctps"),
                     dadosVariaveis = mapOf(
-                        "dataAnotacaoCtps" to "2023-04-10",
-                        "dataInicioPrestacaoServicos" to "2023-01-15"
+                        "dataAnotacaoCtps" to "2026-08-08",
+                        "dataInicioPrestacaoServicos" to "2026-08-02"
                     )
                 )
             )
@@ -473,10 +473,10 @@ class RtExportResourceTest {
             .body("blocos[0].id", equalTo("periodo_sem_registro_ctps"))
             .body(
                 "blocos[0].titulo",
-                equalTo("Período sem registro (de 15 de janeiro de 2023 à 10 de abril de 2023)")
+                equalTo("Período sem registro (de 02 de agosto de 2026 à 08 de agosto de 2026)")
             )
-            .body("blocos[0].texto", containsString("apenas em 10/04/2023"))
-            .body("blocos[0].texto", containsString("teve início antes, em 15/01/2023"))
+            .body("blocos[0].texto", containsString("apenas em 08/08/2026"))
+            .body("blocos[0].texto", containsString("teve início antes, em 02/08/2026"))
             .body("blocos[0].texto", containsString("**mesmas funções e cumprindo os mesmos horários e dias de trabalho**"))
             .body("blocos[0].texto", containsString("**arts. 29 e 40 da CLT**"))
             .body("blocos[0].texto", containsString("**Súmula n.º 12 do TST**"))

@@ -466,7 +466,7 @@ class RtTemplateService(
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         private val LONG_DATE_FORMATTER: DateTimeFormatter =
-            DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
+            DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
         private val OPCOES_MOTIVO_EXTINCAO = mapOf(
             "1" to OpcaoMotivoExtincao("Opção 1.1 – Dispensa sem justa causa", "sem justa causa"),
             "2" to OpcaoMotivoExtincao("Opção 1.2 – Dispensa com justa causa", "com justa causa"),
