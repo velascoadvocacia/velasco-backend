@@ -113,7 +113,12 @@ class ProcessoAnexoService(
     companion object {
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
-        private val BLOCOS_COM_ANEXOS = setOf(BAIXA_CTPS_TUTELA, RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO)
+        const val RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO = "responsabilidade_subsidiaria_contrato_administrativo"
+        private val BLOCOS_COM_ANEXOS = setOf(
+            BAIXA_CTPS_TUTELA,
+            RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
+            RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO
+        )
         private val ALLOWED_TYPES = setOf("image/jpeg", "image/png")
     }
 }

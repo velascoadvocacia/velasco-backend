@@ -53,7 +53,7 @@ class RtExportResourceTest {
     fun `should render all supported text styles in docx`() {
         val payload = """{
             "claimantName":"Maria Silva",
-            "blocks":[{"title":"Formatação","content":"**negrito** *italico* __sublinhado__ __**ambosBU**__ ***ambosBI***"}]
+            "blocks":[{"title":"Formatação","content":"**negrito** *italico* __sublinhado__ __**ambosBU**__ ***ambosBI*** __***todos***__"}]
         }""".trimIndent()
 
         val docx = given()
@@ -75,7 +75,37 @@ class RtExportResourceTest {
             assertEquals(UnderlinePatterns.SINGLE, runs.getValue("ambosBU").underline)
             assertTrue(runs.getValue("ambosBI").isBold)
             assertTrue(runs.getValue("ambosBI").isItalic)
+            assertTrue(runs.getValue("todos").isBold)
+            assertTrue(runs.getValue("todos").isItalic)
+            assertEquals(UnderlinePatterns.SINGLE, runs.getValue("todos").underline)
         }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export administrative contract image only in its block`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["responsabilidade_subsidiaria_contrato_administrativo"],
+            "dadosVariaveis":{
+                "objetoContratoAdministrativo":"serviços de limpeza",
+                "clausulaNumeroContrato":"cláusula 8ª do Contrato nº 123",
+                "fornecimentoPrestadora":"mão de obra",
+                "informacoesComplementares":"Informação adicional."
+            }
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_responsabilidade_subsidiaria_contrato_administrativo_0", "contrato.png", TEST_IMAGE_1, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(docx, listOf(TEST_IMAGE_1), listOf("A parte autora, conquanto tenha sido contratada"))
     }
 
     @Test
@@ -444,6 +474,35 @@ class RtExportResourceTest {
             .statusCode(200)
             .body("blocos[0].texto", containsString("1ª ré ()"))
             .body("blocos[0].texto", containsString("2ª ré ()"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview administrative contract liability variables and formatting`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("responsabilidade_subsidiaria_contrato_administrativo"),
+                    dadosVariaveis = mapOf(
+                        "objetoContratoAdministrativo" to "serviços de limpeza",
+                        "clausulaNumeroContrato" to "cláusula 8ª do Contrato nº 123",
+                        "fornecimentoPrestadora" to "mão de obra e equipamentos",
+                        "informacoesComplementares" to "Informação adicional."
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("responsabilidade_subsidiaria_contrato_administrativo"))
+            .body("blocos[0].titulo", equalTo("Responsabilidade subsidiária. Contrato administrativo"))
+            .body("blocos[0].texto", containsString("*“serviços de limpeza”*"))
+            .body("blocos[0].texto", containsString("conforme cláusula 8ª do Contrato nº 123"))
+            .body("blocos[0].texto", containsString("fornece mão de obra e equipamentos"))
+            .body("blocos[0].texto", containsString("__***responderão pelos danos***__"))
+            .body("blocos[0].texto", containsString("Informação adicional."))
     }
 
     private fun pessoaRequest(

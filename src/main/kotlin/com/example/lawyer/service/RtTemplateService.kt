@@ -53,6 +53,10 @@ class RtTemplateService(
             titulo = { "Responsabilidade subsidiária" },
             generate = { processo, _, _ -> responsabilidadeSubsidiaria(processo) }
         ),
+        RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO to RtBlockDefinition(
+            titulo = { "Responsabilidade subsidiária. Contrato administrativo" },
+            generate = { processo, _, variaveis -> responsabilidadeSubsidiariaContratoAdministrativo(processo, variaveis) }
+        ),
         LEGITIMIDADE_PASSIVA_SOCIOS to RtBlockDefinition(
             titulo = { "Legitimidade passiva dos sócios das rés" },
             generate = { _, _, _ -> legitimidadePassivaSocios() }
@@ -183,6 +187,42 @@ class RtTemplateService(
             append("$nomePrimeiraRe se beneficiou do trabalho prestado pela parte autora, o que atrai a teoria da ")
             append("responsabilidade civil), **REQUER** seja a 2ª ré condenada subsidiariamente.")
         }
+
+    private fun responsabilidadeSubsidiariaContratoAdministrativo(
+        processo: Processo,
+        variaveis: Map<String, String?>
+    ): String {
+        val reclamadas = processo.reclamadas.toList()
+        val primeiraRe = reclamadas.getOrNull(0)?.nome.orEmpty()
+        val segundaRe = reclamadas.getOrNull(1)?.nome.orEmpty()
+        val objeto = variaveis["objetoContratoAdministrativo"].orPlaceholder()
+        val clausula = variaveis["clausulaNumeroContrato"].orPlaceholder()
+        val fornecimento = variaveis["fornecimentoPrestadora"].orPlaceholder()
+        val complemento = variaveis["informacoesComplementares"]?.trim().orEmpty()
+
+        return buildString {
+            append("A parte autora, conquanto tenha sido contratada pela 1ª ré ($primeiraRe), sempre exerceu seu trabalho em benefício da 2ª ré ($segundaRe), pelo que se impõe a **responsabilização subsidiária**, tendo em vista a celebração de **contrato administrativo** (anexo) entre as rés para *“$objeto”*:\n\n")
+            append("Ou seja, é fato público e notório que a 1ª ré presta serviços de $fornecimento para a 2ª ré, **em regime de exclusividade**, conforme $clausula.\n\n")
+            append("Nesse aspecto, a **Súmula n.º 331 do TST** preceitua o dever da Administração Pública, como é o caso da 2ª ré, de fiscalizar o contrato celebrado com a primeira ré no que tange ao cumprimento das obrigações legais e contratuais trabalhistas:\n\n")
+            append("**Súmula nº 331 do TST**\n\n")
+            append("CONTRATO DE PRESTAÇÃO DE SERVIÇOS. LEGALIDADE (nova redação do item IV e inseridos os itens V e VI à redação) - Res. 174/2011, DEJT divulgado em 27, 30 e 31.05.2011\n\n")
+            append("IV - O inadimplemento das obrigações trabalhistas, por parte do empregador, implica a __**responsabilidade subsidiária do tomador dos serviços quanto àquelas obrigações**__, desde que haja participado da relação processual e conste também do título executivo judicial.\n\n")
+            append("V - Os entes integrantes da Administração Pública direta e indireta respondem subsidiariamente, nas mesmas condições do item IV, caso evidenciada a sua __**conduta culposa no cumprimento das obrigações da Lei n.º 8.666, de 21.06.1993**__, especialmente na __**fiscalização do cumprimento das obrigações contratuais e legais da prestadora de serviço**__ como empregadora. A aludida responsabilidade não decorre de mero inadimplemento das obrigações trabalhistas assumidas pela empresa regularmente contratada.\n\n")
+            append("VI – A responsabilidade subsidiária do tomador de serviços abrange __**todas as verbas**__ decorrentes da condenação referentes ao período da prestação laboral.\n\n")
+            append("No mesmo sentido, há previsão constitucional acerca da responsabilidade da 2ª ré no que tange aos danos causados, no art. 37, § 6º, da CF (*Art. 37 [...] § 6º As pessoas jurídicas de direito público e as de direito privado prestadoras de serviços públicos __***responderão pelos danos***__ que seus agentes, nessa qualidade, causarem a terceiros, assegurado o direito de regresso contra o responsável nos casos de dolo ou culpa*).\n\n")
+            append("Igualmente, a **Lei n.º 8.666/93**, que versa sobre contratos da Administração Pública, prevê a obrigação desta de fiscalizar o contrato celebrado:\n\n")
+            append("Art. 58. O regime jurídico dos contratos administrativos instituído por esta Lei confere à Administração, em relação a eles, a prerrogativa de:\n\nIII - __**fiscalizar-lhes a execução**__;\n\nArt. 67. A execução do contrato deverá ser __**acompanhada e fiscalizada**__ por um representante da Administração especialmente designado, permitida a contratação de terceiros para assisti-lo e subsidiá-lo de informações pertinentes a essa atribuição.\n\n")
+            append("Por sua vez, a Nova Lei de Licitações e Contratos Administrativos (**Lei n.º 14.133/2021**) aduz que *exclusivamente nas contratações de serviços contínuos com regime de dedicação exclusiva de mão de obra, a Administração responderá solidariamente pelos encargos previdenciários e subsidiariamente pelos encargos trabalhistas se comprovada falha na fiscalização do cumprimento das obrigações do contratado*.\n\n")
+            append("Ainda, a Lei n.º 6.019/74, alterada pela **Lei n.º 13.429/2017** (Lei da Terceirização), passou a prever em seu art. 5º-A, § 5º, a responsabilidade subsidiária do tomador dos serviços quanto às obrigações trabalhistas da empregadora: *Art. 5º-A. [...] § 5º A empresa contratante é __***subsidiariamente responsável***__ pelas obrigações trabalhistas referentes ao período em que ocorrer a prestação de serviços, e o recolhimento das contribuições previdenciárias observará o disposto no art. 31 da Lei nº 8.212, de 24 de julho de 1991*.\n\n")
+            append("E, por fim, o **Código Civil** preceitua sobre o dever de reparar os danos daquele que cometer ato ilícito (arts. 186 e 927 do CC).\n\n")
+            append("Posto isso, impõe-se a responsabilização subsidiária da 2ª ré, no que tange os encargos trabalhistas desatendidos pela 1ª ré, visto que há vínculo por __terceirização__ entre as rés: a empresa prestadora de serviços fornece $fornecimento para a tomadora de serviços, o que atrai a aplicação da Súmula n.º 331 do TST.\n\n")
+            append("Há um evidente comportamento sistematicamente negligente da 2ª ré em relação à inobservância dos patamares mínimos civilizatórios estabelecidos pela 1ª ré, na medida em que a normativa dos contratos administrativos exige que a empresa concessionária apresente os instrumentos coletivos de trabalho a que está obrigada, o que não desonera o administrador de convalidar as informações mediante a fiscalização do contrato.\n\n")
+            append("Nesse sentido, o ente público deve provar que efetivamente fiscalizou o contrato de concessão para não ser responsabilizado subsidiariamente, ante a má escolha do prestador de serviços e ausência de fiscalização na execução do contrato.\n\n")
+            append("É inegável, como se pode observar, que a legislação compreende que o poder público e empresas contratantes possuem responsabilidade subsidiária em relação às obrigações decorrentes da legislação trabalhista, atinentes ao período da prestação laboral. Logo, **o comando legal deixa clara a necessidade de proteção ao trabalhador**, sendo a responsabilidade subsidiária da tomadora a regra nas ocasiões em que há contrato.\n\n")
+            if (complemento.isNotEmpty()) append(complemento).append("\n\n")
+            append("Pelo exposto, **REQUER** seja a 2ª ré condenada subsidiariamente pelo inadimplemento dos encargos trabalhistas, considerando o vínculo de prestação de serviços.")
+        }
+    }
 
     private fun opcaoMotivoExtincao(value: String?): OpcaoMotivoExtincao? =
         OPCOES_MOTIVO_EXTINCAO[value?.trim()]
@@ -370,8 +410,13 @@ class RtTemplateService(
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val RESPONSABILIDADE_SUBSIDIARIA = "responsabilidade_subsidiaria"
+        const val RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO = "responsabilidade_subsidiaria_contrato_administrativo"
         const val LEGITIMIDADE_PASSIVA_SOCIOS = "legitimidade_passiva_socios"
-        private val BLOCOS_COM_ANEXOS = setOf(BAIXA_CTPS_TUTELA, RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO)
+        private val BLOCOS_COM_ANEXOS = setOf(
+            BAIXA_CTPS_TUTELA,
+            RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
+            RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO
+        )
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         private val OPCOES_MOTIVO_EXTINCAO = mapOf(

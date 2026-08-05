@@ -185,13 +185,14 @@ class RtExportService {
         spacing.lineRule = STLineSpacingRule.AUTO
         spacing.after = BigInteger.valueOf(120)
 
-        // **negrito**, *itálico*, __sublinhado__, __**negrito+sublinhado**__ e ***negrito+itálico***
-        val tokenPattern = Regex("__\\*\\*.+?\\*\\*__|\\*\\*\\*.+?\\*\\*\\*|\\*\\*.+?\\*\\*|__.+?__|\\*.+?\\*")
+        // Combinações suportadas: B, I, U, B+U, B+I e B+I+U.
+        val tokenPattern = Regex("__\\*\\*\\*.+?\\*\\*\\*__|__\\*\\*.+?\\*\\*__|\\*\\*\\*.+?\\*\\*\\*|\\*\\*.+?\\*\\*|__.+?__|\\*.+?\\*")
         var cursor = 0
         tokenPattern.findAll(text).forEach { match ->
             addFormattedRun(p, text.substring(cursor, match.range.first))
             val token = match.value
             val style = when {
+                token.startsWith("__***") -> TextStyle(bold = true, underline = true, italic = true, markerLength = 5)
                 token.startsWith("__**") -> TextStyle(bold = true, underline = true, markerLength = 4)
                 token.startsWith("***") -> TextStyle(bold = true, italic = true, markerLength = 3)
                 token.startsWith("**") -> TextStyle(bold = true, markerLength = 2)
