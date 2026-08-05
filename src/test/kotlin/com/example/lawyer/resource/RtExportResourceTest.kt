@@ -110,6 +110,39 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export administrative contract image with frontend multipart convention`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocks":[{
+                "title":"Responsabilidade subsidiária. Contrato administrativo",
+                "content":"A parte autora, conquanto tenha sido contratada pela 1ª ré"
+            }]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart(
+                "payload",
+                payload,
+                "text/plain"
+            )
+            .multiPart(
+                "arquivos",
+                "anexo_responsabilidade_subsidiaria_contrato_administrativo_0.png",
+                TEST_IMAGE_1,
+                "image/png"
+            )
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(docx, listOf(TEST_IMAGE_1), listOf("A parte autora, conquanto tenha sido contratada"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should export economic group image inside docx`() {
         val payload = """{
             "claimantName":"Maria Silva",

@@ -73,17 +73,13 @@ class RtExportResource(
             arquivos.joinToString(prefix = "[", postfix = "]") { it.name() }
         )
         val imagensPorBloco = arquivos
-            .mapIndexed { index, file ->
-                val campo = if (file.name().matches(Regex("anexo_.+_\\d+"))) {
-                    file.name()
-                } else {
-                    "anexo_baixa_ctps_tutela_$index"
-                }
-                campo to file
+            .map { file ->
+                val blocoId = attachmentBlockId(file.name())
+                    ?: attachmentBlockId(file.fileName())
+                    ?: "baixa_ctps_tutela"
+                blocoId to file
             }
-            .groupBy { (campo, _) ->
-                canonicalBlockId(campo.removePrefix("anexo_").replace(Regex("_\\d+$"), ""))
-            }
+            .groupBy { (blocoId, _) -> canonicalBlockId(blocoId) }
             .mapValues { (_, entries) -> entries.map { (_, file) ->
                 val contentType = file.contentType().lowercase()
                 if (contentType !in ALLOWED_IMAGE_TYPES) {
@@ -162,10 +158,14 @@ class RtExportResource(
             .lowercase()
         return when {
             "baixa na ctps" in normalized -> "baixa_ctps_tutela"
+            "contrato administrativo" in normalized -> "responsabilidade_subsidiaria_contrato_administrativo"
             "grupo economico" in normalized -> "responsabilidade_solidaria_grupo_economico"
             else -> null
         }
     }
+
+    private fun attachmentBlockId(value: String): String? =
+        Regex("^anexo_(.+)_\\d+(?:\\.[^.]+)?$").matchEntire(value)?.groupValues?.get(1)
 
     private fun canonicalBlockId(value: String): String = when (value) {
         "baixa_ctps", "baixa_ctps_fisica" -> "baixa_ctps_tutela"
