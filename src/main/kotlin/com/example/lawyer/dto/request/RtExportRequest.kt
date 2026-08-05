@@ -19,6 +19,8 @@ data class RtExportRequest(
 )
 
 data class RtExportBlockRequest(
+    val id: String? = null,
+
     @field:NotBlank
     val title: String,
 

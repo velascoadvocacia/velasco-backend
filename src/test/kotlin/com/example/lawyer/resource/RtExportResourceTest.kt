@@ -12,11 +12,17 @@ import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.startsWith
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.apache.poi.xwpf.usermodel.XWPFDocument
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.awt.Color
+import java.awt.image.BufferedImage
 import java.time.LocalDate
-import java.util.Base64
+import java.util.Random
 import java.util.zip.ZipInputStream
+import javax.imageio.ImageIO
 
 @QuarkusTest
 class RtExportResourceTest {
@@ -49,13 +55,9 @@ class RtExportResourceTest {
             "blocosSelecionados":["responsabilidade_solidaria_grupo_economico"],
             "dadosVariaveis":{"descricaoAtividadePrincipal":"comércio varejista"}
         }""".trimIndent()
-        val png = Base64.getDecoder().decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-        )
-
         val docx = given()
             .multiPart("payload", payload, "text/plain")
-            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_0", "grupo.png", png, "image/png")
+            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_0", "grupo.png", TEST_IMAGE_1, "image/png")
             .`when`()
             .post("/rt/export")
             .then()
@@ -63,16 +65,148 @@ class RtExportResourceTest {
             .extract()
             .asByteArray()
 
-        val entries = ZipInputStream(ByteArrayInputStream(docx)).use { zip ->
-            buildList {
-                var entry = zip.nextEntry
-                while (entry != null) {
-                    add(entry.name)
-                    entry = zip.nextEntry
+        assertDocxImages(
+            docx,
+            listOf(TEST_IMAGE_1),
+            listOf("As empresas rés, que formam um grupo econômico")
+        )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export ctps image inside docx`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["baixa_ctps_tutela"]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_baixa_ctps_tutela_0", "ctps.png", TEST_IMAGE_1, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(docx, listOf(TEST_IMAGE_1), listOf("Conquanto a parte autora"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should keep images associated with both blocks in same docx`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["baixa_ctps_tutela","responsabilidade_solidaria_grupo_economico"],
+            "dadosVariaveis":{"descricaoAtividadePrincipal":"comércio varejista"}
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_baixa_ctps_tutela_0", "ctps.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_0", "grupo.png", TEST_IMAGE_2, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(
+            docx,
+            listOf(TEST_IMAGE_1, TEST_IMAGE_2),
+            listOf("Conquanto a parte autora", "As empresas rés, que formam um grupo econômico")
+        )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preserve multiple image order in economic group block`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["responsabilidade_solidaria_grupo_economico"],
+            "dadosVariaveis":{"descricaoAtividadePrincipal":"comércio varejista"}
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_0", "cnpj.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_1", "qsa.png", TEST_IMAGE_2, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(
+            docx,
+            listOf(TEST_IMAGE_1, TEST_IMAGE_2),
+            listOf(
+                "As empresas rés, que formam um grupo econômico",
+                "As empresas rés, que formam um grupo econômico"
+            )
+        )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export economic group images with legacy blocks payload`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocks":[{
+                "id":"responsabilidade_solidaria_grupo_economico",
+                "title":"Responsabilidade solidária. Grupo econômico",
+                "content":"As empresas reclamadas formam um grupo economico"
+            }]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_0", "cnpj.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_responsabilidade_solidaria_grupo_economico_1", "qsa.png", TEST_IMAGE_2, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(
+            docx,
+            listOf(TEST_IMAGE_1, TEST_IMAGE_2),
+            listOf(
+                "As empresas reclamadas formam um grupo economico",
+                "As empresas reclamadas formam um grupo economico"
+            )
+        )
+    }
+
+    private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
+                paragraph.runs.any { it.embeddedPictures.isNotEmpty() }
+            }
+            assertEquals(expectedImages.size, pictureParagraphs.size, "Quantidade incorreta de parágrafos com imagem")
+
+            expectedImages.forEachIndexed { index, expectedImage ->
+                val bodyIndex = document.paragraphs.withIndex().firstOrNull { (paragraphIndex, paragraph) ->
+                    paragraph.text.startsWith(bodyPrefixes[index]) && paragraphIndex < pictureParagraphs[index].index
+                }?.index ?: -1
+                assertTrue(bodyIndex >= 0, "Parágrafo do bloco não encontrado antes da imagem ${index + 1}")
+                if (index == 0 || bodyPrefixes[index] != bodyPrefixes[index - 1]) {
+                    assertEquals(bodyIndex + 1, pictureParagraphs[index].index, "Imagem fora da posição do bloco")
+                } else {
+                    assertEquals(pictureParagraphs[index - 1].index + 1, pictureParagraphs[index].index, "Ordem das imagens alterada")
                 }
+                val actualBytes = pictureParagraphs[index].value.runs
+                    .flatMap { it.embeddedPictures }
+                    .single()
+                    .pictureData.data
+                assertTrue(expectedImage.contentEquals(actualBytes), "Conteúdo/ordem da imagem incorreto")
             }
         }
-        assertTrue(entries.any { it.startsWith("word/media/") }, "DOCX deveria conter a imagem anexada")
     }
 
     @Test
@@ -207,4 +341,39 @@ class RtExportResourceTest {
         tipoPessoa = TipoPessoa.FISICA,
         dataNascimento = dataNascimento
     )
+
+    private companion object {
+        val TEST_IMAGE_1: ByteArray = realisticScreenshot(1234)
+        val TEST_IMAGE_2: ByteArray = realisticScreenshot(5678)
+
+        fun realisticScreenshot(seed: Long): ByteArray {
+            val image = BufferedImage(900, 1200, BufferedImage.TYPE_INT_RGB)
+            val graphics = image.createGraphics()
+            graphics.color = Color.WHITE
+            graphics.fillRect(0, 0, image.width, image.height)
+            graphics.color = Color(35, 70, 120)
+            graphics.fillRect(0, 0, image.width, 110)
+            graphics.color = Color.DARK_GRAY
+            repeat(28) { row ->
+                val y = 150 + row * 32
+                graphics.drawLine(45, y, 855, y)
+                graphics.drawString("Registro ${row + 1}  Documento trabalhista  Dados cadastrais", 60, y - 8)
+            }
+            graphics.dispose()
+
+            val random = Random(seed)
+            repeat(120_000) {
+                val x = random.nextInt(image.width)
+                val y = 115 + random.nextInt(image.height - 115)
+                val tone = 190 + random.nextInt(66)
+                image.setRGB(x, y, Color(tone, tone, tone).rgb)
+            }
+            return ByteArrayOutputStream().use { output ->
+                ImageIO.write(image, "png", output)
+                output.toByteArray().also {
+                    check(it.size >= 50 * 1024) { "Imagem realista deve possuir pelo menos 50 KB" }
+                }
+            }
+        }
+    }
 }

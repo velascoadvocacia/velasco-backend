@@ -21,6 +21,7 @@ import jakarta.ws.rs.core.Response
 import org.jboss.resteasy.reactive.RestForm
 import org.jboss.resteasy.reactive.PartType
 import org.jboss.resteasy.reactive.multipart.FileUpload
+import org.jboss.logging.Logger
 import java.nio.file.Files
 
 @Path("/rt")
@@ -66,6 +67,11 @@ class RtExportResource(
     }
 
     private fun exportRequest(request: RtExportRequest, arquivos: List<FileUpload>): Response {
+        logger.infof(
+            "RT export multipart: arquivos recebidos=%d; campos=%s",
+            arquivos.size,
+            arquivos.joinToString(prefix = "[", postfix = "]") { it.name() }
+        )
         val imagensPorBloco = arquivos
             .mapIndexed { index, file ->
                 val campo = if (file.name().matches(Regex("anexo_.+_\\d+"))) {
@@ -87,6 +93,10 @@ class RtExportResource(
                     nomeOriginal = file.fileName()
                 )
             } }
+        logger.infof(
+            "RT export multipart: associação por bloco=%s",
+            imagensPorBloco.entries.joinToString(prefix = "[", postfix = "]") { "${it.key}=${it.value.size}" }
+        )
         val generatedBlocks = if (request.blocosSelecionados.isNotEmpty()) {
             templateService.generateSelectedBlocks(
                 RtPreviewRequest(
@@ -98,22 +108,34 @@ class RtExportResource(
                     dadosVariaveis = request.dadosVariaveis
                 )
             ).map { block ->
+                val anexos = imagensPorBloco[block.id].orEmpty().ifEmpty {
+                    block.anexos.map {
+                        RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url)
+                    }
+                }
+                logger.infof("RT export bloco '%s' (%s): anexos associados=%d", block.titulo, block.id, anexos.size)
                 RtExportBlockRequest(
+                    id = block.id,
                     title = block.titulo,
                     content = block.texto,
-                    anexos = imagensPorBloco[block.id].orEmpty().ifEmpty {
-                        block.anexos.map { RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url) }
-                    }
+                    anexos = anexos
                 )
             }
         } else {
             val anexosCtps = request.processoId?.let { processoAnexoService.list(it) }.orEmpty()
             request.blocks.map { block ->
-                if (block.title == "3. Baixa na CTPS física. Tutela antecipada" && block.anexos.isEmpty()) {
-                    block.copy(anexos = imagensPorBloco["baixa_ctps_tutela"].orEmpty().ifEmpty {
-                        anexosCtps.map { RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url) }
-                    })
+                val blocoId = block.id ?: blockIdFromTitle(block.title)
+                val anexosMultipart = blocoId?.let { imagensPorBloco[it] }.orEmpty()
+                val anexosPersistidos = if (blocoId == "baixa_ctps_tutela") {
+                    anexosCtps.map {
+                        RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url)
+                    }
+                } else emptyList()
+                val resolved = if (block.anexos.isEmpty()) {
+                    block.copy(anexos = anexosMultipart.ifEmpty { anexosPersistidos })
                 } else block
+                logger.infof("RT export bloco legado '%s': anexos associados=%d", resolved.title, resolved.anexos.size)
+                resolved
             }
         }
         if (generatedBlocks.isEmpty()) {
@@ -132,7 +154,14 @@ class RtExportResource(
     private fun sanitizeFilename(value: String): String =
         value.replace(Regex("[\\r\\n\\\\/:*?\"<>|]"), " ").trim().ifBlank { "Reclamante" }
 
+    private fun blockIdFromTitle(title: String): String? = when (title.trim()) {
+        "3. Baixa na CTPS física. Tutela antecipada" -> "baixa_ctps_tutela"
+        "Responsabilidade solidária. Grupo econômico" -> "responsabilidade_solidaria_grupo_economico"
+        else -> null
+    }
+
     private companion object {
+        val logger: Logger = Logger.getLogger(RtExportResource::class.java)
         const val DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/png")
     }
