@@ -95,6 +95,30 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export ctps image with legacy block title and field alias`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocks":[{
+                "title":"Baixa na CTPS física. Tutela antecipada",
+                "content":"Conquanto a parte autora tenha sido dispensada"
+            }]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_baixa_ctps_0", "ctps.png", TEST_IMAGE_1, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(docx, listOf(TEST_IMAGE_1), listOf("Conquanto a parte autora"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should keep images associated with both blocks in same docx`() {
         val payload = """{
             "claimantName":"Maria Silva",

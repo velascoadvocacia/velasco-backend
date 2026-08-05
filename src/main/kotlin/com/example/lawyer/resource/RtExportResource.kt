@@ -81,7 +81,9 @@ class RtExportResource(
                 }
                 campo to file
             }
-            .groupBy { (campo, _) -> campo.removePrefix("anexo_").replace(Regex("_\\d+$"), "") }
+            .groupBy { (campo, _) ->
+                canonicalBlockId(campo.removePrefix("anexo_").replace(Regex("_\\d+$"), ""))
+            }
             .mapValues { (_, entries) -> entries.map { (_, file) ->
                 val contentType = file.contentType().lowercase()
                 if (contentType !in ALLOWED_IMAGE_TYPES) {
@@ -154,10 +156,20 @@ class RtExportResource(
     private fun sanitizeFilename(value: String): String =
         value.replace(Regex("[\\r\\n\\\\/:*?\"<>|]"), " ").trim().ifBlank { "Reclamante" }
 
-    private fun blockIdFromTitle(title: String): String? = when (title.trim()) {
-        "3. Baixa na CTPS física. Tutela antecipada" -> "baixa_ctps_tutela"
-        "Responsabilidade solidária. Grupo econômico" -> "responsabilidade_solidaria_grupo_economico"
-        else -> null
+    private fun blockIdFromTitle(title: String): String? {
+        val normalized = java.text.Normalizer.normalize(title, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+            .lowercase()
+        return when {
+            "baixa na ctps" in normalized -> "baixa_ctps_tutela"
+            "grupo economico" in normalized -> "responsabilidade_solidaria_grupo_economico"
+            else -> null
+        }
+    }
+
+    private fun canonicalBlockId(value: String): String = when (value) {
+        "baixa_ctps", "baixa_ctps_fisica" -> "baixa_ctps_tutela"
+        else -> value
     }
 
     private companion object {
