@@ -454,6 +454,73 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview unregistered ctps period with exclusive dates`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("periodo_sem_registro_ctps"),
+                    dadosVariaveis = mapOf(
+                        "dataAnotacaoCtps" to "2023-04-10",
+                        "dataInicioPrestacaoServicos" to "2023-01-15"
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("periodo_sem_registro_ctps"))
+            .body(
+                "blocos[0].titulo",
+                equalTo("Período sem registro (de 15 de janeiro de 2023 à 10 de abril de 2023)")
+            )
+            .body("blocos[0].texto", containsString("apenas em 10/04/2023"))
+            .body("blocos[0].texto", containsString("teve início antes, em 15/01/2023"))
+            .body("blocos[0].texto", containsString("**mesmas funções e cumprindo os mesmos horários e dias de trabalho**"))
+            .body("blocos[0].texto", containsString("**arts. 29 e 40 da CLT**"))
+            .body("blocos[0].texto", containsString("**Súmula n.º 12 do TST**"))
+            .body("blocos[0].texto", containsString("**REQUER-SE**"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholders for blank unregistered ctps dates`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("periodo_sem_registro_ctps")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].titulo", equalTo("Período sem registro (de ___ à ___)"))
+            .body("blocos[0].texto", containsString("anotado a CTPS da parte autora apenas em ___"))
+            .body("blocos[0].texto", containsString("teve início antes, em ___"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholder for one missing date in unregistered ctps title`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("periodo_sem_registro_ctps"),
+                    dadosVariaveis = mapOf("dataAnotacaoCtps" to "2022-06-15")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body(
+                "blocos[0].titulo",
+                equalTo("Período sem registro (de ___ à 15 de junho de 2022)")
+            )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")

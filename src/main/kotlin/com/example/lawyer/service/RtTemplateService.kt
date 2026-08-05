@@ -45,6 +45,13 @@ class RtTemplateService(
             titulo = { "Reconhecimento de vínculo empregatício" },
             generate = { _, _, variaveis -> reconhecimentoVinculoEmpregaticio(variaveis) }
         ),
+        PERIODO_SEM_REGISTRO_CTPS to RtBlockDefinition(
+            titulo = { variaveis ->
+                "Período sem registro (de ${formatVariableDateLong(variaveis["dataInicioPrestacaoServicos"])} " +
+                    "à ${formatVariableDateLong(variaveis["dataAnotacaoCtps"])})"
+            },
+            generate = { _, _, variaveis -> periodoSemRegistroCtps(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
@@ -154,6 +161,16 @@ class RtTemplateService(
             "**REQUER-SE**, ainda, em virtude do período sem registro, a condenação da parte ré ao pagamento de todos os consectários legais do vínculo empregatício, quais sejam: 13º salário, férias + 1/3, depósitos mensais de FGTS mais a multa rescisória de 40% e aviso prévio, bem como indenização substitutiva relativa ao seguro-desemprego."
     }
 
+    private fun periodoSemRegistroCtps(variaveis: Map<String, String?>): String {
+        val dataAnotacaoCtps = formatVariableDate(variaveis["dataAnotacaoCtps"])
+        val dataInicioPrestacaoServicos = formatVariableDate(variaveis["dataInicioPrestacaoServicos"])
+
+        return "Conquanto a ré tenha anotado a CTPS da parte autora apenas em $dataAnotacaoCtps, sua prestação de serviços teve início antes, em $dataInicioPrestacaoServicos. Durante o intervalo sem registro, a parte autora laborou exercendo as **mesmas funções e cumprindo os mesmos horários e dias de trabalho** relativamente ao período com registro.\n\n" +
+            "Observa-se violação aos **arts. 29 e 40 da CLT**, e, por força da **Súmula n.º 12 do TST** (As anotações apostas pelo empregador na carteira profissional do empregado não geram presunção \"juris et de jure\", mas apenas \"juris tantum\".), conquanto as anotações na carteira de trabalho possuam presunção de veracidade, podem ser elididas por prova em contrário, como no presente caso.\n\n" +
+            "Pelo exposto, **REQUER-SE** o reconhecimento da existência de vínculo de emprego no período sem registro, com a consequente condenação da ré em obrigação de fazer, para que retifique a CTPS da parte autora, sob pena de multa diária no valor de R$ 1.000,00, revertida em favor da parte autora, ou em valor a ser estabelecido por este Juízo, e, neste caso, sejam realizadas as anotações pela Secretaria desta Vara do Trabalho, nos termos do art. 39, § 1º, da CLT.\n\n" +
+            "Consequentemente, **REQUER-SE,** em virtude do período sem registro, a condenação da parte ré ao pagamento das diferenças de todos os consectários legais do vínculo empregatício: 13ºs salários, férias com 1/3, FGTS acrescido da multa de 40%."
+    }
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -252,6 +269,11 @@ class RtTemplateService(
     private fun formatVariableDate(value: String?): String =
         value?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { runCatching { LocalDate.parse(it).format(DATE_FORMATTER) }.getOrNull() }
+            ?: PLACEHOLDER
+
+    private fun formatVariableDateLong(value: String?): String =
+        value?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { runCatching { LocalDate.parse(it).format(LONG_DATE_FORMATTER) }.getOrNull() }
             ?: PLACEHOLDER
 
     private fun formatCurrency(value: String?): String =
@@ -430,6 +452,7 @@ class RtTemplateService(
         const val DADOS_RECLAMANTE = "dados_reclamante"
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
         const val RECONHECIMENTO_VINCULO_EMPREGATICIO = "reconhecimento_vinculo_empregaticio"
+        const val PERIODO_SEM_REGISTRO_CTPS = "periodo_sem_registro_ctps"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val RESPONSABILIDADE_SUBSIDIARIA = "responsabilidade_subsidiaria"
@@ -442,6 +465,8 @@ class RtTemplateService(
         )
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        private val LONG_DATE_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
         private val OPCOES_MOTIVO_EXTINCAO = mapOf(
             "1" to OpcaoMotivoExtincao("Opção 1.1 – Dispensa sem justa causa", "sem justa causa"),
             "2" to OpcaoMotivoExtincao("Opção 1.2 – Dispensa com justa causa", "com justa causa"),
