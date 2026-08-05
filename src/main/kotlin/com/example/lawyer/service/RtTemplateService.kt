@@ -148,13 +148,8 @@ class RtTemplateService(
 
     private fun responsabilidadeSubsidiaria(processo: Processo): String {
         val reclamadas = processo.reclamadas.toList()
-        if (reclamadas.size < 2) {
-            throw BusinessException(
-                "O bloco \"Responsabilidade subsidiária\" requer ao menos 2 reclamadas selecionadas."
-            )
-        }
-        val nomePrimeiraRe = reclamadas[0].nome.ifBlank { "não informado" }
-        val nomeSegundaRe = reclamadas[1].nome.ifBlank { "não informado" }
+        val nomePrimeiraRe = reclamadas.getOrNull(0)?.nome.orEmpty()
+        val nomeSegundaRe = reclamadas.getOrNull(1)?.nome.orEmpty()
         return responsabilidadeSubsidiariaTexto(nomePrimeiraRe, nomeSegundaRe)
     }
 

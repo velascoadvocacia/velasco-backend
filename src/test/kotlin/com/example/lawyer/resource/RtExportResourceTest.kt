@@ -412,18 +412,38 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
-    fun `should reject subsidiary liability with fewer than two defendants`() {
+    fun `should preview subsidiary liability with one defendant`() {
+        val suffix = System.nanoTime().toString()
+        val first = pessoaService.create(pessoaRequest("unica-$suffix", null, null, null))
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    reclamadasIds = listOf(first.id!!),
+                    blocosSelecionados = listOf("responsabilidade_subsidiaria")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("1ª ré (Reclamante unica-$suffix)"))
+            .body("blocos[0].texto", containsString("2ª ré ()"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview subsidiary liability without defendants`() {
         given()
             .contentType("application/json")
             .body(RtPreviewRequest(blocosSelecionados = listOf("responsabilidade_subsidiaria")))
             .`when`()
             .post("/rt/preview")
             .then()
-            .statusCode(400)
-            .body(
-                "message",
-                equalTo("O bloco \"Responsabilidade subsidiária\" requer ao menos 2 reclamadas selecionadas.")
-            )
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("1ª ré ()"))
+            .body("blocos[0].texto", containsString("2ª ré ()"))
     }
 
     private fun pessoaRequest(
