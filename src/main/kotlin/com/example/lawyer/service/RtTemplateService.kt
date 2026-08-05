@@ -41,6 +41,10 @@ class RtTemplateService(
             titulo = { "Contrato de trabalho - Aspectos gerais" },
             generate = { _, _, variaveis -> contratoAspectosGerais(variaveis) }
         ),
+        RECONHECIMENTO_VINCULO_EMPREGATICIO to RtBlockDefinition(
+            titulo = { "Reconhecimento de vínculo empregatício" },
+            generate = { _, _, variaveis -> reconhecimentoVinculoEmpregaticio(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
@@ -132,6 +136,22 @@ class RtTemplateService(
         return "Conquanto a parte autora tenha sido dispensada sem justa causa, não houve a baixa na sua CTPS física pela ré, pelo que deve ser concedida tutela de urgência antecipada, nos termos do art. 300 do CPC, pois estão presentes o periculum in mora e o fumus boni juris, para que haja a baixa na CTPS:\n\n" +
             "Pelo exposto, **REQUER** seja concedida tutela de urgência antecipada, nos termos do art. 300 do CPC, para que seja determinado à ré que proceda à baixa na CTPS física, considerando como data do término da relação empregatícia o dia $dataExtincao. Consequentemente, em caso de descumprimento da obrigação, **REQUER** seja arbitrada multa diária, revertida em favor da parte autora, em valor a ser estabelecido por este Juízo, e, neste caso, sejam realizadas as anotações pela secretaria da Vara do Trabalho, nos termos do art. 39, § 1º, da CLT.\n\n" +
             "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela antecipada acima formulado, com o seu integral acolhimento."
+    }
+
+    private fun reconhecimentoVinculoEmpregaticio(variaveis: Map<String, String?>): String {
+        val motivoNaoEventualidade = variaveis["motivoNaoEventualidade"].orPlaceholder()
+        val motivoOnerosidade = variaveis["motivoOnerosidade"].orPlaceholder()
+        val motivoSubordinacao = variaveis["motivoSubordinacao"].orPlaceholder()
+        val dataInicio = formatVariableDate(variaveis["dataInicioVinculo"])
+        val dataFim = formatVariableDate(variaveis["dataFimVinculo"])
+
+        return "A parte autora prestou serviços em favor da parte ré com todos os elementos do **art. 3º da CLT**, mas não foi realizada a formalização do vínculo empregatício, mediante anotação da CTPS e, consequentemente, com violação aos direitos correspondentes.\n\n" +
+            "Exercia seu trabalho, enquanto pessoa física e mediante pessoalidade, com:\n\n" +
+            "• não eventualidade, $motivoNaoEventualidade;\n\n" +
+            "- a título de onerosidade, $motivoOnerosidade; e\n\n" +
+            "- havia subordinação, pois $motivoSubordinacao.\n\n" +
+            "Pelo exposto, com fundamento no **art. 3º da CLT**, **REQUER-SE** o reconhecimento do vínculo empregatício entre a parte autora e a parte ré, relativamente ao período de $dataInicio até $dataFim, bem como a condenação da ré para que proceda à anotação do referido período na CTPS da parte autora; em caso de descumprimento da obrigação, seja arbitrada multa diária, revertida em favor da parte autora, em valor a ser estabelecido por este Juízo, e, neste caso, sejam realizadas as anotações pela Secretaria desta Vara do Trabalho, nos termos do art. 39, § 1º, da CLT.\n\n" +
+            "**REQUER-SE**, ainda, em virtude do período sem registro, a condenação da parte ré ao pagamento de todos os consectários legais do vínculo empregatício, quais sejam: 13º salário, férias + 1/3, depósitos mensais de FGTS mais a multa rescisória de 40% e aviso prévio, bem como indenização substitutiva relativa ao seguro-desemprego."
     }
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -409,6 +429,7 @@ class RtTemplateService(
         const val QUALIFICACAO_RECLAMADA = "qualificacao_reclamada"
         const val DADOS_RECLAMANTE = "dados_reclamante"
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
+        const val RECONHECIMENTO_VINCULO_EMPREGATICIO = "reconhecimento_vinculo_empregaticio"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val RESPONSABILIDADE_SUBSIDIARIA = "responsabilidade_subsidiaria"

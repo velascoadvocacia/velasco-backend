@@ -409,6 +409,51 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview employment relationship recognition with interview fields`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("reconhecimento_vinculo_empregaticio"),
+                    dadosVariaveis = mapOf(
+                        "motivoNaoEventualidade" to "trabalhava habitualmente de segunda a sábado",
+                        "motivoOnerosidade" to "recebia remuneração mensal",
+                        "motivoSubordinacao" to "cumpria ordens do supervisor",
+                        "dataInicioVinculo" to "2023-01-10",
+                        "dataFimVinculo" to "2024-05-20"
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("reconhecimento_vinculo_empregaticio"))
+            .body("blocos[0].titulo", equalTo("Reconhecimento de vínculo empregatício"))
+            .body("blocos[0].texto", containsString("• não eventualidade, trabalhava habitualmente de segunda a sábado;"))
+            .body("blocos[0].texto", containsString("- a título de onerosidade, recebia remuneração mensal; e"))
+            .body("blocos[0].texto", containsString("- havia subordinação, pois cumpria ordens do supervisor."))
+            .body("blocos[0].texto", containsString("período de 10/01/2023 até 20/05/2024"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholders for blank employment relationship fields`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("reconhecimento_vinculo_empregaticio")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("• não eventualidade, ___;"))
+            .body("blocos[0].texto", containsString("- a título de onerosidade, ___; e"))
+            .body("blocos[0].texto", containsString("- havia subordinação, pois ___."))
+            .body("blocos[0].texto", containsString("período de ___ até ___"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")
