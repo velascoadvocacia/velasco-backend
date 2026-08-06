@@ -160,6 +160,7 @@ class RtExportResource(
             "baixa na ctps" in normalized -> "baixa_ctps_tutela"
             "contrato administrativo" in normalized -> "responsabilidade_subsidiaria_contrato_administrativo"
             "grupo economico" in normalized -> "responsabilidade_solidaria_grupo_economico"
+            "piso convencional" in normalized -> "diferencas_salariais_piso_convencional"
             else -> null
         }
     }

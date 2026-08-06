@@ -567,6 +567,71 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview conventional salary floor differences`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("diferencas_salariais_piso_convencional"),
+                    dadosVariaveis = mapOf("cctReferencia" to "CCT 2025/2026")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("diferencas_salariais_piso_convencional"))
+            .body("blocos[0].titulo", equalTo("Diferenças salariais. Piso convencional"))
+            .body("blocos[0].texto", containsString("conforme CCT CCT 2025/2026:"))
+            .body("blocos[0].texto", containsString("**art. 7º, V, da Constituição Federal**"))
+            .body("blocos[0].texto", containsString("**REQUER-SE**"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholder for blank conventional salary floor reference`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("diferencas_salariais_piso_convencional")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("conforme CCT ___:"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export multiple conventional salary floor images from multipart bytes`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["diferencas_salariais_piso_convencional"],
+            "dadosVariaveis":{"cctReferencia":"CCT 2025/2026"}
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_diferencas_salariais_piso_convencional_0", "holerite.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_diferencas_salariais_piso_convencional_1", "cct.png", TEST_IMAGE_2, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(
+            docx,
+            listOf(TEST_IMAGE_1, TEST_IMAGE_2),
+            listOf(
+                "O salário pago à parte autora era inferior ao piso convencional",
+                "O salário pago à parte autora era inferior ao piso convencional"
+            )
+        )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")

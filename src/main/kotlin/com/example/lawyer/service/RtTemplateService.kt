@@ -56,6 +56,10 @@ class RtTemplateService(
             titulo = { "Dano moral por ausência de anotação da CTPS" },
             generate = { _, _, variaveis -> danoMoralAusenciaAnotacaoCtps(variaveis) }
         ),
+        DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL to RtBlockDefinition(
+            titulo = { "Diferenças salariais. Piso convencional" },
+            generate = { _, _, variaveis -> diferencasSalariaisPisoConvencional(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
@@ -189,6 +193,13 @@ class RtTemplateService(
             append("Pelo exposto, com fundamento no **art. 5º, X, da Constituição Federal** e nos **arts. 186 e 927 do Código Civil, REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais.")
             descricaoDano?.let { append("\n\n").append(it) }
         }
+    }
+
+    private fun diferencasSalariaisPisoConvencional(variaveis: Map<String, String?>): String {
+        val cctReferencia = variaveis["cctReferencia"].orPlaceholder()
+
+        return "O salário pago à parte autora era inferior ao piso convencional, conforme CCT $cctReferencia:\n\n" +
+            "Pelo exposto, diante da afronta ao **art. 7º, V, da Constituição Federal**, **REQUER-SE** a condenação da ré ao pagamento das diferenças salariais, considerando-se o piso salarial previsto nas convenções coletivas indicadas, com a consequente condenação da ré ao pagamento dos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
     }
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -474,6 +485,7 @@ class RtTemplateService(
         const val RECONHECIMENTO_VINCULO_EMPREGATICIO = "reconhecimento_vinculo_empregaticio"
         const val PERIODO_SEM_REGISTRO_CTPS = "periodo_sem_registro_ctps"
         const val DANO_MORAL_AUSENCIA_ANOTACAO_CTPS = "dano_moral_ausencia_anotacao_ctps"
+        const val DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL = "diferencas_salariais_piso_convencional"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val RESPONSABILIDADE_SUBSIDIARIA = "responsabilidade_subsidiaria"
@@ -482,7 +494,8 @@ class RtTemplateService(
         private val BLOCOS_COM_ANEXOS = setOf(
             BAIXA_CTPS_TUTELA,
             RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
-            RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO
+            RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO,
+            DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL
         )
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
