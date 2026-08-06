@@ -27,58 +27,64 @@ class RtTemplateService(
     private val blockDefinitions = linkedMapOf(
         QUALIFICACAO_RECLAMANTE to RtBlockDefinition(
             titulo = { "Qualificação do Reclamante" },
-            generate = { processo, advogados, _ -> qualificacaoReclamante(processo, advogados) }
+            generate = { processo, advogados, _, _ -> qualificacaoReclamante(processo, advogados) }
         ),
         QUALIFICACAO_RECLAMADA to RtBlockDefinition(
             titulo = { "Qualificação da Reclamada" },
-            generate = { processo, _, _ -> qualificacaoReclamada(processo) }
+            generate = { processo, _, _, _ -> qualificacaoReclamada(processo) }
         ),
         DADOS_RECLAMANTE to RtBlockDefinition(
             titulo = { "Dados do(a) Reclamante" },
-            generate = { processo, _, _ -> dadosReclamante(processo) }
+            generate = { processo, _, _, _ -> dadosReclamante(processo) }
         ),
         CONTRATO_ASPECTOS_GERAIS to RtBlockDefinition(
             titulo = { "Contrato de trabalho - Aspectos gerais" },
-            generate = { _, _, variaveis -> contratoAspectosGerais(variaveis) }
+            generate = { _, _, variaveis, _ -> contratoAspectosGerais(variaveis) }
         ),
         RECONHECIMENTO_VINCULO_EMPREGATICIO to RtBlockDefinition(
             titulo = { "Reconhecimento de vínculo empregatício" },
-            generate = { _, _, variaveis -> reconhecimentoVinculoEmpregaticio(variaveis) }
+            generate = { _, _, variaveis, _ -> reconhecimentoVinculoEmpregaticio(variaveis) }
         ),
         PERIODO_SEM_REGISTRO_CTPS to RtBlockDefinition(
             titulo = { variaveis ->
                 "Período sem registro (de ${formatVariableDateLong(variaveis["dataInicioPrestacaoServicos"])} " +
                     "à ${formatVariableDateLong(variaveis["dataAnotacaoCtps"])})"
             },
-            generate = { _, _, variaveis -> periodoSemRegistroCtps(variaveis) }
+            generate = { _, _, variaveis, _ -> periodoSemRegistroCtps(variaveis) }
         ),
         DANO_MORAL_AUSENCIA_ANOTACAO_CTPS to RtBlockDefinition(
             titulo = { "Dano moral por ausência de anotação da CTPS" },
-            generate = { _, _, variaveis -> danoMoralAusenciaAnotacaoCtps(variaveis) }
+            generate = { _, _, variaveis, _ -> danoMoralAusenciaAnotacaoCtps(variaveis) }
         ),
         DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL to RtBlockDefinition(
             titulo = { "Diferenças salariais. Piso convencional" },
-            generate = { _, _, variaveis -> diferencasSalariaisPisoConvencional(variaveis) }
+            generate = { _, _, variaveis, _ -> diferencasSalariaisPisoConvencional(variaveis) }
+        ),
+        AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS to RtBlockDefinition(
+            titulo = { "Ausência de pagamento das verbas rescisórias" },
+            generate = { _, _, variaveis, blocosSelecionados ->
+                ausenciaPagamentoVerbasRescisorias(variaveis, blocosSelecionados)
+            }
         ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
-            generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
+            generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
         ),
         RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO to RtBlockDefinition(
             titulo = { "Responsabilidade solidária. Grupo econômico" },
-            generate = { _, _, variaveis -> responsabilidadeSolidariaGrupoEconomico(variaveis) }
+            generate = { _, _, variaveis, _ -> responsabilidadeSolidariaGrupoEconomico(variaveis) }
         ),
         RESPONSABILIDADE_SUBSIDIARIA to RtBlockDefinition(
             titulo = { "Responsabilidade subsidiária" },
-            generate = { processo, _, _ -> responsabilidadeSubsidiaria(processo) }
+            generate = { processo, _, _, _ -> responsabilidadeSubsidiaria(processo) }
         ),
         RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO to RtBlockDefinition(
             titulo = { "Responsabilidade subsidiária. Contrato administrativo" },
-            generate = { processo, _, variaveis -> responsabilidadeSubsidiariaContratoAdministrativo(processo, variaveis) }
+            generate = { processo, _, variaveis, _ -> responsabilidadeSubsidiariaContratoAdministrativo(processo, variaveis) }
         ),
         LEGITIMIDADE_PASSIVA_SOCIOS to RtBlockDefinition(
             titulo = { "Legitimidade passiva dos sócios das rés" },
-            generate = { _, _, _ -> legitimidadePassivaSocios() }
+            generate = { _, _, _, _ -> legitimidadePassivaSocios() }
         )
     )
 
@@ -99,6 +105,7 @@ class RtTemplateService(
         } else {
             resolveAdvogados(request.advogadosIds)
         }
+        val blocosSelecionados = request.blocosSelecionados.map { it.trim() }.toSet()
         return request.blocosSelecionados.map { it.trim() }
             .distinct()
             .mapNotNull { blockId ->
@@ -107,7 +114,7 @@ class RtTemplateService(
                     RtPreviewBlockResponse(
                         id = blockId,
                         titulo = definition.titulo(variaveis),
-                        texto = definition.generate(processo, advogados, variaveis),
+                        texto = definition.generate(processo, advogados, variaveis, blocosSelecionados),
                         anexos = if (blockId in BLOCOS_COM_ANEXOS) {
                             request.processoId?.let { processoAnexoService.list(it, blockId) }.orEmpty()
                         } else {
@@ -201,6 +208,29 @@ class RtTemplateService(
         return "O salário pago à parte autora era inferior ao piso convencional, conforme CCT $cctReferencia:\n\n" +
             "Pelo exposto, diante da afronta ao **art. 7º, V, da Constituição Federal**, **REQUER-SE** a condenação da ré ao pagamento das diferenças salariais, considerando-se o piso salarial previsto nas convenções coletivas indicadas, com a consequente condenação da ré ao pagamento dos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
     }
+
+    private fun ausenciaPagamentoVerbasRescisorias(
+        variaveis: Map<String, String?>,
+        blocosSelecionados: Set<String>
+    ): String = buildList {
+        add("A parte ré não pagou as verbas rescisórias devidas, o que impõe a sua condenação, conforme exposto a seguir:")
+
+        if (VERBAS_RESCISORIAS_AVISO_PREVIO in blocosSelecionados) {
+            add("Diante do não pagamento do aviso prévio à parte autora, com fundamento no art. 487 da CLT, **REQUER-SE** a condenação da ré ao pagamento do aviso prévio (${variaveis["qtdDiasAviso"].orPlaceholder()}).")
+        }
+        if (VERBAS_RESCISORIAS_FERIAS in blocosSelecionados) {
+            add("Nos termos do art. 7º, XVII, da Constituição Federal, **REQUER-SE** a condenação da ré ao pagamento de férias proporcionais + 1/3 (${variaveis["detalheFerias"].orPlaceholder()}).")
+        }
+        if (VERBAS_RESCISORIAS_DECIMO_TERCEIRO in blocosSelecionados) {
+            add("Nos termos do art. 7º, VIII, da Constituição Federal, **REQUER-SE** a condenação da ré ao pagamento do 13º salário proporcional (${variaveis["detalheDecimoTerceiro"].orPlaceholder()}).")
+        }
+        if (VERBAS_RESCISORIAS_MULTA_FGTS in blocosSelecionados) {
+            add("Com fundamento no art. 10, I, do Ato das Disposições Constitucionais Transitórias, **REQUER-SE** a condenação da ré ao pagamento da multa de 40% do FGTS.")
+        }
+        if (VERBAS_RESCISORIAS_MULTAS_467_477 in blocosSelecionados) {
+            add("Diante do não pagamento das verbas rescisórias à parte autora, **REQUER-SE** a condenação da ré ao pagamento das multas do **art. 467 da CLT** e do **art. 477, § 8º, da CLT**.")
+        }
+    }.joinToString("\n\n")
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
@@ -472,7 +502,7 @@ class RtTemplateService(
 
     private data class RtBlockDefinition(
         val titulo: (Map<String, String?>) -> String,
-        val generate: (Processo, Set<Usuario>, Map<String, String?>) -> String
+        val generate: (Processo, Set<Usuario>, Map<String, String?>, Set<String>) -> String
     )
 
     private data class OpcaoMotivoExtincao(val titulo: String, val motivo: String)
@@ -486,6 +516,12 @@ class RtTemplateService(
         const val PERIODO_SEM_REGISTRO_CTPS = "periodo_sem_registro_ctps"
         const val DANO_MORAL_AUSENCIA_ANOTACAO_CTPS = "dano_moral_ausencia_anotacao_ctps"
         const val DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL = "diferencas_salariais_piso_convencional"
+        const val AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "ausencia_pagamento_verbas_rescisorias"
+        const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
+        const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
+        const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
+        const val VERBAS_RESCISORIAS_MULTA_FGTS = "verbas_rescisorias_multa_fgts"
+        const val VERBAS_RESCISORIAS_MULTAS_467_477 = "verbas_rescisorias_multas_467_477"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val RESPONSABILIDADE_SUBSIDIARIA = "responsabilidade_subsidiaria"

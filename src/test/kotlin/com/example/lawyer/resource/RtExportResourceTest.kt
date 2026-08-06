@@ -632,6 +632,108 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview selected severance payment children in fixed order`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "verbas_rescisorias_multas_467_477",
+                        "ausencia_pagamento_verbas_rescisorias",
+                        "verbas_rescisorias_decimo_terceiro",
+                        "verbas_rescisorias_aviso_previo"
+                    ),
+                    dadosVariaveis = mapOf(
+                        "qtdDiasAviso" to "33 dias",
+                        "detalheDecimoTerceiro" to "8/12 avos"
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("ausencia_pagamento_verbas_rescisorias"))
+            .body("blocos[0].titulo", equalTo("Ausência de pagamento das verbas rescisórias"))
+            .body(
+                "blocos[0].texto",
+                equalTo(
+                    "A parte ré não pagou as verbas rescisórias devidas, o que impõe a sua condenação, conforme exposto a seguir:\n\n" +
+                        "Diante do não pagamento do aviso prévio à parte autora, com fundamento no art. 487 da CLT, **REQUER-SE** a condenação da ré ao pagamento do aviso prévio (33 dias).\n\n" +
+                        "Nos termos do art. 7º, VIII, da Constituição Federal, **REQUER-SE** a condenação da ré ao pagamento do 13º salário proporcional (8/12 avos).\n\n" +
+                        "Diante do não pagamento das verbas rescisórias à parte autora, **REQUER-SE** a condenação da ré ao pagamento das multas do **art. 467 da CLT** e do **art. 477, § 8º, da CLT**."
+                )
+            )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview only introduction when no severance payment child is selected`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("ausencia_pagamento_verbas_rescisorias")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body(
+                "blocos[0].texto",
+                equalTo("A parte ré não pagou as verbas rescisórias devidas, o que impõe a sua condenação, conforme exposto a seguir:")
+            )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholder for selected severance payment child with blank field`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "ausencia_pagamento_verbas_rescisorias",
+                        "verbas_rescisorias_ferias"
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("férias proporcionais + 1/3 (___)."))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview all severance payment children`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "ausencia_pagamento_verbas_rescisorias",
+                        "verbas_rescisorias_aviso_previo",
+                        "verbas_rescisorias_ferias",
+                        "verbas_rescisorias_decimo_terceiro",
+                        "verbas_rescisorias_multa_fgts",
+                        "verbas_rescisorias_multas_467_477"
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].texto", containsString("aviso prévio (___)"))
+            .body("blocos[0].texto", containsString("férias proporcionais + 1/3 (___)"))
+            .body("blocos[0].texto", containsString("13º salário proporcional (___)"))
+            .body("blocos[0].texto", containsString("multa de 40% do FGTS"))
+            .body("blocos[0].texto", containsString("**art. 477, § 8º, da CLT**"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")
