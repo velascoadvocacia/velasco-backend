@@ -52,6 +52,10 @@ class RtTemplateService(
             },
             generate = { _, _, variaveis -> periodoSemRegistroCtps(variaveis) }
         ),
+        DANO_MORAL_AUSENCIA_ANOTACAO_CTPS to RtBlockDefinition(
+            titulo = { "Dano moral por ausência de anotação da CTPS" },
+            generate = { _, _, variaveis -> danoMoralAusenciaAnotacaoCtps(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis -> baixaCtpsTutela(variaveis) }
@@ -169,6 +173,22 @@ class RtTemplateService(
             "Observa-se violação aos **arts. 29 e 40 da CLT**, e, por força da **Súmula n.º 12 do TST** (As anotações apostas pelo empregador na carteira profissional do empregado não geram presunção \"juris et de jure\", mas apenas \"juris tantum\".), conquanto as anotações na carteira de trabalho possuam presunção de veracidade, podem ser elididas por prova em contrário, como no presente caso.\n\n" +
             "Pelo exposto, **REQUER-SE** o reconhecimento da existência de vínculo de emprego no período sem registro, com a consequente condenação da ré em obrigação de fazer, para que retifique a CTPS da parte autora, sob pena de multa diária no valor de R$ 1.000,00, revertida em favor da parte autora, ou em valor a ser estabelecido por este Juízo, e, neste caso, sejam realizadas as anotações pela Secretaria desta Vara do Trabalho, nos termos do art. 39, § 1º, da CLT.\n\n" +
             "Consequentemente, **REQUER-SE,** em virtude do período sem registro, a condenação da parte ré ao pagamento das diferenças de todos os consectários legais do vínculo empregatício: 13ºs salários, férias com 1/3, FGTS acrescido da multa de 40%."
+    }
+
+    private fun danoMoralAusenciaAnotacaoCtps(variaveis: Map<String, String?>): String {
+        val descricaoDano = variaveis["descricaoDanoMoralCtps"]
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+        return buildString {
+            append("Há dano moral pela não anotação da CTPS. Ao sonegar esse direito fundamental, a ré gerou angústia à parte autora, que, por exemplo, mediante doença ou óbito, deixaria a si e sua família desamparados.\n\n")
+            append("Nesse sentido, o TRT-1 já decidiu:\n\n")
+            append("**Tribunal Regional do Trabalho da 1ª Região**\n")
+            append("RECURSO ORDINÁRIO. DANO MORAL. NÃO ANOTAÇÃO CTPS. __**A não anotação da CTPS do empregado implica na sonegação de direitos elementares do empregado que produzem dano moral tanto pelo aspecto econômico já que impede o acesso a bens essenciais à subsistência, bem como pela intensa sujeição a que se submete o trabalhador sem uma rede social que o proteja (FGTS, seguro-desemprego, previdência social)**__. (TRT-1 - RO: 01005510920195010021 RJ, Relator: ANA MARIA SOARES DE MORAES, Data de Julgamento: 06/09/2021, Primeira Turma, Data de Publicação: 01/10/2021)\n")
+            append("(grifo nosso)\n\n")
+            append("Pelo exposto, com fundamento no **art. 5º, X, da Constituição Federal** e nos **arts. 186 e 927 do Código Civil, REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais.")
+            descricaoDano?.let { append("\n\n").append(it) }
+        }
     }
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -453,6 +473,7 @@ class RtTemplateService(
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
         const val RECONHECIMENTO_VINCULO_EMPREGATICIO = "reconhecimento_vinculo_empregaticio"
         const val PERIODO_SEM_REGISTRO_CTPS = "periodo_sem_registro_ctps"
+        const val DANO_MORAL_AUSENCIA_ANOTACAO_CTPS = "dano_moral_ausencia_anotacao_ctps"
         const val BAIXA_CTPS_TUTELA = "baixa_ctps_tutela"
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val RESPONSABILIDADE_SUBSIDIARIA = "responsabilidade_subsidiaria"

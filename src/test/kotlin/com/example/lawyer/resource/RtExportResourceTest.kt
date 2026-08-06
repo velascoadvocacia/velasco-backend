@@ -521,6 +521,52 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview moral damages for missing ctps annotation with description`() {
+        val descricao = "O trabalhador ficou impossibilitado de comprovar o vínculo e acessar benefícios previdenciários."
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("dano_moral_ausencia_anotacao_ctps"),
+                    dadosVariaveis = mapOf("descricaoDanoMoralCtps" to descricao)
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("dano_moral_ausencia_anotacao_ctps"))
+            .body("blocos[0].titulo", equalTo("Dano moral por ausência de anotação da CTPS"))
+            .body("blocos[0].texto", containsString("**Tribunal Regional do Trabalho da 1ª Região**"))
+            .body("blocos[0].texto", containsString("__**A não anotação da CTPS do empregado"))
+            .body("blocos[0].texto", containsString("**arts. 186 e 927 do Código Civil, REQUER-SE**"))
+            .body("blocos[0].texto", containsString("\n\n$descricao"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should omit blank moral damages description for missing ctps annotation`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("dano_moral_ausencia_anotacao_ctps"),
+                    dadosVariaveis = mapOf("descricaoDanoMoralCtps" to "   ")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body(
+                "blocos[0].texto",
+                org.hamcrest.Matchers.endsWith("pagamento de indenização a título de danos morais.")
+            )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")
