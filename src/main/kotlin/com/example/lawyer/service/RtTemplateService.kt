@@ -66,6 +66,10 @@ class RtTemplateService(
                 ausenciaPagamentoVerbasRescisorias(variaveis, blocosSelecionados)
             }
         ),
+        DANO_MORAL_AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS to RtBlockDefinition(
+            titulo = { "Dano moral por ausência de pagamento das verbas rescisórias" },
+            generate = { _, _, _, _ -> danoMoralAusenciaPagamentoVerbasRescisorias() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -231,6 +235,33 @@ class RtTemplateService(
             add("Diante do não pagamento das verbas rescisórias à parte autora, **REQUER-SE** a condenação da ré ao pagamento das multas do **art. 467 da CLT** e do **art. 477, § 8º, da CLT**.")
         }
     }.joinToString("\n\n")
+
+    private fun danoMoralAusenciaPagamentoVerbasRescisorias(): String =
+        """
+        Diante do não pagamento das verbas rescisórias, fica evidente a existência de dano à parte autora pela impossibilidade de utilização dos seus valores rescisórios, situação gerada por culpa exclusiva da ré.
+
+        Sobre o reconhecimento de danos morais em razão de não pagamento de verbas rescisórias, assim já julgaram os TRTs da 4ª, 17ª e 18ª Regiões:
+
+        **TRT da 4ª Região**
+        DANO MORAL. INADIMPLEMENTO DAS VERBAS RESCISÓRIAS. __**A ausência de pagamento das verbas rescisórias impõe, por si só, o dever de indenizar com fundamento extrapatrimonial. O dano moral é presumido (in re ipsa), nascendo do próprio ilícito praticado.**__ (TRT-4 - ROT: 00212003820165040011, Data de Julgamento: 07/11/2019, 1ª Turma)
+        (grifo nosso)
+
+        **TRT da 4ª Região**
+        DANO MORAL. NÃO PAGAMENTO DAS VERBAS RESCISÓRIAS. INDENIZAÇÃO DEVIDA. __**O abalo moral deve ser presumido quando comprovado o não pagamento do quanto devido pelo empregador em relação às parcelas principal e acessórias,**__ bem como no que concerne à ausência da quitação das obrigações devidas no momento da rescisão do contrato. __**Comprovado o atraso no pagamento das parcelas rescisórias de forma a gerar danos morais ao trabalhador.**__ Recurso da reclamante provido. (TRT-4 - ROT: 00207204520205040003, Data de Julgamento: 05/05/2022, 2ª Turma)
+        (grifo nosso)
+
+        TRT da 17ª Região
+        __**DANOS MORAIS, VERBAS RESCISÓRIAS. É devida indenização por danos morais no caso de dispensa sem o pagamento das verbas rescisórias. Súmula 46 do TRT da 17ª Região.**__ (TRT-17 - RO: 00003791920175170010, Relator: JAILSON PEREIRA DA SILVA, Data de Julgamento: 03/06/2019, Data de Publicação: 27/06/2019)
+        (grifo nosso)
+
+        **TRT da 18ª Região**
+        AUSÊNCIA DE PAGAMENTO DAS VERBAS RESCISÓRIAS. DANO MORAL. __**O dano moral revela-se evidente e presumível pela ausência de pagamento das verbas rescisórias,**__ em razão da __**inconteste violação ao princípio da dignidade da pessoa humana, ultrapassando a seara de meros dissabores.**__ Não se trata do atraso no pagamento previsto na Súmula 49 deste Regional, mas sim da completa ausência de pagamento destas, __**acarretando o dever de indenizar.**__ (TRT18, RORSum - 0010605-26.2020.5.18.0083, Rel. GENTIL PIO DE OLIVEIRA, 1ª TURMA, 16/04/2021)
+
+        No mesmo sentido, já decidiu o TRT-3:
+
+        **TRT da 3ª Região**
+        INDENIZAÇÃO POR DANO MORAL. ATRASO NO PAGAMENTO DAS VERBAS RESCISÓRIAS E RECOLHIMENTO DO FGTS. A mora no pagamento de verbas rescisórias e recolhimento do FGTS, inequivocamente, constitui lesão de ordem emocional. Não há dúvida de que o atraso injustificado do acerto rescisório __**acarreta sérios transtornos na vida do trabalhador que, além de perder o seu emprego, fonte de sua subsistência e de sua família, não pode contar com os valores da sua rescisão para garantir a sua sobrevivência até encontrar um novo emprego.**__ Tal situação gera um estado emocional instável para o trabalhador que não sabe como honrará os seus compromissos. A ausência do pagamento certamente que impõe ao trabalhador situações que afetam a sua dignidade, porquanto viola a sua subsistência e condições de uma vida digna, dada a impossibilidade de arcar com necessidades elementares de sua família. __**Nesse sentido, o dano moral se apresenta, in re ipsa. Emergem daí o nexo de causalidade, o dano e a culpa das reclamadas no evento danoso, configurando-se os elementos componentes da responsabilidade civil.**__ Sob este enfoque, a indenização por dano moral é devida. (TRT-3 - RO: 00102534320195030173 MG 0010253-43.2019.5.03.0173, Relator: Adriana Goulart de Sena Orsini, Data de Julgamento: 02/02/2022, Primeira Turma, Data de Publicação: 11/02/2022.)
+        """.trimIndent()
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
@@ -517,6 +548,7 @@ class RtTemplateService(
         const val DANO_MORAL_AUSENCIA_ANOTACAO_CTPS = "dano_moral_ausencia_anotacao_ctps"
         const val DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL = "diferencas_salariais_piso_convencional"
         const val AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "ausencia_pagamento_verbas_rescisorias"
+        const val DANO_MORAL_AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "dano_moral_ausencia_pagamento_verbas_rescisorias"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"

@@ -734,6 +734,36 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview moral damages for unpaid severance with all citations and formatting`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("dano_moral_ausencia_pagamento_verbas_rescisorias")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("dano_moral_ausencia_pagamento_verbas_rescisorias"))
+            .body(
+                "blocos[0].titulo",
+                equalTo("Dano moral por ausência de pagamento das verbas rescisórias")
+            )
+            .body("blocos[0].texto", containsString("**TRT da 4ª Região**"))
+            .body("blocos[0].texto", containsString("__**A ausência de pagamento das verbas rescisórias impõe"))
+            .body("blocos[0].texto", containsString("__**DANOS MORAIS, VERBAS RESCISÓRIAS."))
+            .body("blocos[0].texto", containsString("**TRT da 18ª Região**"))
+            .body("blocos[0].texto", containsString("__**acarretando o dever de indenizar.**__"))
+            .body("blocos[0].texto", containsString("**TRT da 3ª Região**"))
+            .body("blocos[0].texto", containsString("__**Nesse sentido, o dano moral se apresenta, in re ipsa."))
+            .body("blocos[0].anexos.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")
