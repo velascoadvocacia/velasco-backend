@@ -764,6 +764,65 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview resignation conversion using first defendant and serious breach`() {
+        val suffix = System.nanoTime().toString()
+        val first = pessoaService.create(pessoaRequest("primeira-conversao-$suffix", null, null, null))
+        val second = pessoaService.create(pessoaRequest("segunda-conversao-$suffix", null, null, null))
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    reclamadasIds = listOf(first.id!!, second.id!!),
+                    blocosSelecionados = listOf("conversao_pedido_demissao_rescisao_indireta"),
+                    dadosVariaveis = mapOf(
+                        "descricaoFaltaGrave" to "deixou de recolher o FGTS durante todo o contrato"
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("conversao_pedido_demissao_rescisao_indireta"))
+            .body(
+                "blocos[0].titulo",
+                equalTo("Conversão do pedido de demissão em rescisão indireta")
+            )
+            .body(
+                "blocos[0].texto",
+                containsString(
+                    "A parte ré Reclamante primeira-conversao-$suffix " +
+                        "(deixou de recolher o FGTS durante todo o contrato)."
+                )
+            )
+            .body("blocos[0].texto", not(containsString("Reclamante segunda-conversao-$suffix")))
+            .body("blocos[0].texto", containsString("**rescisão indireta**"))
+            .body("blocos[0].texto", containsString("**art. 483, alínea d, da CLT**"))
+            .body("blocos[0].texto", containsString("__**Por fim, é firme, na jurisprudência"))
+            .body("blocos[0].texto", containsString("__**o referido dispositivo não estabelece"))
+            .body("blocos[0].texto", containsString("**REQUER-SE** a conversão"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholders in resignation conversion without defendant or serious breach`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("conversao_pedido_demissao_rescisao_indireta")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("A parte ré ___ (___)."))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")

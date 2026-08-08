@@ -70,6 +70,12 @@ class RtTemplateService(
             titulo = { "Dano moral por ausência de pagamento das verbas rescisórias" },
             generate = { _, _, _, _ -> danoMoralAusenciaPagamentoVerbasRescisorias() }
         ),
+        CONVERSAO_PEDIDO_DEMISSAO_RESCISAO_INDIRETA to RtBlockDefinition(
+            titulo = { "Conversão do pedido de demissão em rescisão indireta" },
+            generate = { processo, _, variaveis, _ ->
+                conversaoPedidoDemissaoRescisaoIndireta(processo, variaveis)
+            }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -262,6 +268,28 @@ class RtTemplateService(
         **TRT da 3ª Região**
         INDENIZAÇÃO POR DANO MORAL. ATRASO NO PAGAMENTO DAS VERBAS RESCISÓRIAS E RECOLHIMENTO DO FGTS. A mora no pagamento de verbas rescisórias e recolhimento do FGTS, inequivocamente, constitui lesão de ordem emocional. Não há dúvida de que o atraso injustificado do acerto rescisório __**acarreta sérios transtornos na vida do trabalhador que, além de perder o seu emprego, fonte de sua subsistência e de sua família, não pode contar com os valores da sua rescisão para garantir a sua sobrevivência até encontrar um novo emprego.**__ Tal situação gera um estado emocional instável para o trabalhador que não sabe como honrará os seus compromissos. A ausência do pagamento certamente que impõe ao trabalhador situações que afetam a sua dignidade, porquanto viola a sua subsistência e condições de uma vida digna, dada a impossibilidade de arcar com necessidades elementares de sua família. __**Nesse sentido, o dano moral se apresenta, in re ipsa. Emergem daí o nexo de causalidade, o dano e a culpa das reclamadas no evento danoso, configurando-se os elementos componentes da responsabilidade civil.**__ Sob este enfoque, a indenização por dano moral é devida. (TRT-3 - RO: 00102534320195030173 MG 0010253-43.2019.5.03.0173, Relator: Adriana Goulart de Sena Orsini, Data de Julgamento: 02/02/2022, Primeira Turma, Data de Publicação: 11/02/2022.)
         """.trimIndent()
+
+    private fun conversaoPedidoDemissaoRescisaoIndireta(
+        processo: Processo,
+        variaveis: Map<String, String?>
+    ): String {
+        val nomeRe = processo.reclamadas.firstOrNull()?.nome.orPlaceholder()
+        val descricaoFaltaGrave = variaveis["descricaoFaltaGrave"].orPlaceholder()
+
+        return """
+            A parte ré $nomeRe ($descricaoFaltaGrave). Tal situação não deixou alternativa para o autor a não ser pedir demissão.
+
+            Há fundamento para a **rescisão indireta** do contrato de trabalho, nos termos do **art. 483, alínea d, da CLT**, tendo em vista o descumprimento das obrigações do contrato de trabalho.
+
+            Frise-se que, conforme entendimento do TST, a existência de pedido de demissão não obsta a rescisão indireta, uma vez que a **caracterização da falta grave é suficiente para a conversão**, porquanto se presume a relação entre o descumprimento contratual patronal e a causa de extinção do contrato, sendo **desnecessária a prova de vício de consentimento no pedido de demissão:**
+
+            **6ª Turma do TST**
+            [...] CONVERSÃO DO PEDIDO DE DEMISSÃO EM RESCISÃO INDIRETA. INADIMPLEMENTO DAS PARCELAS DO FGTS. REQUISITOS DO ART. 896, § 1º-A, DA CLT, ATENDIDOS. Trata-se de debate acerca da possibilidade de conversão do pedido de demissão em rescisão indireta, diante do comprovado descumprimento contratual pelo empregador (inadimplemento das parcelas do FGTS). No Direito do Trabalho, o atraso reiterado no pagamento dos salários, bem como a irregularidade no recolhimento do FGTS, denota o não cumprimento das obrigações por parte do empregador e, portanto, enseja a rescisão contratual pelo empregado, nos termos do art. 483, d, da CLT. Ademais, esta Corte tem reiteradamente decidido pela relativização do requisito da imediatidade no tocante à rescisão indireta, em observância aos princípios da continuidade da prestação laboral e da proteção ao hipossuficiente. __**Por fim, é firme, na jurisprudência, o posicionamento de que o pedido de demissão do empregado, ainda que homologado pelo sindicato da categoria profissional, não obsta a configuração da rescisão indireta.**__ O art. 483, caput e § 3º, da CLT, faculta ao empregado considerar rescindido o contrato de trabalho antes de pleitear em juízo as verbas decorrentes da rescisão indireta. Todavia, __**o referido dispositivo não estabelece o procedimento a ser adotado pelo empregado quando o empregador incidir em um dos casos de justa causa. Vale dizer, não há qualquer exigência formal para o exercício da opção de se afastar do emprego antes do ajuizamento da respectiva ação trabalhista. Assim, no presente caso concreto, o pedido de demissão da obreira demonstra tão somente a impossibilidade de manutenção do vínculo empregatício, sem significar qualquer opção pela modalidade de extinção contratual. Comprovada em juízo a justa causa do empregador (o inadimplemento das parcelas do FGTS), presume-se a relação entre a falta patronal e a iniciativa da empregada de rescindir o contrato de trabalho.**__ E não há, no quadro fático delineado pelo TRT, qualquer indício de que tenha sido outro o motivo do desligamento da reclamante. Recurso de revista conhecido e provido. (RRAg-20815-32.2021.5.04.0006, 6ª Turma, Relator Desembargador Convocado Fabio Tulio Correia Ribeiro, DEJT 27/10/2023)
+            (grifo nosso)
+
+            Pelo exposto, **REQUER-SE** a conversão da modalidade da extinção contratual, com o reconhecimento de rescisão indireta e a consequente condenação da ré ao pagamento das verbas devidas nesse tipo de rescisão, quais sejam aviso-prévio proporcional ao tempo de serviço, férias integrais e proporcionais + 1/3, décimo terceiro salário proporcional e FGTS + multa de 40%. Consequentemente, **REQUER-SE** a liberação das guias complementares para saque de FGTS e seguro-desemprego, sob pena de multa diária no importe de R$ 1.000,00, ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial.
+        """.trimIndent()
+    }
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
@@ -549,6 +577,7 @@ class RtTemplateService(
         const val DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL = "diferencas_salariais_piso_convencional"
         const val AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "ausencia_pagamento_verbas_rescisorias"
         const val DANO_MORAL_AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "dano_moral_ausencia_pagamento_verbas_rescisorias"
+        const val CONVERSAO_PEDIDO_DEMISSAO_RESCISAO_INDIRETA = "conversao_pedido_demissao_rescisao_indireta"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
