@@ -823,6 +823,48 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview just cause reversal to indirect termination`() {
+        val motivo = "deixou de recolher corretamente o FGTS e atrasou o pagamento dos salários"
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("reversao_justa_causa_rescisao_indireta"),
+                    dadosVariaveis = mapOf("motivoJustaCausa" to motivo)
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].id", equalTo("reversao_justa_causa_rescisao_indireta"))
+            .body("blocos[0].titulo", equalTo("Reversão da justa causa para rescisão indireta"))
+            .body("blocos[0].texto", containsString("A ré, de modo habitual, $motivo."))
+            .body("blocos[0].texto", containsString("**rescisão indireta**"))
+            .body("blocos[0].texto", containsString("**art. 483, alínea c, da CLT**"))
+            .body("blocos[0].texto", containsString("__reconhecimento de rescisão indireta__"))
+            .body("blocos[0].texto", containsString("__Sucessivamente__"))
+            .body("blocos[0].texto", containsString("__conversão para dispensa sem justa causa__"))
+            .body("blocos[0].texto", containsString("**REQUER-SE**"))
+            .body("blocos[0].anexos.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholder for blank just cause reason`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("reversao_justa_causa_rescisao_indireta")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("A ré, de modo habitual, ___."))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")
