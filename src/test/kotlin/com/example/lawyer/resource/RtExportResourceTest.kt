@@ -142,9 +142,13 @@ class RtExportResourceTest {
             assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, document.footerList.single().paragraphs.first().alignment)
             val headerPicture = document.headerList.single().paragraphs.first().runs.single().embeddedPictures.single()
             val footerPicture = document.footerList.single().paragraphs.first().runs.single().embeddedPictures.single()
-            assertEquals(headerPicture.ctPicture.spPr.xfrm.ext.cy, footerPicture.ctPicture.spPr.xfrm.ext.cy)
-            assertEquals(3_465_137L, footerPicture.ctPicture.spPr.xfrm.ext.cx)
-            assertEquals(1_044_713L, footerPicture.ctPicture.spPr.xfrm.ext.cy)
+            assertEquals(2_598_852L, footerPicture.ctPicture.spPr.xfrm.ext.cx)
+            assertEquals(783_534L, footerPicture.ctPicture.spPr.xfrm.ext.cy)
+            assertEquals(
+                670.0 / 202.0,
+                footerPicture.ctPicture.spPr.xfrm.ext.cx.toDouble() / footerPicture.ctPicture.spPr.xfrm.ext.cy,
+                0.001
+            )
             val procuracaoTitle = document.paragraphs.first { it.text == "PROCURAÇÃO AD JUDICIA" }
             assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, procuracaoTitle.alignment)
             assertEquals(0, procuracaoTitle.indentationLeft)

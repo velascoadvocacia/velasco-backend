@@ -211,15 +211,16 @@ class ProcuracaoExportService(
         val header = policy.createHeader(XWPFHeaderFooterPolicy.DEFAULT)
         val headerParagraph = (header.paragraphs.firstOrNull() ?: header.createParagraph()).apply(::centerOnPage)
         val headerSize = proportionalImageSize(HEADER_IMAGE_WIDTH_PX, HEADER_IMAGE_HEIGHT_PX)
-        javaClass.getResourceAsStream("/assets/header_velasco.png")!!.use { input ->
+        javaClass.getResourceAsStream("/assets/header_velasco.jpeg")!!.use { input ->
             headerParagraph.createRun().addPicture(
-                input, XWPFDocument.PICTURE_TYPE_PNG, "header_velasco.png",
+                input, XWPFDocument.PICTURE_TYPE_JPEG, "header_velasco.jpeg",
                 headerSize.widthEmu, headerSize.heightEmu
             )
         }
         val footer = policy.createFooter(XWPFHeaderFooterPolicy.DEFAULT)
         val footerParagraph = (footer.paragraphs.firstOrNull() ?: footer.createParagraph()).apply(::centerOnPage)
         val footerSize = proportionalImageSize(FOOTER_IMAGE_WIDTH_PX, FOOTER_IMAGE_HEIGHT_PX)
+            .scaled(FOOTER_SCALE_PERCENT)
         javaClass.getResourceAsStream("/assets/footer_velasco.png")!!.use { input ->
             footerParagraph.createRun().addPicture(
                 input, XWPFDocument.PICTURE_TYPE_PNG, "footer_velasco.png",
@@ -364,6 +365,11 @@ class ProcuracaoExportService(
 
     private data class ImageSize(val widthEmu: Int, val heightEmu: Int)
 
+    private fun ImageSize.scaled(percent: Int): ImageSize = ImageSize(
+        widthEmu = widthEmu * percent / 100,
+        heightEmu = heightEmu * percent / 100
+    )
+
     data class ProcuracaoGerada(val nomeReclamante: String, val bytes: ByteArray)
 
     private companion object {
@@ -375,6 +381,7 @@ class ProcuracaoExportService(
         const val HEADER_IMAGE_HEIGHT_PX = 344
         const val FOOTER_IMAGE_WIDTH_PX = 670
         const val FOOTER_IMAGE_HEIGHT_PX = 202
+        const val FOOTER_SCALE_PERCENT = 75
         val PT_BR: Locale = Locale("pt", "BR")
         val LONG_DATE_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
