@@ -138,9 +138,14 @@ class RtExportResourceTest {
             assertTrue(document.footerList.any { footer ->
                 footer.paragraphs.any { paragraph -> paragraph.runs.any { it.embeddedPictures.isNotEmpty() } }
             })
-            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, document.headerList.single().paragraphs.first().alignment)
             assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, document.footerList.single().paragraphs.first().alignment)
-            val headerPicture = document.headerList.single().paragraphs.first().runs.single().embeddedPictures.single()
+            val headerParagraph = document.headerList.single().paragraphs.first { paragraph ->
+                paragraph.runs.any { it.embeddedPictures.isNotEmpty() }
+            }
+            val headerPicture = headerParagraph.runs.single().embeddedPictures.single()
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, headerParagraph.alignment)
+            assertEquals(org.apache.poi.util.Units.toEMU(470.0).toLong(), headerPicture.ctPicture.spPr.xfrm.ext.cx)
+            assertEquals(org.apache.poi.util.Units.toEMU(80.0).toLong(), headerPicture.ctPicture.spPr.xfrm.ext.cy)
             val footerPicture = document.footerList.single().paragraphs.first().runs.single().embeddedPictures.single()
             assertEquals(2_598_852L, footerPicture.ctPicture.spPr.xfrm.ext.cx)
             assertEquals(783_534L, footerPicture.ctPicture.spPr.xfrm.ext.cy)
@@ -156,6 +161,11 @@ class RtExportResourceTest {
             assertEquals(0, procuracaoTitle.indentationFirstLine)
             assertTrue(procuracaoTitle.runs.single().isBold)
             assertEquals(UnderlinePatterns.SINGLE, procuracaoTitle.runs.single().underline)
+            listOf("OUTORGANTE:", "OUTORGADOS:", "PODERES:", "Por um lado, CONTRATADO:", "Eu,")
+                .map { prefix -> document.paragraphs.first { it.text.startsWith(prefix) } }
+                .flatMap { it.runs }
+                .filter { it.text().isNotEmpty() }
+                .forEach { assertEquals(12, it.fontSize) }
             val nameRun = document.paragraphs.flatMap { it.runs }
                 .first { it.text() == " NAYARA FERNANDA DE FREITAS BATISTA" }
             assertTrue(nameRun.isBold)

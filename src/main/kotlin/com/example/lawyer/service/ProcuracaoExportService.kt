@@ -33,6 +33,7 @@ class ProcuracaoExportService(
     private val processoService: ProcessoService,
     private val pessoaService: PessoaService,
     private val usuarioRepository: UsuarioRepository,
+    private val docxHeaderService: DocxHeaderService,
     @ConfigProperty(name = "rt.escritorio.endereco")
     private val enderecoEscritorio: String
 ) {
@@ -176,7 +177,7 @@ class ProcuracaoExportService(
             setText(text)
             isBold = bold
             fontFamily = FONT
-            fontSize = 10
+        fontSize = BODY_FONT_SIZE
         }
     }
 
@@ -207,16 +208,8 @@ class ProcuracaoExportService(
     }
 
     private fun addHeaderAndFooter(document: XWPFDocument) {
+        docxHeaderService.addHeader(document)
         val policy = document.createHeaderFooterPolicy()
-        val header = policy.createHeader(XWPFHeaderFooterPolicy.DEFAULT)
-        val headerParagraph = (header.paragraphs.firstOrNull() ?: header.createParagraph()).apply(::centerOnPage)
-        val headerSize = proportionalImageSize(HEADER_IMAGE_WIDTH_PX, HEADER_IMAGE_HEIGHT_PX)
-        javaClass.getResourceAsStream("/assets/header_velasco.jpeg")!!.use { input ->
-            headerParagraph.createRun().addPicture(
-                input, XWPFDocument.PICTURE_TYPE_JPEG, "header_velasco.jpeg",
-                headerSize.widthEmu, headerSize.heightEmu
-            )
-        }
         val footer = policy.createFooter(XWPFHeaderFooterPolicy.DEFAULT)
         val footerParagraph = (footer.paragraphs.firstOrNull() ?: footer.createParagraph()).apply(::centerOnPage)
         val footerSize = proportionalImageSize(FOOTER_IMAGE_WIDTH_PX, FOOTER_IMAGE_HEIGHT_PX)
@@ -374,11 +367,10 @@ class ProcuracaoExportService(
 
     private companion object {
         const val FONT = "Georgia"
+        const val BODY_FONT_SIZE = 12
         const val CIDADE_ESCRITORIO = "Cascavel"
         const val IMAGE_MAX_WIDTH_EMU = 7_543_800
         const val IMAGE_MAX_HEIGHT_EMU = 1_044_713
-        const val HEADER_IMAGE_WIDTH_PX = 2_484
-        const val HEADER_IMAGE_HEIGHT_PX = 344
         const val FOOTER_IMAGE_WIDTH_PX = 670
         const val FOOTER_IMAGE_HEIGHT_PX = 202
         const val FOOTER_SCALE_PERCENT = 75

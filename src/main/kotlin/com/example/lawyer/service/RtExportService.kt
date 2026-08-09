@@ -23,13 +23,13 @@ import java.math.BigInteger
 import org.jboss.logging.Logger
 
 @ApplicationScoped
-class RtExportService {
+class RtExportService(private val docxHeaderService: DocxHeaderService) {
     private val logger = Logger.getLogger(RtExportService::class.java)
 
     fun generate(request: RtExportRequest): ByteArray {
         XWPFDocument().use { document ->
             configureA4Page(document)
-            addHeader(document)
+            docxHeaderService.addHeader(document)
             addFooter(document)
 
             createEmptyParagraph(document)
@@ -46,30 +46,6 @@ class RtExportService {
                 document.write(output)
                 output.toByteArray()
             }
-        }
-    }
-
-    private fun addHeader(document: XWPFDocument) {
-        try {
-            val policy = document.createHeaderFooterPolicy()
-            val header = policy.createHeader(XWPFHeaderFooterPolicy.DEFAULT)
-            val p = header.createParagraph()
-            p.alignment = ParagraphAlignment.CENTER
-
-            val inputStream: InputStream? = javaClass.getResourceAsStream("/assets/header_velasco.jpeg")
-            if (inputStream != null) {
-                val run = p.createRun()
-                run.addPicture(
-                    inputStream,
-                    XWPFDocument.PICTURE_TYPE_JPEG,
-                    "header_velasco.jpeg",
-                    Units.toEMU(470.0),
-                    Units.toEMU(80.0)
-                )
-                inputStream.close()
-            }
-        } catch (e: Exception) {
-            // Header não criado se imagem não encontrada
         }
     }
 
