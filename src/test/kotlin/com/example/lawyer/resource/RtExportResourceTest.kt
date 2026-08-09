@@ -189,18 +189,42 @@ class RtExportResourceTest {
             assertTrue(reclamadaRun.isBold)
             assertEquals(UnderlinePatterns.SINGLE, reclamadaRun.underline)
             val claimantSignatures = document.paragraphs.filter { it.text == "Nayara Fernanda de Freitas Batista" }
-            assertEquals(setOf(3_200, 5_200), claimantSignatures.map { it.spacingBefore }.toSet())
+            assertEquals(setOf(0), claimantSignatures.map { it.spacingBefore }.toSet())
             claimantSignatures.forEach { signatureParagraph ->
                 assertEquals("single", signatureParagraph.ctp.pPr.pBdr.top.`val`.toString())
                 assertTrue(signatureParagraph.ctp.pPr.isSetKeepLines)
             }
             val contractSignature = document.paragraphs.first { it.text.contains("ADVOGADO:") }
-            assertEquals(1_200, contractSignature.spacingBefore)
+            assertEquals(0, contractSignature.spacingBefore)
             assertEquals("single", contractSignature.ctp.pPr.pBdr.top.`val`.toString())
             assertTrue(contractSignature.ctp.pPr.isSetKeepLines)
             assertTrue(contractSignature.ctp.pPr.isSetKeepNext)
             val contractSignatureIndex = document.paragraphs.indexOf(contractSignature)
             assertEquals("TESTEMUNHAS", document.paragraphs[contractSignatureIndex + 1].text)
+            val dateParagraphs = document.paragraphs.filter { it.text.startsWith("Cascavel,") }
+            assertEquals(setOf(3_200, 1_200, 5_200), dateParagraphs.map { it.spacingBefore }.toSet())
+            dateParagraphs.forEach { dateParagraph ->
+                assertEquals(0, dateParagraph.spacingAfter)
+                assertTrue(dateParagraph.ctp.pPr.isSetKeepNext)
+                assertEquals(0, document.paragraphs[document.paragraphs.indexOf(dateParagraph) + 1].spacingBefore)
+            }
+            val contractTitle = document.paragraphs.first { it.text == "CONTRATO DE HONORÁRIOS" }
+            val contractTitleIndex = document.paragraphs.indexOf(contractTitle)
+            assertTrue(document.paragraphs[contractTitleIndex - 1].runs.any { it.ctr.brList.isNotEmpty() })
+            val contractOpening = document.paragraphs.first { it.text.startsWith("Por um lado, CONTRATADO:") }
+            assertTrue(contractOpening.runs.first { it.text().contains("LUCAS ADVOGADO $suffix") }.isBold)
+            val clauses = (1..7).map { number ->
+                document.paragraphs.first { it.text.startsWith("${number}ª -") }
+            }
+            clauses.forEach { clause ->
+                assertEquals(700, clause.indentationLeft)
+                assertEquals(700, clause.indentationHanging)
+                assertEquals(java.math.BigInteger.valueOf(700), clause.ctp.pPr.tabs.tabList.single().pos)
+                assertEquals(1, clause.runs.sumOf { it.ctr.tabList.size })
+            }
+            val secondClause = clauses[1]
+            assertTrue(secondClause.runs.first { it.text() == "30% (trinta por cento)" }.isBold)
+            assertTrue(secondClause.runs.first { it.text() == "5% (cinco por cento)" }.isBold)
         }
         saveGeneratedDocument("procuracao-nayara-completa.docx", docx)
     }

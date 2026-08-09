@@ -76,24 +76,28 @@ class ProcuracaoExportService(
         )
         blockSpacer(document)
         poderesEspeciaisParagraph(document, dados.nomeReclamada())
-        spacer(document)
-        body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
-        signatureBlock(document, dados.nomeReclamante(), PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS)
+        dateAndSignatureBlock(
+            document, dados.dataExportacao, dados.nomeReclamante(), PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS
+        )
     }
 
     private fun createContrato(document: XWPFDocument, dados: DadosDocumento) {
         title(document, "CONTRATO DE HONORÁRIOS")
         contractOpening(document, dados)
-        body(document, "1ª - Os CONSTITUÍDOS se comprometem em cumprimento ao mandato recebido, a patrocinar a causa do (a) CONSTITUINTE, que consiste em ${dados.acaoContraReclamada()}.")
-        body(document, "2ª - Em contraprestação, o (a/s) CONSTITUINTE se compromete a remunerar os serviços profissionais dos CONSTITUÍDOS na importância correspondente a 30% (trinta por cento) dos valores que vier a receber, a título de acordos ou liquidação de sentença, inclusive sobre valores de FGTS e do seguro desemprego. Em caso de acordo realizado diretamente entre autor e réu, sem anuência do CONSTITUIDO, o percentual de honorários incidirá sobre o valor dos pedidos constantes na petição inicial. Fica ajustado que haverá acréscimo de 5% (cinco por cento) sobre os honorários anteriormente pactuados na hipótese de efetiva atuação em grau recursal, consistente na elaboração, interposição ou acompanhamento de recursos contra decisões proferidas em 1º grau, a serem realizados por escritório parceiro sediado na cidade de Curitiba.")
-        body(document, "3ª - Os percentuais retros pactuados são independentes de honorários advocatícios ou assistências que venham a ser deferidos em sentença.")
-        body(document, "4ª - Os honorários e valores constantes nas cláusulas 2ª, 3ª e 4ª, deste contrato, ficam ajustados como valor líquido, certo e exigível para efeito de execução, valendo o presente instrumento como título de crédito (CPC, art. 586 c/c art. 585, I e art. 24 da lei 8906/94).")
-        body(document, "5ª. – Todas à custa e despesas ligadas direta ou indiretamente com o processo, incluindo-se custas iniciais, taxas, honorários periciais, assistência técnica, fotocópias, emolumentos, viagens, portes, honorários de sucumbência, etc., ficarão a cargo do CONTRATANTE, que disponibilizará o numerário necessário no decorrer do processo ou ao final do mesmo, conforme o caso.")
-        body(document, "6ª. – O não comparecimento injustificado do(a) CONTRATANTE às audiências designadas, bem como qualquer conduta que resulte na desistência da ação ou inviabilize o regular andamento do processo, autoriza a rescisão do presente contrato por culpa exclusiva do(a) CONTRATANTE. Nessas hipóteses, será devida aos CONSTITUÍDOS, a título de cláusula penal, multa equivalente a 01 (um) salário mínimo vigente, sem prejuízo do pagamento dos honorários proporcionais pelos serviços já prestados e das despesas eventualmente suportadas.")
-        body(document, "7ª. - Fica eleito o foro de Cascavel - PR para dirimir quaisquer dúvidas acerca deste contrato, prevalecendo sobre qualquer outro por mais privilegiado que for.")
+        numberedClause(document, "1ª -", "Os CONSTITUÍDOS se comprometem em cumprimento ao mandato recebido, a patrocinar a causa do (a) CONSTITUINTE, que consiste em ${dados.acaoContraReclamada()}.")
+        numberedClause(
+            document,
+            "2ª -",
+            "Em contraprestação, o (a/s) CONSTITUINTE se compromete a remunerar os serviços profissionais dos CONSTITUÍDOS na importância correspondente a 30% (trinta por cento) dos valores que vier a receber, a título de acordos ou liquidação de sentença, inclusive sobre valores de FGTS e do seguro desemprego. Em caso de acordo realizado diretamente entre autor e réu, sem anuência do CONSTITUIDO, o percentual de honorários incidirá sobre o valor dos pedidos constantes na petição inicial. Fica ajustado que haverá acréscimo de 5% (cinco por cento) sobre os honorários anteriormente pactuados na hipótese de efetiva atuação em grau recursal, consistente na elaboração, interposição ou acompanhamento de recursos contra decisões proferidas em 1º grau, a serem realizados por escritório parceiro sediado na cidade de Curitiba.",
+            boldFragments = listOf("30% (trinta por cento)", "5% (cinco por cento)")
+        )
+        numberedClause(document, "3ª -", "Os percentuais retros pactuados são independentes de honorários advocatícios ou assistências que venham a ser deferidos em sentença.")
+        numberedClause(document, "4ª -", "Os honorários e valores constantes nas cláusulas 2ª, 3ª e 4ª, deste contrato, ficam ajustados como valor líquido, certo e exigível para efeito de execução, valendo o presente instrumento como título de crédito (CPC, art. 586 c/c art. 585, I e art. 24 da lei 8906/94).")
+        numberedClause(document, "5ª -", "Todas à custa e despesas ligadas direta ou indiretamente com o processo, incluindo-se custas iniciais, taxas, honorários periciais, assistência técnica, fotocópias, emolumentos, viagens, portes, honorários de sucumbência, etc., ficarão a cargo do CONTRATANTE, que disponibilizará o numerário necessário no decorrer do processo ou ao final do mesmo, conforme o caso.")
+        numberedClause(document, "6ª -", "O não comparecimento injustificado do(a) CONTRATANTE às audiências designadas, bem como qualquer conduta que resulte na desistência da ação ou inviabilize o regular andamento do processo, autoriza a rescisão do presente contrato por culpa exclusiva do(a) CONTRATANTE. Nessas hipóteses, será devida aos CONSTITUÍDOS, a título de cláusula penal, multa equivalente a 01 (um) salário mínimo vigente, sem prejuízo do pagamento dos honorários proporcionais pelos serviços já prestados e das despesas eventualmente suportadas.")
+        numberedClause(document, "7ª -", "Fica eleito o foro de Cascavel - PR para dirimir quaisquer dúvidas acerca deste contrato, prevalecendo sobre qualquer outro por mais privilegiado que for.")
         body(document, "E por estarem assim justos e contratados, obrigam-se a cumprir todas as disposições do presente instrumento que assinam na presença das testemunhas abaixo firmadas, para que surta seus jurídicos e legais efeitos.")
-        body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
-        contractSignatureBlock(document, dados.nomeReclamante())
+        contractDateAndSignatureBlock(document, dados.dataExportacao, dados.nomeReclamante())
     }
 
     private fun createDeclaracao(document: XWPFDocument, dados: DadosDocumento) {
@@ -104,9 +108,9 @@ class ProcuracaoExportService(
             "Eu, ${dados.qualificacaoReclamante(comNascimento = false).text}, declaro para os devidos fins, de direito sob pena da lei, ser pessoa pobre não tendo condições de arcar com despesas e custas processuais, sem prejuízo de minha subsistência e de meus dependentes."
         )
         body(document, "Por ser expressão da verdade firmo o presente.")
-        spacer(document)
-        body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
-        signatureBlock(document, dados.nomeReclamante(), DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS)
+        dateAndSignatureBlock(
+            document, dados.dataExportacao, dados.nomeReclamante(), DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS
+        )
     }
 
     private fun title(document: XWPFDocument, text: String) {
@@ -177,13 +181,17 @@ class ProcuracaoExportService(
     }
 
     private fun applyFixedTextColumn(paragraph: XWPFParagraph) {
-        paragraph.indentationLeft = TEXT_COLUMN_POSITION_TWIPS
-        paragraph.indentationHanging = TEXT_COLUMN_POSITION_TWIPS
+        applyTextColumn(paragraph, TEXT_COLUMN_POSITION_TWIPS)
+    }
+
+    private fun applyTextColumn(paragraph: XWPFParagraph, positionTwips: Int) {
+        paragraph.indentationLeft = positionTwips
+        paragraph.indentationHanging = positionTwips
         val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
         val tabs = properties.tabs ?: properties.addNewTabs()
         tabs.addNewTab().apply {
             `val` = STTabJc.LEFT
-            pos = BigInteger.valueOf(TEXT_COLUMN_POSITION_TWIPS.toLong())
+            pos = BigInteger.valueOf(positionTwips.toLong())
         }
     }
 
@@ -194,12 +202,41 @@ class ProcuracaoExportService(
     private fun contractOpening(document: XWPFDocument, dados: DadosDocumento) {
         val paragraph = baseParagraph(document)
         run(paragraph, "Por um lado, CONTRATADO: ")
-        run(paragraph, dados.primeiroAdvogado())
+        dados.primeiroAdvogado()?.let { advogado ->
+            run(paragraph, advogado.nome, bold = true)
+            advogado.detalhes.takeIf(String::isNotBlank)?.let { run(paragraph, ", $it") }
+        }
         run(paragraph, ", estabelecido na $enderecoEscritorio, e de outro lado, CONTRATANTE: o (a) ")
         val qualification = dados.qualificacaoReclamante(comNascimento = true)
         qualification.name.takeIf { it.isNotBlank() }?.let { run(paragraph, it.uppercase(PT_BR), bold = true) }
         qualification.details.takeIf { it.isNotBlank() }?.let { run(paragraph, ", $it") }
         run(paragraph, ", doravante denominado (a/s) de CONSTITUINTE, convencionam e contratam as cláusulas e condições seguintes:")
+    }
+
+    private fun numberedClause(
+        document: XWPFDocument,
+        label: String,
+        text: String,
+        boldFragments: List<String> = emptyList()
+    ) {
+        val paragraph = baseParagraph(document)
+        applyTextColumn(paragraph, CLAUSE_TEXT_COLUMN_POSITION_TWIPS)
+        run(paragraph, label)
+        tab(paragraph)
+        appendWithBoldFragments(paragraph, text, boldFragments)
+    }
+
+    private fun appendWithBoldFragments(paragraph: XWPFParagraph, text: String, boldFragments: List<String>) {
+        var cursor = 0
+        boldFragments.forEach { fragment ->
+            val start = text.indexOf(fragment, cursor)
+            if (start >= 0) {
+                if (start > cursor) run(paragraph, text.substring(cursor, start))
+                run(paragraph, fragment, bold = true)
+                cursor = start + fragment.length
+            }
+        }
+        if (cursor < text.length) run(paragraph, text.substring(cursor))
     }
 
     private fun body(
@@ -212,20 +249,41 @@ class ProcuracaoExportService(
         run(paragraph, text, bold)
     }
 
-    private fun signatureBlock(document: XWPFDocument, text: String, spaceBeforeTwips: Int) {
-        val paragraph = baseParagraph(document).apply {
+    private fun dateAndSignatureBlock(
+        document: XWPFDocument,
+        date: LocalDate,
+        text: String,
+        spaceBeforeTwips: Int
+    ) {
+        val dateParagraph = baseParagraph(document).apply {
             alignment = ParagraphAlignment.CENTER
             spacingBefore = spaceBeforeTwips
+            spacingAfter = DATE_SIGNATURE_GAP_TWIPS
         }
-        keepTogether(paragraph)
-        addSignatureLine(paragraph)
-        run(paragraph, text)
-    }
+        keepTogether(dateParagraph, keepWithNext = true)
+        run(dateParagraph, "$CIDADE_ESCRITORIO, ${formatLongDate(date)}.")
 
-    private fun contractSignatureBlock(document: XWPFDocument, nomeReclamante: String) {
         val signature = baseParagraph(document).apply {
             alignment = ParagraphAlignment.CENTER
+            spacingBefore = 0
+        }
+        keepTogether(signature)
+        addSignatureLine(signature)
+        run(signature, text)
+    }
+
+    private fun contractDateAndSignatureBlock(document: XWPFDocument, date: LocalDate, nomeReclamante: String) {
+        val dateParagraph = baseParagraph(document).apply {
+            alignment = ParagraphAlignment.CENTER
             spacingBefore = CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS
+            spacingAfter = DATE_SIGNATURE_GAP_TWIPS
+        }
+        keepTogether(dateParagraph, keepWithNext = true)
+        run(dateParagraph, "$CIDADE_ESCRITORIO, ${formatLongDate(date)}.")
+
+        val signature = baseParagraph(document).apply {
+            alignment = ParagraphAlignment.CENTER
+            spacingBefore = 0
         }
         keepTogether(signature, keepWithNext = true)
         addSignatureLine(signature)
@@ -372,13 +430,11 @@ class ProcuracaoExportService(
 
         fun outorgados(): List<AdvogadoFormatado> = advogados.map(::formatAdvogadoParts)
 
-        fun primeiroAdvogado(): String = advogados.firstOrNull()?.let(::formatAdvogado).orEmpty()
+        fun primeiroAdvogado(): AdvogadoFormatado? = advogados.firstOrNull()?.let(::formatAdvogadoParts)
         fun acaoContraReclamada(): String = nomeReclamada().takeIf { it.isNotBlank() }
             ?.let { "propor Reclamação Trabalhista em face de $it e outros" }
             ?: "propor Reclamação Trabalhista"
     }
-
-    private fun formatAdvogado(usuario: Usuario): String = formatAdvogadoParts(usuario).text
 
     private fun formatAdvogadoParts(usuario: Usuario): AdvogadoFormatado {
         val pessoa = usuario.pessoa
@@ -452,9 +508,7 @@ class ProcuracaoExportService(
         val text: String = listOf(name, details).filter(String::isNotBlank).joinToString(", ")
     }
 
-    private data class AdvogadoFormatado(val nome: String, val detalhes: String) {
-        val text: String = listOf(nome, detalhes).filter(String::isNotBlank).joinToString(", ")
-    }
+    private data class AdvogadoFormatado(val nome: String, val detalhes: String)
 
     private data class ImageSize(val widthEmu: Int, val heightEmu: Int)
 
@@ -470,6 +524,9 @@ class ProcuracaoExportService(
         const val BODY_FONT_SIZE = 12
         // 1.700 twips = aproximadamente 3 cm, suficiente para o maior rótulo (OUTORGADOS:).
         const val TEXT_COLUMN_POSITION_TWIPS = 1_700
+        // 700 twips = aproximadamente 1,23 cm, suficiente para os rótulos "1ª -" a "7ª -".
+        const val CLAUSE_TEXT_COLUMN_POSITION_TWIPS = 700
+        const val DATE_SIGNATURE_GAP_TWIPS = 0
         const val PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 3_200
         const val CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_200
         const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 5_200
