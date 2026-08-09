@@ -204,24 +204,26 @@ class RtExportResourceTest {
             val dateParagraphs = document.paragraphs.filter { it.text.startsWith("Cascavel,") }
             assertEquals(setOf(3_200, 1_200, 5_200), dateParagraphs.map { it.spacingBefore }.toSet())
             dateParagraphs.forEach { dateParagraph ->
-                assertEquals(0, dateParagraph.spacingAfter)
+                assertEquals(160, dateParagraph.spacingAfter)
                 assertTrue(dateParagraph.ctp.pPr.isSetKeepNext)
                 assertEquals(0, document.paragraphs[document.paragraphs.indexOf(dateParagraph) + 1].spacingBefore)
             }
             val contractTitle = document.paragraphs.first { it.text == "CONTRATO DE HONORÁRIOS" }
             val contractTitleIndex = document.paragraphs.indexOf(contractTitle)
             assertTrue(document.paragraphs[contractTitleIndex - 1].runs.any { it.ctr.brList.isNotEmpty() })
+            assertTrue(document.paragraphs[contractTitleIndex + 1].text.isEmpty())
             val contractOpening = document.paragraphs.first { it.text.startsWith("Por um lado, CONTRATADO:") }
             assertTrue(contractOpening.runs.first { it.text().contains("LUCAS ADVOGADO $suffix") }.isBold)
             val clauses = (1..7).map { number ->
                 document.paragraphs.first { it.text.startsWith("${number}ª -") }
             }
             clauses.forEach { clause ->
-                assertEquals(700, clause.indentationLeft)
+                assertEquals(927, clause.indentationLeft)
                 assertEquals(700, clause.indentationHanging)
-                assertEquals(java.math.BigInteger.valueOf(700), clause.ctp.pPr.tabs.tabList.single().pos)
+                assertEquals(java.math.BigInteger.valueOf(927), clause.ctp.pPr.tabs.tabList.single().pos)
                 assertEquals(1, clause.runs.sumOf { it.ctr.tabList.size })
             }
+            assertEquals(java.math.BigInteger.valueOf(2_600), document.document.body.sectPr.pgMar.bottom)
             val secondClause = clauses[1]
             assertTrue(secondClause.runs.first { it.text() == "30% (trinta por cento)" }.isBold)
             assertTrue(secondClause.runs.first { it.text() == "5% (cinco por cento)" }.isBold)

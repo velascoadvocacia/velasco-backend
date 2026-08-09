@@ -83,6 +83,7 @@ class ProcuracaoExportService(
 
     private fun createContrato(document: XWPFDocument, dados: DadosDocumento) {
         title(document, "CONTRATO DE HONORÁRIOS")
+        spacer(document)
         contractOpening(document, dados)
         numberedClause(document, "1ª -", "Os CONSTITUÍDOS se comprometem em cumprimento ao mandato recebido, a patrocinar a causa do (a) CONSTITUINTE, que consiste em ${dados.acaoContraReclamada()}.")
         numberedClause(
@@ -184,9 +185,9 @@ class ProcuracaoExportService(
         applyTextColumn(paragraph, TEXT_COLUMN_POSITION_TWIPS)
     }
 
-    private fun applyTextColumn(paragraph: XWPFParagraph, positionTwips: Int) {
+    private fun applyTextColumn(paragraph: XWPFParagraph, positionTwips: Int, leftIndentTwips: Int = 0) {
         paragraph.indentationLeft = positionTwips
-        paragraph.indentationHanging = positionTwips
+        paragraph.indentationHanging = positionTwips - leftIndentTwips
         val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
         val tabs = properties.tabs ?: properties.addNewTabs()
         tabs.addNewTab().apply {
@@ -220,7 +221,7 @@ class ProcuracaoExportService(
         boldFragments: List<String> = emptyList()
     ) {
         val paragraph = baseParagraph(document)
-        applyTextColumn(paragraph, CLAUSE_TEXT_COLUMN_POSITION_TWIPS)
+        applyTextColumn(paragraph, CLAUSE_TEXT_COLUMN_POSITION_TWIPS, CLAUSE_LEFT_INDENT_TWIPS)
         run(paragraph, label)
         tab(paragraph)
         appendWithBoldFragments(paragraph, text, boldFragments)
@@ -353,7 +354,7 @@ class ProcuracaoExportService(
         section.pgMar = CTPageMar.Factory.newInstance().apply {
             top = BigInteger.valueOf(1_620)
             right = BigInteger.valueOf(1_160)
-            bottom = BigInteger.valueOf(2_040)
+            bottom = BigInteger.valueOf(BODY_BOTTOM_MARGIN_TWIPS.toLong())
             left = BigInteger.valueOf(1_160)
             header = BigInteger.valueOf(159)
             footer = BigInteger.valueOf(1_846)
@@ -524,9 +525,13 @@ class ProcuracaoExportService(
         const val BODY_FONT_SIZE = 12
         // 1.700 twips = aproximadamente 3 cm, suficiente para o maior rótulo (OUTORGADOS:).
         const val TEXT_COLUMN_POSITION_TWIPS = 1_700
-        // 700 twips = aproximadamente 1,23 cm, suficiente para os rótulos "1ª -" a "7ª -".
-        const val CLAUSE_TEXT_COLUMN_POSITION_TWIPS = 700
-        const val DATE_SIGNATURE_GAP_TWIPS = 0
+        // As cláusulas começam 0,4 cm para dentro; o texto permanece em uma coluna fixa.
+        const val CLAUSE_LEFT_INDENT_TWIPS = 227
+        const val CLAUSE_TEXT_COLUMN_POSITION_TWIPS = 927
+        // 160 twips = 8 pt de respiro entre a data e a linha de assinatura.
+        const val DATE_SIGNATURE_GAP_TWIPS = 160
+        // Reserva aproximadamente 1,3 cm entre o limite do corpo e a âncora do rodapé.
+        const val BODY_BOTTOM_MARGIN_TWIPS = 2_600
         const val PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 3_200
         const val CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_200
         const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 5_200
