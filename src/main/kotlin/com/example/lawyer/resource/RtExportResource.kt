@@ -45,7 +45,7 @@ class RtExportResource(
         return Response.ok(generated.bytes, DOCX_MEDIA_TYPE)
             .header(
                 HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"PROCURAÇÃO AD JUDICIA - ${sanitizeFilename(generated.nomeReclamante)}.docx\""
+                "attachment; filename=\"PROCURAÇÃO AD JUDICIA - ${sanitizeFilename(generated.nomeReclamante).uppercase()}.docx\""
             )
             .build()
     }
@@ -168,7 +168,10 @@ class RtExportResource(
     }
 
     private fun sanitizeFilename(value: String): String =
-        value.replace(Regex("[\\r\\n\\\\/:*?\"<>|]"), " ").trim().ifBlank { "Reclamante" }
+        value.replace(Regex("[\\r\\n\\\\/:*?\"<>|]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .ifBlank { "Reclamante" }
 
     private fun blockIdFromTitle(title: String): String? {
         val normalized = java.text.Normalizer.normalize(title, java.text.Normalizer.Form.NFD)

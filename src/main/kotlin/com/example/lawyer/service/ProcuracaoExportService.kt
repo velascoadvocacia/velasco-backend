@@ -110,7 +110,7 @@ class ProcuracaoExportService(
     }
 
     private fun title(document: XWPFDocument, text: String) {
-        val paragraph = document.createParagraph().apply { alignment = ParagraphAlignment.CENTER }
+        val paragraph = document.createParagraph().apply(::centerOnPage)
         paragraph.createRun().apply {
             setText(text)
             isBold = true
@@ -209,30 +209,36 @@ class ProcuracaoExportService(
     private fun addHeaderAndFooter(document: XWPFDocument) {
         val policy = document.createHeaderFooterPolicy()
         val header = policy.createHeader(XWPFHeaderFooterPolicy.DEFAULT)
-        val headerParagraph = (header.paragraphs.firstOrNull() ?: header.createParagraph()).apply {
-            alignment = ParagraphAlignment.CENTER
-            indentationLeft = 0
-            indentationRight = 0
-        }
+        val headerParagraph = (header.paragraphs.firstOrNull() ?: header.createParagraph()).apply(::centerOnPage)
+        val headerSize = proportionalImageSize(HEADER_IMAGE_WIDTH_PX, HEADER_IMAGE_HEIGHT_PX)
         javaClass.getResourceAsStream("/assets/header_velasco.png")!!.use { input ->
             headerParagraph.createRun().addPicture(
                 input, XWPFDocument.PICTURE_TYPE_PNG, "header_velasco.png",
-                HEADER_WIDTH_EMU, HEADER_HEIGHT_EMU
+                headerSize.widthEmu, headerSize.heightEmu
             )
         }
         val footer = policy.createFooter(XWPFHeaderFooterPolicy.DEFAULT)
-        val footerParagraph = (footer.paragraphs.firstOrNull() ?: footer.createParagraph()).apply {
-            alignment = ParagraphAlignment.CENTER
-            indentationLeft = 0
-            indentationRight = 0
-        }
+        val footerParagraph = (footer.paragraphs.firstOrNull() ?: footer.createParagraph()).apply(::centerOnPage)
+        val footerSize = proportionalImageSize(FOOTER_IMAGE_WIDTH_PX, FOOTER_IMAGE_HEIGHT_PX)
         javaClass.getResourceAsStream("/assets/footer_velasco.png")!!.use { input ->
             footerParagraph.createRun().addPicture(
                 input, XWPFDocument.PICTURE_TYPE_PNG, "footer_velasco.png",
-                FOOTER_WIDTH_EMU, FOOTER_HEIGHT_EMU
+                footerSize.widthEmu, footerSize.heightEmu
             )
         }
     }
+
+    private fun centerOnPage(paragraph: XWPFParagraph) {
+        paragraph.alignment = ParagraphAlignment.CENTER
+        paragraph.indentationLeft = 0
+        paragraph.indentationRight = 0
+        paragraph.indentationFirstLine = 0
+    }
+
+    private fun proportionalImageSize(originalWidthPx: Int, originalHeightPx: Int): ImageSize = ImageSize(
+        widthEmu = IMAGE_WIDTH_EMU,
+        heightEmu = (IMAGE_WIDTH_EMU.toLong() * originalHeightPx / originalWidthPx).toInt()
+    )
 
     private fun resolvePessoas(ids: List<Long>, fallback: List<Pessoa>?): List<Pessoa> =
         if (ids.isNotEmpty()) ids.distinct().map(pessoaService::findEntity) else fallback.orEmpty()
@@ -349,15 +355,18 @@ class ProcuracaoExportService(
         val text: String = listOf(name, details).filter(String::isNotBlank).joinToString(", ")
     }
 
+    private data class ImageSize(val widthEmu: Int, val heightEmu: Int)
+
     data class ProcuracaoGerada(val nomeReclamante: String, val bytes: ByteArray)
 
     private companion object {
         const val FONT = "Georgia"
         const val CIDADE_ESCRITORIO = "Cascavel"
-        const val HEADER_WIDTH_EMU = 7_543_800
-        const val HEADER_HEIGHT_EMU = 1_044_713
-        const val FOOTER_WIDTH_EMU = 6_089_650
-        const val FOOTER_HEIGHT_EMU = 1_835_984
+        const val IMAGE_WIDTH_EMU = 7_543_800
+        const val HEADER_IMAGE_WIDTH_PX = 2_484
+        const val HEADER_IMAGE_HEIGHT_PX = 344
+        const val FOOTER_IMAGE_WIDTH_PX = 670
+        const val FOOTER_IMAGE_HEIGHT_PX = 202
         val PT_BR: Locale = Locale("pt", "BR")
         val LONG_DATE_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
