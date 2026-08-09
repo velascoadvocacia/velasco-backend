@@ -164,22 +164,22 @@ class RtExportResourceTest {
             listOf("OUTORGANTE:", "OUTORGADOS:", "PODERES:", "Por um lado, CONTRATADO:", "Eu,")
                 .map { prefix -> document.paragraphs.first { it.text.startsWith(prefix) } }
                 .flatMap { it.runs }
-                .filter { it.text().isNotEmpty() }
+                .filter { it.text().isNotEmpty() && it.ctr.tabList.isEmpty() }
                 .forEach { assertEquals(12, it.fontSize) }
             val outorganteParagraph = document.paragraphs.first { it.text.startsWith("OUTORGANTE:") }
             val outorgadosParagraph = document.paragraphs.first { it.text.startsWith("OUTORGADOS:") }
             val poderesParagraph = document.paragraphs.first { it.text.startsWith("PODERES:") }
-            assertEquals(1_350, outorganteParagraph.indentationLeft)
-            assertEquals(1_350, outorganteParagraph.indentationHanging)
-            assertEquals(1_350, outorgadosParagraph.indentationLeft)
-            assertEquals(1_350, outorgadosParagraph.indentationHanging)
-            assertEquals(900, poderesParagraph.indentationLeft)
-            assertEquals(900, poderesParagraph.indentationHanging)
+            listOf(outorganteParagraph, outorgadosParagraph, poderesParagraph).forEach { paragraph ->
+                assertEquals(1_700, paragraph.indentationLeft)
+                assertEquals(1_700, paragraph.indentationHanging)
+                assertEquals(java.math.BigInteger.valueOf(1_700), paragraph.ctp.pPr.tabs.tabList.single().pos)
+                assertEquals(1, paragraph.runs.sumOf { it.ctr.tabList.size })
+            }
             val poderesIndex = document.paragraphs.indexOf(poderesParagraph)
             assertTrue(document.paragraphs[poderesIndex + 1].text.isEmpty())
             assertTrue(document.paragraphs[poderesIndex + 2].text.startsWith("PODERES ESPECIAIS:"))
             val nameRun = document.paragraphs.flatMap { it.runs }
-                .first { it.text() == " NAYARA FERNANDA DE FREITAS BATISTA" }
+                .first { it.text() == "NAYARA FERNANDA DE FREITAS BATISTA" }
             assertTrue(nameRun.isBold)
             assertTrue(document.paragraphs.flatMap { it.runs }.filter { it.text().contains("brasileira") }.none { it.isBold })
             val advogadoNameRun = outorgadosParagraph.runs.first { it.text().contains("LUCAS ADVOGADO $suffix") }
@@ -188,6 +188,19 @@ class RtExportResourceTest {
                 .runs.first { it.text() == "Empresa Exemplo $suffix" }
             assertTrue(reclamadaRun.isBold)
             assertEquals(UnderlinePatterns.SINGLE, reclamadaRun.underline)
+            val claimantSignatures = document.paragraphs.filter { it.text == "Nayara Fernanda de Freitas Batista" }
+            assertEquals(setOf(3_200, 5_200), claimantSignatures.map { it.spacingBefore }.toSet())
+            claimantSignatures.forEach { signatureParagraph ->
+                assertEquals("single", signatureParagraph.ctp.pPr.pBdr.top.`val`.toString())
+                assertTrue(signatureParagraph.ctp.pPr.isSetKeepLines)
+            }
+            val contractSignature = document.paragraphs.first { it.text.contains("ADVOGADO:") }
+            assertEquals(1_200, contractSignature.spacingBefore)
+            assertEquals("single", contractSignature.ctp.pPr.pBdr.top.`val`.toString())
+            assertTrue(contractSignature.ctp.pPr.isSetKeepLines)
+            assertTrue(contractSignature.ctp.pPr.isSetKeepNext)
+            val contractSignatureIndex = document.paragraphs.indexOf(contractSignature)
+            assertEquals("TESTEMUNHAS", document.paragraphs[contractSignatureIndex + 1].text)
         }
         saveGeneratedDocument("procuracao-nayara-completa.docx", docx)
     }

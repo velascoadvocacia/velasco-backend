@@ -22,6 +22,8 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STLineSpacingRule
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STPageOrientation
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.time.LocalDate
@@ -63,21 +65,20 @@ class ProcuracaoExportService(
     private fun createProcuracao(document: XWPFDocument, dados: DadosDocumento) {
         title(document, "PROCURAÇÃO AD JUDICIA")
         spacer(document)
-        qualificationParagraph(document, "OUTORGANTE:", dados.qualificacaoReclamante(comNascimento = true), OUTORGANTE_INDENT_TWIPS)
+        qualificationParagraph(document, "OUTORGANTE:", dados.qualificacaoReclamante(comNascimento = true), fixedTextColumn = true)
         blockSpacer(document)
         outorgadosParagraph(document, dados.outorgados())
         labeledParagraph(
             document,
             "PODERES:",
             "Outorga(m) os mais amplos e gerais poderes da cláusula   “ad judicia et extra” para o foro em geral, qualquer instância ordinária ou extraordinária, na qual o autor ou réu litisconsorte ativo ou passivo, denunciado ou podendo ainda, utilizar dos poderes especiais para firmar compromisso de qualquer   natureza,   concordar   com contas e cálculos, transigir, variar, fazer acordos, receber e dar quitação, receber alvará judicial e guias de retirada, desistir, renunciar ao direito sobre o que se funda a ação, podendo ainda receber importância depositadas em nome do outorgante à conta bancaria referente ao processo encaminhado com o presente, em quaisquer agência bancaria, podendo atuar em conjunto ou separadamente, bem como substabelecer com ou sem reserva de poderes.",
-            hangingIndentTwips = PODERES_INDENT_TWIPS
+            fixedTextColumn = true
         )
         blockSpacer(document)
         poderesEspeciaisParagraph(document, dados.nomeReclamada())
         spacer(document)
         body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
-        repeat(2) { spacer(document) }
-        signature(document, dados.nomeReclamante())
+        signatureBlock(document, dados.nomeReclamante(), PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS)
     }
 
     private fun createContrato(document: XWPFDocument, dados: DadosDocumento) {
@@ -92,10 +93,7 @@ class ProcuracaoExportService(
         body(document, "7ª. - Fica eleito o foro de Cascavel - PR para dirimir quaisquer dúvidas acerca deste contrato, prevalecendo sobre qualquer outro por mais privilegiado que for.")
         body(document, "E por estarem assim justos e contratados, obrigam-se a cumprir todas as disposições do presente instrumento que assinam na presença das testemunhas abaixo firmadas, para que surta seus jurídicos e legais efeitos.")
         body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
-        spacer(document)
-        signature(document, "${dados.nomeReclamante()}                                      ADVOGADO:")
-        spacer(document)
-        body(document, "TESTEMUNHAS", bold = true, alignment = ParagraphAlignment.CENTER)
+        contractSignatureBlock(document, dados.nomeReclamante())
     }
 
     private fun createDeclaracao(document: XWPFDocument, dados: DadosDocumento) {
@@ -108,8 +106,7 @@ class ProcuracaoExportService(
         body(document, "Por ser expressão da verdade firmo o presente.")
         spacer(document)
         body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
-        repeat(2) { spacer(document) }
-        signature(document, dados.nomeReclamante())
+        signatureBlock(document, dados.nomeReclamante(), DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS)
     }
 
     private fun title(document: XWPFDocument, text: String) {
@@ -128,37 +125,40 @@ class ProcuracaoExportService(
         label: String,
         value: String,
         boldValue: Boolean = false,
-        hangingIndentTwips: Int? = null
+        fixedTextColumn: Boolean = false
     ) {
         val paragraph = baseParagraph(document)
-        hangingIndentTwips?.let { applyHangingIndent(paragraph, it) }
+        if (fixedTextColumn) applyFixedTextColumn(paragraph)
         run(paragraph, label, bold = true)
-        run(paragraph, " $value", bold = boldValue)
+        if (fixedTextColumn) tab(paragraph) else run(paragraph, " ")
+        run(paragraph, value, bold = boldValue)
     }
 
     private fun qualificationParagraph(
         document: XWPFDocument,
         label: String,
         qualification: Qualification,
-        hangingIndentTwips: Int? = null
+        fixedTextColumn: Boolean = false
     ) {
         val paragraph = baseParagraph(document)
-        hangingIndentTwips?.let { applyHangingIndent(paragraph, it) }
+        if (fixedTextColumn) applyFixedTextColumn(paragraph)
         run(paragraph, label, bold = true)
-        qualification.name.takeIf { it.isNotBlank() }?.let { run(paragraph, " ${it.uppercase(PT_BR)}", bold = true) }
+        if (fixedTextColumn) tab(paragraph) else run(paragraph, " ")
+        qualification.name.takeIf { it.isNotBlank() }?.let { run(paragraph, it.uppercase(PT_BR), bold = true) }
         qualification.details.takeIf { it.isNotBlank() }?.let { run(paragraph, ", $it") }
     }
 
     private fun outorgadosParagraph(document: XWPFDocument, advogados: List<AdvogadoFormatado>) {
         val paragraph = baseParagraph(document)
-        applyHangingIndent(paragraph, OUTORGADOS_INDENT_TWIPS)
+        applyFixedTextColumn(paragraph)
         run(paragraph, "OUTORGADOS:", bold = true)
+        tab(paragraph)
         if (advogados.isEmpty()) {
             run(paragraph, " Todos estabelecidos na $enderecoEscritorio.")
             return
         }
         advogados.forEachIndexed { index, advogado ->
-            run(paragraph, if (index == 0) " ${advogado.nome}" else ", ${advogado.nome}", bold = true)
+            run(paragraph, if (index == 0) advogado.nome else ", ${advogado.nome}", bold = true)
             advogado.detalhes.takeIf(String::isNotBlank)?.let { run(paragraph, ", $it") }
         }
         run(paragraph, ", todos estabelecidos na $enderecoEscritorio.")
@@ -176,9 +176,19 @@ class ProcuracaoExportService(
         run(paragraph, ".")
     }
 
-    private fun applyHangingIndent(paragraph: XWPFParagraph, indentTwips: Int) {
-        paragraph.indentationLeft = indentTwips
-        paragraph.indentationHanging = indentTwips
+    private fun applyFixedTextColumn(paragraph: XWPFParagraph) {
+        paragraph.indentationLeft = TEXT_COLUMN_POSITION_TWIPS
+        paragraph.indentationHanging = TEXT_COLUMN_POSITION_TWIPS
+        val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+        val tabs = properties.tabs ?: properties.addNewTabs()
+        tabs.addNewTab().apply {
+            `val` = STTabJc.LEFT
+            pos = BigInteger.valueOf(TEXT_COLUMN_POSITION_TWIPS.toLong())
+        }
+    }
+
+    private fun tab(paragraph: XWPFParagraph) {
+        paragraph.createRun().addTab()
     }
 
     private fun contractOpening(document: XWPFDocument, dados: DadosDocumento) {
@@ -202,8 +212,44 @@ class ProcuracaoExportService(
         run(paragraph, text, bold)
     }
 
-    private fun signature(document: XWPFDocument, text: String) {
-        body(document, text, alignment = ParagraphAlignment.CENTER)
+    private fun signatureBlock(document: XWPFDocument, text: String, spaceBeforeTwips: Int) {
+        val paragraph = baseParagraph(document).apply {
+            alignment = ParagraphAlignment.CENTER
+            spacingBefore = spaceBeforeTwips
+        }
+        keepTogether(paragraph)
+        addSignatureLine(paragraph)
+        run(paragraph, text)
+    }
+
+    private fun contractSignatureBlock(document: XWPFDocument, nomeReclamante: String) {
+        val signature = baseParagraph(document).apply {
+            alignment = ParagraphAlignment.CENTER
+            spacingBefore = CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS
+        }
+        keepTogether(signature, keepWithNext = true)
+        addSignatureLine(signature)
+        run(signature, "$nomeReclamante                                      ADVOGADO:")
+
+        val witnesses = baseParagraph(document).apply { alignment = ParagraphAlignment.CENTER }
+        keepTogether(witnesses)
+        run(witnesses, "TESTEMUNHAS", bold = true)
+    }
+
+    private fun addSignatureLine(paragraph: XWPFParagraph) {
+        val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+        val borders = properties.pBdr ?: properties.addNewPBdr()
+        borders.addNewTop().apply {
+            `val` = STBorder.SINGLE
+            sz = BigInteger.valueOf(8)
+            space = BigInteger.valueOf(4)
+        }
+    }
+
+    private fun keepTogether(paragraph: XWPFParagraph, keepWithNext: Boolean = false) {
+        val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+        if (!properties.isSetKeepLines) properties.addNewKeepLines()
+        if (keepWithNext && !properties.isSetKeepNext) properties.addNewKeepNext()
     }
 
     private fun baseParagraph(document: XWPFDocument): XWPFParagraph = document.createParagraph().apply {
@@ -422,9 +468,11 @@ class ProcuracaoExportService(
     private companion object {
         const val FONT = "Georgia"
         const val BODY_FONT_SIZE = 12
-        const val OUTORGANTE_INDENT_TWIPS = 1_350
-        const val OUTORGADOS_INDENT_TWIPS = 1_350
-        const val PODERES_INDENT_TWIPS = 900
+        // 1.700 twips = aproximadamente 3 cm, suficiente para o maior rótulo (OUTORGADOS:).
+        const val TEXT_COLUMN_POSITION_TWIPS = 1_700
+        const val PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 3_200
+        const val CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_200
+        const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 5_200
         const val CIDADE_ESCRITORIO = "Cascavel"
         const val IMAGE_MAX_WIDTH_EMU = 7_543_800
         const val IMAGE_MAX_HEIGHT_EMU = 1_044_713
