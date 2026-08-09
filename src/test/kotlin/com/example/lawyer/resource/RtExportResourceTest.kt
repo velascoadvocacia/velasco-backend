@@ -229,7 +229,7 @@ class RtExportResourceTest {
             assertEquals(240, witnesses.spacingBefore)
             assertEquals(720, witnesses.spacingAfter)
             val dateParagraphs = document.paragraphs.filter { it.text.startsWith("Cascavel,") }
-            assertEquals(setOf(3_200, 1_200, 2_800), dateParagraphs.map { it.spacingBefore }.toSet())
+            assertEquals(listOf(1_600, 1_200, 1_600), dateParagraphs.map { it.spacingBefore })
             dateParagraphs.forEach { dateParagraph ->
                 assertEquals(720, dateParagraph.spacingAfter)
                 assertTrue(dateParagraph.ctp.pPr.isSetKeepNext)

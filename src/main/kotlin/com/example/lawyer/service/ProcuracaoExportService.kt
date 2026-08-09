@@ -591,10 +591,11 @@ class ProcuracaoExportService(
         const val WITNESSES_SPACE_BEFORE_TWIPS = 240
         // Amplia a reserva entre o corpo do documento e a imagem do rodapé.
         const val BODY_BOTTOM_MARGIN_TWIPS = 3_200
-        const val PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 3_200
+        // Folga suficiente para manter data + 36 pt + assinatura juntos no fim da primeira página.
+        const val PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_600
         const val CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_200
-        // Calibrado para manter o bloco indivisível de data/assinatura na página única da declaração.
-        const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 2_800
+        // Usa a mesma reserva segura para manter a declaração e sua assinatura em uma página.
+        const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_600
         const val CIDADE_ESCRITORIO = "Cascavel"
         const val IMAGE_MAX_WIDTH_EMU = 7_543_800
         const val IMAGE_MAX_HEIGHT_EMU = 1_044_713
