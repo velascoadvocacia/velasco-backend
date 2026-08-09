@@ -2,6 +2,7 @@ package com.example.lawyer.service
 
 import com.example.lawyer.domain.enums.EstadoCivil
 import com.example.lawyer.domain.enums.TratamentoAdvogado
+import com.example.lawyer.domain.enums.Sexo
 import com.example.lawyer.domain.model.Endereco
 import com.example.lawyer.domain.model.Pessoa
 import com.example.lawyer.domain.model.Processo
@@ -55,13 +56,13 @@ class ProcuracaoExportService(
                 output.toByteArray()
             }
         }
-        return ProcuracaoGerada(reclamante?.nome.orPlaceholder(), bytes)
+        return ProcuracaoGerada(reclamante?.nome.clean() ?: "documento", bytes)
     }
 
     private fun createProcuracao(document: XWPFDocument, dados: DadosDocumento) {
         title(document, "PROCURAÇÃO AD JUDICIA")
         spacer(document)
-        labeledParagraph(document, "OUTORGANTE:", dados.qualificacaoReclamante(comNascimento = true), boldValue = true)
+        qualificationParagraph(document, "OUTORGANTE:", dados.qualificacaoReclamante(comNascimento = true))
         spacer(document)
         labeledParagraph(document, "OUTORGADOS:", dados.listaOutorgados())
         labeledParagraph(
@@ -69,11 +70,7 @@ class ProcuracaoExportService(
             "PODERES:",
             "Outorga(m) os mais amplos e gerais poderes da cláusula   “ad judicia et extra” para o foro em geral, qualquer instância ordinária ou extraordinária, na qual o autor ou réu litisconsorte ativo ou passivo, denunciado ou podendo ainda, utilizar dos poderes especiais para firmar compromisso de qualquer   natureza,   concordar   com contas e cálculos, transigir, variar, fazer acordos, receber e dar quitação, receber alvará judicial e guias de retirada, desistir, renunciar ao direito sobre o que se funda a ação, podendo ainda receber importância depositadas em nome do outorgante à conta bancaria referente ao processo encaminhado com o presente, em quaisquer agência bancaria, podendo atuar em conjunto ou separadamente, bem como substabelecer com ou sem reserva de poderes."
         )
-        labeledParagraph(
-            document,
-            "PODERES ESPECIAIS:",
-            "Para o fim especial de propor Reclamação Trabalhista em face de ${dados.nomeReclamada()} e outros."
-        )
+        labeledParagraph(document, "PODERES ESPECIAIS:", dados.poderesEspeciais())
         spacer(document)
         body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
         repeat(2) { spacer(document) }
@@ -82,11 +79,8 @@ class ProcuracaoExportService(
 
     private fun createContrato(document: XWPFDocument, dados: DadosDocumento) {
         title(document, "CONTRATO DE HONORÁRIOS")
-        body(
-            document,
-            "Por um lado, CONTRATADO: ${dados.primeiroAdvogado()}, estabelecido na $enderecoEscritorio, e de outro lado, CONTRATANTE: o (a) ${dados.qualificacaoReclamante(comNascimento = true)}, doravante denominado (a/s) de CONSTITUINTE, convencionam e contratam as cláusulas e condições seguintes:"
-        )
-        body(document, "1ª - Os CONSTITUÍDOS se comprometem em cumprimento ao mandato recebido, a patrocinar a causa do (a) CONSTITUINTE, que consiste em propor Reclamação Trabalhista em face de ${dados.nomeReclamada()} e outros.")
+        contractOpening(document, dados)
+        body(document, "1ª - Os CONSTITUÍDOS se comprometem em cumprimento ao mandato recebido, a patrocinar a causa do (a) CONSTITUINTE, que consiste em ${dados.acaoContraReclamada()}.")
         body(document, "2ª - Em contraprestação, o (a/s) CONSTITUINTE se compromete a remunerar os serviços profissionais dos CONSTITUÍDOS na importância correspondente a 30% (trinta por cento) dos valores que vier a receber, a título de acordos ou liquidação de sentença, inclusive sobre valores de FGTS e do seguro desemprego. Em caso de acordo realizado diretamente entre autor e réu, sem anuência do CONSTITUIDO, o percentual de honorários incidirá sobre o valor dos pedidos constantes na petição inicial. Fica ajustado que haverá acréscimo de 5% (cinco por cento) sobre os honorários anteriormente pactuados na hipótese de efetiva atuação em grau recursal, consistente na elaboração, interposição ou acompanhamento de recursos contra decisões proferidas em 1º grau, a serem realizados por escritório parceiro sediado na cidade de Curitiba.")
         body(document, "3ª - Os percentuais retros pactuados são independentes de honorários advocatícios ou assistências que venham a ser deferidos em sentença.")
         body(document, "4ª - Os honorários e valores constantes nas cláusulas 2ª, 3ª e 4ª, deste contrato, ficam ajustados como valor líquido, certo e exigível para efeito de execução, valendo o presente instrumento como título de crédito (CPC, art. 586 c/c art. 585, I e art. 24 da lei 8906/94).")
@@ -106,7 +100,7 @@ class ProcuracaoExportService(
         spacer(document)
         body(
             document,
-            "Eu, ${dados.qualificacaoReclamante(comNascimento = false)}, declaro para os devidos fins, de direito sob pena da lei, ser pessoa pobre não tendo condições de arcar com despesas e custas processuais, sem prejuízo de minha subsistência e de meus dependentes."
+            "Eu, ${dados.qualificacaoReclamante(comNascimento = false).text}, declaro para os devidos fins, de direito sob pena da lei, ser pessoa pobre não tendo condições de arcar com despesas e custas processuais, sem prejuízo de minha subsistência e de meus dependentes."
         )
         body(document, "Por ser expressão da verdade firmo o presente.")
         spacer(document)
@@ -135,6 +129,24 @@ class ProcuracaoExportService(
         val paragraph = baseParagraph(document)
         run(paragraph, label, bold = true)
         run(paragraph, " $value", bold = boldValue)
+    }
+
+    private fun qualificationParagraph(document: XWPFDocument, label: String, qualification: Qualification) {
+        val paragraph = baseParagraph(document)
+        run(paragraph, label, bold = true)
+        qualification.name.takeIf { it.isNotBlank() }?.let { run(paragraph, " ${it.uppercase(PT_BR)}", bold = true) }
+        qualification.details.takeIf { it.isNotBlank() }?.let { run(paragraph, ", $it") }
+    }
+
+    private fun contractOpening(document: XWPFDocument, dados: DadosDocumento) {
+        val paragraph = baseParagraph(document)
+        run(paragraph, "Por um lado, CONTRATADO: ")
+        run(paragraph, dados.primeiroAdvogado())
+        run(paragraph, ", estabelecido na $enderecoEscritorio, e de outro lado, CONTRATANTE: o (a) ")
+        val qualification = dados.qualificacaoReclamante(comNascimento = true)
+        qualification.name.takeIf { it.isNotBlank() }?.let { run(paragraph, it.uppercase(PT_BR), bold = true) }
+        qualification.details.takeIf { it.isNotBlank() }?.let { run(paragraph, ", $it") }
+        run(paragraph, ", doravante denominado (a/s) de CONSTITUINTE, convencionam e contratam as cláusulas e condições seguintes:")
     }
 
     private fun body(
@@ -197,19 +209,27 @@ class ProcuracaoExportService(
     private fun addHeaderAndFooter(document: XWPFDocument) {
         val policy = document.createHeaderFooterPolicy()
         val header = policy.createHeader(XWPFHeaderFooterPolicy.DEFAULT)
-        val headerParagraph = header.createParagraph().apply { alignment = ParagraphAlignment.CENTER }
+        val headerParagraph = (header.paragraphs.firstOrNull() ?: header.createParagraph()).apply {
+            alignment = ParagraphAlignment.CENTER
+            indentationLeft = 0
+            indentationRight = 0
+        }
         javaClass.getResourceAsStream("/assets/header_velasco.png")!!.use { input ->
             headerParagraph.createRun().addPicture(
                 input, XWPFDocument.PICTURE_TYPE_PNG, "header_velasco.png",
-                7_543_800, 955_675
+                HEADER_WIDTH_EMU, HEADER_HEIGHT_EMU
             )
         }
         val footer = policy.createFooter(XWPFHeaderFooterPolicy.DEFAULT)
-        val footerParagraph = footer.createParagraph().apply { alignment = ParagraphAlignment.CENTER }
+        val footerParagraph = (footer.paragraphs.firstOrNull() ?: footer.createParagraph()).apply {
+            alignment = ParagraphAlignment.CENTER
+            indentationLeft = 0
+            indentationRight = 0
+        }
         javaClass.getResourceAsStream("/assets/footer_velasco.png")!!.use { input ->
             footerParagraph.createRun().addPicture(
                 input, XWPFDocument.PICTURE_TYPE_PNG, "footer_velasco.png",
-                7_554_595, 880_745
+                FOOTER_WIDTH_EMU, FOOTER_HEIGHT_EMU
             )
         }
     }
@@ -230,80 +250,115 @@ class ProcuracaoExportService(
         private val advogados: List<Usuario>,
         val dataExportacao: LocalDate
     ) {
-        fun nomeReclamante() = reclamante?.nome.orPlaceholder()
-        fun nomeReclamada() = reclamada?.nome.orPlaceholder()
+        fun nomeReclamante() = reclamante?.nome.clean().orEmpty()
+        fun nomeReclamada() = reclamada?.nome.clean().orEmpty()
 
-        fun qualificacaoReclamante(comNascimento: Boolean): String = buildString {
-            append(nomeReclamante()).append(", ")
-            append(reclamante?.nacionalidade.orPlaceholder()).append(", ")
-            append(formatEstadoCivil(reclamante?.estadoCivil)).append(", inscrito(a) no CPFMF sob n.º ")
-            append(reclamante?.cpf.orPlaceholder()).append(", e no RG sob o n.º ")
-            append(formatRg(reclamante))
-            if (comNascimento) {
-                append(", nascido(a) em ").append(reclamante?.dataNascimento?.let(::formatLongDate).orPlaceholder())
-            }
-            append(", residente e domiciliado(a) em ")
-            append(reclamante?.endereco?.cidade.orPlaceholder()).append(" – ")
-            append(reclamante?.endereco?.estado.orPlaceholder()).append(", ")
-            append(formatAddress(reclamante?.endereco)).append(", CEP ")
-            append(formatCep(reclamante?.endereco?.cep)).append(", telefone ")
-            append(reclamante?.telefone.orPlaceholder())
+        fun qualificacaoReclamante(comNascimento: Boolean): Qualification {
+            val pessoa = reclamante
+            val feminino = isFeminino(pessoa)
+            val parts = mutableListOf<String>()
+            pessoa?.nacionalidade.clean()?.lowercase(PT_BR)?.let(parts::add)
+            formatEstadoCivil(pessoa?.estadoCivil, feminino)?.let(parts::add)
+            pessoa?.cpf.clean()?.let { parts += "inscrito(a) no CPFMF sob n.º $it" }
+            formatRg(pessoa)?.let { parts += "e no RG sob o n.º $it" }
+            if (comNascimento) pessoa?.dataNascimento?.let { parts += "nascido(a) em ${formatLongDate(it)}" }
+            formatResidence(pessoa?.endereco)?.let(parts::add)
+            pessoa?.telefone.clean()?.let { parts += "telefone $it" }
+            return Qualification(nomeReclamante(), parts.joinToString(", ").removePrefix("e "))
         }
 
         fun listaOutorgados(): String = advogados.takeIf { it.isNotEmpty() }
             ?.joinToString(", ") { formatAdvogado(it) }
             ?.plus(", todos estabelecidos na $enderecoEscritorio.")
-            ?: "___, todos estabelecidos na $enderecoEscritorio."
+            ?: "Todos estabelecidos na $enderecoEscritorio."
 
-        fun primeiroAdvogado(): String = advogados.firstOrNull()?.let(::formatAdvogado) ?: PLACEHOLDER
+        fun primeiroAdvogado(): String = advogados.firstOrNull()?.let(::formatAdvogado).orEmpty()
+        fun poderesEspeciais(): String = "Para o fim especial de ${acaoContraReclamada()}."
+        fun acaoContraReclamada(): String = nomeReclamada().takeIf { it.isNotBlank() }
+            ?.let { "propor Reclamação Trabalhista em face de $it e outros" }
+            ?: "propor Reclamação Trabalhista"
     }
 
     private fun formatAdvogado(usuario: Usuario): String {
         val pessoa = usuario.pessoa
-        val generoFeminino = usuario.tratamento == TratamentoAdvogado.DRA
+        val generoFeminino = pessoa?.sexo == Sexo.FEMININO || usuario.tratamento == TratamentoAdvogado.DRA
         val profissao = if (generoFeminino) "advogada" else "advogado"
         val inscrito = if (generoFeminino) "inscrita" else "inscrito"
-        return "${pessoa?.nome.orPlaceholder()}, ${pessoa?.nacionalidade.orPlaceholder()}, " +
-            "${formatEstadoCivil(pessoa?.estadoCivil)}, $profissao, $inscrito na " +
-            "OAB/${usuario.ufOab.orPlaceholder()} nº ${usuario.numeroOab.orPlaceholder()}"
+        val parts = mutableListOf<String>()
+        pessoa?.nome.clean()?.uppercase(PT_BR)?.let(parts::add)
+        pessoa?.nacionalidade.clean()?.lowercase(PT_BR)?.let(parts::add)
+        formatEstadoCivil(pessoa?.estadoCivil, generoFeminino)?.let(parts::add)
+        parts += profissao
+        val oab = formatOab(usuario)
+        if (oab != null) parts += "$inscrito na $oab"
+        return parts.joinToString(", ")
     }
 
-    private fun formatRg(pessoa: Pessoa?): String = listOfNotNull(
-        pessoa?.rg?.trim()?.takeIf { it.isNotEmpty() },
-        pessoa?.orgaoEmissorRg?.trim()?.takeIf { it.isNotEmpty() }
-    ).joinToString(" ").ifBlank { PLACEHOLDER }
+    private fun formatRg(pessoa: Pessoa?): String? = pessoa?.rg.clean()?.let { rg ->
+        listOfNotNull(rg, pessoa?.orgaoEmissorRg.clean()).joinToString(" ")
+    }
 
-    private fun formatAddress(endereco: Endereco?): String = listOfNotNull(
-        endereco?.rua?.trim()?.takeIf { it.isNotEmpty() },
-        endereco?.numero?.trim()?.takeIf { it.isNotEmpty() },
-        endereco?.complemento?.trim()?.takeIf { it.isNotEmpty() },
-        endereco?.bairro?.trim()?.takeIf { it.isNotEmpty() }?.let { "Bairro $it" }
-    ).joinToString(", ").ifBlank { PLACEHOLDER }
+    private fun formatResidence(endereco: Endereco?): String? {
+        endereco ?: return null
+        val location = listOfNotNull(endereco.cidade.clean(), endereco.estado.clean())
+            .joinToString(" – ").takeIf { it.isNotBlank() }
+        val streetAndNumber = listOfNotNull(endereco.rua.clean(), endereco.numero.clean())
+            .joinToString(", ").takeIf { it.isNotBlank() }
+        val address = listOfNotNull(
+            streetAndNumber?.let { base -> endereco.complemento.clean()?.let { "$base – $it" } ?: base },
+            endereco.bairro.clean()?.let { "Bairro $it" },
+            formatCep(endereco.cep)?.let { "CEP $it" }
+        ).joinToString(", ")
+        val complete = listOfNotNull(location, address.takeIf { it.isNotBlank() }).joinToString(", ")
+        return complete.takeIf { it.isNotBlank() }?.let { "residente e domiciliado(a) em $it" }
+    }
 
-    private fun formatCep(value: String?): String {
+    private fun formatCep(value: String?): String? {
         val digits = value?.filter(Char::isDigit).orEmpty()
-        return if (digits.length == 8) "${digits.take(5)}-${digits.drop(5)}" else value.orPlaceholder()
+        return if (digits.length == 8) "${digits.take(5)}-${digits.drop(5)}" else value.clean()
     }
 
-    private fun formatEstadoCivil(value: EstadoCivil?): String = when (value) {
-        EstadoCivil.SOLTEIRO -> "solteiro"
-        EstadoCivil.CASADO -> "casado"
-        EstadoCivil.DIVORCIADO -> "divorciado"
-        EstadoCivil.VIUVO -> "viúvo"
+    private fun formatEstadoCivil(value: EstadoCivil?, feminino: Boolean): String? = when (value) {
+        EstadoCivil.SOLTEIRO -> if (feminino) "solteira" else "solteiro"
+        EstadoCivil.CASADO -> if (feminino) "casada" else "casado"
+        EstadoCivil.DIVORCIADO -> if (feminino) "divorciada" else "divorciado"
+        EstadoCivil.VIUVO -> if (feminino) "viúva" else "viúvo"
         EstadoCivil.UNIAO_ESTAVEL -> "união estável"
-        EstadoCivil.SEPARADO -> "separado"
-        null -> PLACEHOLDER
+        EstadoCivil.SEPARADO -> if (feminino) "separada" else "separado"
+        null -> null
+    }
+
+    private fun isFeminino(pessoa: Pessoa?): Boolean = pessoa?.sexo == Sexo.FEMININO ||
+        (pessoa?.sexo == null && pessoa?.nacionalidade.clean()?.lowercase(PT_BR)?.endsWith("a") == true)
+
+    private fun formatOab(usuario: Usuario): String? {
+        val uf = usuario.ufOab.clean()
+        val numero = usuario.numeroOab.clean()
+        return when {
+            uf != null && numero != null -> "OAB/$uf nº $numero"
+            uf != null -> "OAB/$uf"
+            numero != null -> "OAB nº $numero"
+            else -> null
+        }
     }
 
     private fun formatLongDate(date: LocalDate): String = date.format(LONG_DATE_FORMATTER)
-    private fun String?.orPlaceholder(): String = this?.trim()?.takeIf(String::isNotEmpty) ?: PLACEHOLDER
+    private fun String?.clean(): String? = this?.trim()?.takeIf(String::isNotEmpty)
+
+    private data class Qualification(val name: String, val details: String) {
+        val text: String = listOf(name, details).filter(String::isNotBlank).joinToString(", ")
+    }
 
     data class ProcuracaoGerada(val nomeReclamante: String, val bytes: ByteArray)
 
     private companion object {
-        const val PLACEHOLDER = "___"
         const val FONT = "Georgia"
         const val CIDADE_ESCRITORIO = "Cascavel"
+        const val HEADER_WIDTH_EMU = 7_543_800
+        const val HEADER_HEIGHT_EMU = 1_044_713
+        const val FOOTER_WIDTH_EMU = 6_089_650
+        const val FOOTER_HEIGHT_EMU = 1_835_984
+        val PT_BR: Locale = Locale("pt", "BR")
         val LONG_DATE_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
     }

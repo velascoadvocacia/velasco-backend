@@ -1,0 +1,1 @@
+ALTER TABLE pessoas ADD COLUMN sexo VARCHAR(10);

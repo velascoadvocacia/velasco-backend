@@ -1,6 +1,7 @@
 package com.example.lawyer.domain.model
 
 import com.example.lawyer.domain.enums.EstadoCivil
+import com.example.lawyer.domain.enums.Sexo
 import com.example.lawyer.domain.enums.TipoPessoa
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
@@ -41,6 +42,10 @@ open class Pessoa(
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     open var estadoCivil: EstadoCivil? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    open var sexo: Sexo? = null,
 
     @Column(length = 20)
     open var rg: String? = null,

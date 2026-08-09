@@ -4,6 +4,7 @@ import com.example.lawyer.domain.enums.TipoPessoa
 import com.example.lawyer.domain.enums.EstadoCivil
 import com.example.lawyer.domain.enums.PerfilUsuario
 import com.example.lawyer.domain.enums.TratamentoAdvogado
+import com.example.lawyer.domain.enums.Sexo
 import com.example.lawyer.dto.request.EnderecoRequest
 import com.example.lawyer.dto.request.PessoaRequestDTO
 import com.example.lawyer.dto.request.RtPreviewRequest
@@ -28,6 +29,8 @@ import java.io.ByteArrayOutputStream
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.time.LocalDate
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Random
 import java.util.zip.ZipInputStream
 import javax.imageio.ImageIO
@@ -46,23 +49,25 @@ class RtExportResourceTest {
         val suffix = System.nanoTime().toString()
         val reclamante = pessoaService.create(
             PessoaRequestDTO(
-                nome = "Maria Procuracao $suffix",
-                cpf = "12345678909",
+                nome = "Nayara Fernanda de Freitas Batista",
+                cpf = validCpfFromSuffix(suffix, 1),
                 email = "maria.procuracao.$suffix@example.com",
                 telefone = "(45) 99999-0000",
                 nacionalidade = "brasileira",
-                estadoCivil = EstadoCivil.CASADO,
+                estadoCivil = EstadoCivil.SOLTEIRO,
+                sexo = Sexo.FEMININO,
                 rg = "123456789",
                 orgaoEmissorRg = "SESP/PR",
                 tipoPessoa = TipoPessoa.FISICA,
                 dataNascimento = LocalDate.of(1990, 1, 10),
                 endereco = EnderecoRequest(
                     rua = "Rua Paraná",
-                    numero = "100",
-                    bairro = "Centro",
-                    cidade = "Cascavel",
+                    numero = "38",
+                    complemento = "Casa 2",
+                    bairro = "Rainha dos Apóstolos",
+                    cidade = "Terra Roxa",
                     estado = "PR",
-                    cep = "85800000"
+                    cep = "85990000"
                 )
             )
         )
@@ -77,7 +82,7 @@ class RtExportResourceTest {
         val pessoaAdvogado = pessoaService.create(
             PessoaRequestDTO(
                 nome = "Lucas Advogado $suffix",
-                cpf = "11144477735",
+                cpf = validCpfFromSuffix(suffix, 2),
                 email = "lucas.advogado.$suffix@example.com",
                 nacionalidade = "brasileiro",
                 estadoCivil = EstadoCivil.CASADO,
@@ -118,8 +123,9 @@ class RtExportResourceTest {
             assertTrue(text.contains("PROCURAÇÃO AD JUDICIA"))
             assertTrue(text.contains("CONTRATO DE HONORÁRIOS"))
             assertTrue(text.contains("DECLARAÇÃO DE HIPOSSUFICIÊNCIA"))
-            assertTrue(text.contains("Maria Procuracao $suffix, brasileira, casado"))
-            assertTrue(text.contains("Lucas Advogado $suffix, brasileiro, casado, advogado, inscrito na OAB/PR nº 52.533"))
+            assertTrue(text.contains("NAYARA FERNANDA DE FREITAS BATISTA, brasileira, solteira"))
+            assertTrue(text.contains("Rua Paraná, 38 – Casa 2, Bairro Rainha dos Apóstolos, CEP 85990-000"))
+            assertTrue(text.contains("LUCAS ADVOGADO $suffix, brasileiro, casado, advogado, inscrito na OAB/PR nº 52.533"))
             assertTrue(text.contains("Empresa Exemplo $suffix e outros"))
             assertEquals(2, document.paragraphs.sumOf { paragraph -> paragraph.runs.sumOf { it.ctr.brList.size } })
             assertTrue(document.headerList.any { header ->
@@ -128,7 +134,88 @@ class RtExportResourceTest {
             assertTrue(document.footerList.any { footer ->
                 footer.paragraphs.any { paragraph -> paragraph.runs.any { it.embeddedPictures.isNotEmpty() } }
             })
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, document.headerList.single().paragraphs.first().alignment)
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, document.footerList.single().paragraphs.first().alignment)
+            val footerPicture = document.footerList.single().paragraphs.first().runs.single().embeddedPictures.single()
+            assertEquals(6_089_650L, footerPicture.ctPicture.spPr.xfrm.ext.cx)
+            assertEquals(1_835_984L, footerPicture.ctPicture.spPr.xfrm.ext.cy)
+            val nameRun = document.paragraphs.flatMap { it.runs }
+                .first { it.text() == " NAYARA FERNANDA DE FREITAS BATISTA" }
+            assertTrue(nameRun.isBold)
+            assertTrue(document.paragraphs.flatMap { it.runs }.filter { it.text().contains("brasileira") }.none { it.isBold })
         }
+        saveGeneratedDocument("procuracao-nayara-completa.docx", docx)
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should omit absent fields without placeholders or broken punctuation`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Pessoa Com Dados Omitidos",
+                cpf = validCpfFromSuffix(suffix, 3),
+                email = "omissao.$suffix@example.com",
+                nacionalidade = "brasileira",
+                sexo = Sexo.FEMININO,
+                tipoPessoa = TipoPessoa.FISICA,
+                endereco = EnderecoRequest(cidade = "Cascavel", estado = "PR")
+            )
+        )
+        val pessoaAdvogado = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Advogada Sem Qualificacao",
+                cpf = validCpfFromSuffix(suffix, 4),
+                email = "adv.omissao.$suffix@example.com",
+                sexo = Sexo.FEMININO,
+                tipoPessoa = TipoPessoa.FISICA
+            )
+        )
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.omissao.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "88.198",
+                tratamento = TratamentoAdvogado.DRA
+            )
+        )
+
+        val docx = given().contentType("application/json")
+            .body(mapOf("reclamantesIds" to listOf(reclamante.id), "advogadosIds" to listOf(advogado.id)))
+            .`when`().post("/rt/export-procuracao").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val text = document.paragraphs.joinToString("\n") { it.text }
+            assertTrue(text.contains("PESSOA COM DADOS OMITIDOS, brasileira, inscrito(a) no CPFMF sob n.º ${reclamante.cpf}, residente e domiciliado(a) em Cascavel – PR"))
+            assertTrue(text.contains("ADVOGADA SEM QUALIFICACAO, advogada, inscrita na OAB/PR nº 88.198"))
+            assertTrue(text.contains("propor Reclamação Trabalhista."))
+            assertTrue(!text.contains("___"))
+            assertTrue(!text.contains(", ,"))
+            assertTrue(!text.contains("RG sob"))
+            assertTrue(!text.contains("nascido(a) em"))
+        }
+        saveGeneratedDocument("procuracao-campos-omitidos.docx", docx)
+    }
+
+    private fun saveGeneratedDocument(filename: String, bytes: ByteArray) {
+        val directory = Path.of("target", "documentos-teste")
+        Files.createDirectories(directory)
+        Files.write(directory.resolve(filename), bytes)
+    }
+
+    private fun validCpfFromSuffix(suffix: String, discriminator: Int): String {
+        val base = (suffix.filter(Char::isDigit).takeLast(8) + discriminator).padStart(9, '1').takeLast(9)
+        fun digit(value: String, weight: Int): Int {
+            val sum = value.mapIndexed { index, char -> char.digitToInt() * (weight - index) }.sum()
+            val remainder = (sum * 10) % 11
+            return if (remainder == 10) 0 else remainder
+        }
+        val first = digit(base, 10)
+        val second = digit(base + first, 11)
+        return "$base$first$second"
     }
 
     @Test

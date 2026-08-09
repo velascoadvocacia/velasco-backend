@@ -1,6 +1,7 @@
 package com.example.lawyer.dto.request
 
 import com.example.lawyer.domain.enums.EstadoCivil
+import com.example.lawyer.domain.enums.Sexo
 import com.example.lawyer.domain.enums.TipoPessoa
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Size
@@ -26,6 +27,8 @@ data class PessoaRequestDTO(
     val nacionalidade: String? = null,
 
     val estadoCivil: EstadoCivil? = null,
+
+    val sexo: Sexo? = null,
 
     @field:Size(max = 20)
     val rg: String? = null,

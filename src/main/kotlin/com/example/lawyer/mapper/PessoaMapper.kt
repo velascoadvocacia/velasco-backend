@@ -21,6 +21,7 @@ class PessoaMapper {
         telefone = request.telefone?.trim(),
         nacionalidade = request.nacionalidade?.trim(),
         estadoCivil = fisicaValue(request) { request.estadoCivil },
+        sexo = fisicaValue(request) { request.sexo },
         rg = fisicaValue(request) { DocumentValidator.onlyDigits(request.rg) },
         orgaoEmissorRg = fisicaValue(request) { request.orgaoEmissorRg?.trim()?.uppercase() },
         pis = fisicaValue(request) { DocumentValidator.onlyDigits(request.pis) },
@@ -44,6 +45,7 @@ class PessoaMapper {
         target.telefone = request.telefone?.trim()
         target.nacionalidade = request.nacionalidade?.trim()
         target.estadoCivil = fisicaValue(request) { request.estadoCivil }
+        target.sexo = fisicaValue(request) { request.sexo }
         target.rg = fisicaValue(request) { DocumentValidator.onlyDigits(request.rg) }
         target.orgaoEmissorRg = fisicaValue(request) { request.orgaoEmissorRg?.trim()?.uppercase() }
         target.pis = fisicaValue(request) { DocumentValidator.onlyDigits(request.pis) }
@@ -68,6 +70,7 @@ class PessoaMapper {
         telefone = entity.telefone,
         nacionalidade = entity.nacionalidade,
         estadoCivil = entity.estadoCivil,
+        sexo = entity.sexo,
         rg = entity.rg,
         orgaoEmissorRg = entity.orgaoEmissorRg,
         pis = entity.pis,

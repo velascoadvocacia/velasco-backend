@@ -1,6 +1,7 @@
 package com.example.lawyer.dto.response
 
 import com.example.lawyer.domain.enums.EstadoCivil
+import com.example.lawyer.domain.enums.Sexo
 import com.example.lawyer.domain.enums.TipoPessoa
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -14,6 +15,7 @@ data class PessoaResponseDTO(
     val telefone: String?,
     val nacionalidade: String?,
     val estadoCivil: EstadoCivil?,
+    val sexo: Sexo?,
     val rg: String?,
     val orgaoEmissorRg: String?,
     val pis: String?,
