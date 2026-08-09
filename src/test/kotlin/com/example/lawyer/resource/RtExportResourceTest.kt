@@ -1,9 +1,15 @@
 package com.example.lawyer.resource
 
 import com.example.lawyer.domain.enums.TipoPessoa
+import com.example.lawyer.domain.enums.EstadoCivil
+import com.example.lawyer.domain.enums.PerfilUsuario
+import com.example.lawyer.domain.enums.TratamentoAdvogado
+import com.example.lawyer.dto.request.EnderecoRequest
 import com.example.lawyer.dto.request.PessoaRequestDTO
 import com.example.lawyer.dto.request.RtPreviewRequest
+import com.example.lawyer.dto.request.UsuarioCreateRequest
 import com.example.lawyer.service.PessoaService
+import com.example.lawyer.service.UsuarioService
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
@@ -30,6 +36,100 @@ import javax.imageio.ImageIO
 class RtExportResourceTest {
     @Inject
     lateinit var pessoaService: PessoaService
+
+    @Inject
+    lateinit var usuarioService: UsuarioService
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export procuracao honorarios and hipossuficiencia with selected data`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Maria Procuracao $suffix",
+                cpf = "12345678909",
+                email = "maria.procuracao.$suffix@example.com",
+                telefone = "(45) 99999-0000",
+                nacionalidade = "brasileira",
+                estadoCivil = EstadoCivil.CASADO,
+                rg = "123456789",
+                orgaoEmissorRg = "SESP/PR",
+                tipoPessoa = TipoPessoa.FISICA,
+                dataNascimento = LocalDate.of(1990, 1, 10),
+                endereco = EnderecoRequest(
+                    rua = "Rua Paraná",
+                    numero = "100",
+                    bairro = "Centro",
+                    cidade = "Cascavel",
+                    estado = "PR",
+                    cep = "85800000"
+                )
+            )
+        )
+        val reclamada = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Empresa Exemplo $suffix",
+                cnpj = "11222333000181",
+                email = "empresa.$suffix@example.com",
+                tipoPessoa = TipoPessoa.JURIDICA
+            )
+        )
+        val pessoaAdvogado = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Lucas Advogado $suffix",
+                cpf = "11144477735",
+                email = "lucas.advogado.$suffix@example.com",
+                nacionalidade = "brasileiro",
+                estadoCivil = EstadoCivil.CASADO,
+                tipoPessoa = TipoPessoa.FISICA
+            )
+        )
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.procuracao.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "52.533",
+                tratamento = TratamentoAdvogado.DR
+            )
+        )
+
+        val docx = given()
+            .contentType("application/json")
+            .body(
+                mapOf(
+                    "reclamantesIds" to listOf(reclamante.id),
+                    "reclamadasIds" to listOf(reclamada.id),
+                    "advogadosIds" to listOf(advogado.id)
+                )
+            )
+            .`when`()
+            .post("/rt/export-procuracao")
+            .then()
+            .statusCode(200)
+            .header("Content-Type", equalTo("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val text = document.paragraphs.joinToString("\n") { it.text }
+            assertTrue(text.contains("PROCURAÇÃO AD JUDICIA"))
+            assertTrue(text.contains("CONTRATO DE HONORÁRIOS"))
+            assertTrue(text.contains("DECLARAÇÃO DE HIPOSSUFICIÊNCIA"))
+            assertTrue(text.contains("Maria Procuracao $suffix, brasileira, casado"))
+            assertTrue(text.contains("Lucas Advogado $suffix, brasileiro, casado, advogado, inscrito na OAB/PR nº 52.533"))
+            assertTrue(text.contains("Empresa Exemplo $suffix e outros"))
+            assertEquals(2, document.paragraphs.sumOf { paragraph -> paragraph.runs.sumOf { it.ctr.brList.size } })
+            assertTrue(document.headerList.any { header ->
+                header.paragraphs.any { paragraph -> paragraph.runs.any { it.embeddedPictures.isNotEmpty() } }
+            })
+            assertTrue(document.footerList.any { footer ->
+                footer.paragraphs.any { paragraph -> paragraph.runs.any { it.embeddedPictures.isNotEmpty() } }
+            })
+        }
+    }
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])

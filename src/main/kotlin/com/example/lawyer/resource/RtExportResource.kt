@@ -4,9 +4,11 @@ import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtExportBlockRequest
 import com.example.lawyer.dto.request.RtExportImageRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
+import com.example.lawyer.dto.request.ProcuracaoExportRequest
 import com.example.lawyer.dto.response.RtPreviewResponse
 import com.example.lawyer.service.RtExportService
 import com.example.lawyer.service.ProcessoAnexoService
+import com.example.lawyer.service.ProcuracaoExportService
 import com.example.lawyer.service.RtTemplateService
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.security.RolesAllowed
@@ -30,8 +32,24 @@ class RtExportResource(
     private val service: RtExportService,
     private val templateService: RtTemplateService,
     private val processoAnexoService: ProcessoAnexoService,
+    private val procuracaoExportService: ProcuracaoExportService,
     private val objectMapper: ObjectMapper
 ) {
+    @POST
+    @Path("/export-procuracao")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(DOCX_MEDIA_TYPE)
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun exportProcuracao(@Valid request: ProcuracaoExportRequest): Response {
+        val generated = procuracaoExportService.generate(request)
+        return Response.ok(generated.bytes, DOCX_MEDIA_TYPE)
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"PROCURAÇÃO AD JUDICIA - ${sanitizeFilename(generated.nomeReclamante)}.docx\""
+            )
+            .build()
+    }
+
     @POST
     @Path("/preview")
     @Produces(MediaType.APPLICATION_JSON)
