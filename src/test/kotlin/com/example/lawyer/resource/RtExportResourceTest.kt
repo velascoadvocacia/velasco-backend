@@ -138,7 +138,9 @@ class RtExportResourceTest {
             assertTrue(document.footerList.any { footer ->
                 footer.paragraphs.any { paragraph -> paragraph.runs.any { it.embeddedPictures.isNotEmpty() } }
             })
-            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, document.footerList.single().paragraphs.first().alignment)
+            assertTrue(document.footerList.single().paragraphs.all {
+                it.alignment == org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+            })
             val headerParagraph = document.headerList.single().paragraphs.first { paragraph ->
                 paragraph.runs.any { it.embeddedPictures.isNotEmpty() }
             }
@@ -146,7 +148,15 @@ class RtExportResourceTest {
             assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, headerParagraph.alignment)
             assertEquals(org.apache.poi.util.Units.toEMU(470.0).toLong(), headerPicture.ctPicture.spPr.xfrm.ext.cx)
             assertEquals(org.apache.poi.util.Units.toEMU(80.0).toLong(), headerPicture.ctPicture.spPr.xfrm.ext.cy)
-            val footerPicture = document.footerList.single().paragraphs.first().runs.single().embeddedPictures.single()
+            val footerLinePicture = document.footerList.single().paragraphs[0].runs.single().embeddedPictures.single()
+            assertEquals(7_543_800L, footerLinePicture.ctPicture.spPr.xfrm.ext.cx)
+            assertEquals(199_521L, footerLinePicture.ctPicture.spPr.xfrm.ext.cy)
+            assertEquals(
+                794.0 / 21.0,
+                footerLinePicture.ctPicture.spPr.xfrm.ext.cx.toDouble() / footerLinePicture.ctPicture.spPr.xfrm.ext.cy,
+                0.001
+            )
+            val footerPicture = document.footerList.single().paragraphs[1].runs.single().embeddedPictures.single()
             assertEquals(2_598_852L, footerPicture.ctPicture.spPr.xfrm.ext.cx)
             assertEquals(783_534L, footerPicture.ctPicture.spPr.xfrm.ext.cy)
             assertEquals(
@@ -188,6 +198,10 @@ class RtExportResourceTest {
                 .runs.first { it.text() == "Empresa Exemplo $suffix" }
             assertTrue(reclamadaRun.isBold)
             assertEquals(UnderlinePatterns.SINGLE, reclamadaRun.underline)
+            val declarationParagraph = document.paragraphs.first { it.text.startsWith("Eu,") }
+            assertTrue(declarationParagraph.runs.first {
+                it.text().contains("NAYARA FERNANDA DE FREITAS BATISTA")
+            }.isBold)
             val claimantSignatures = document.paragraphs.filter { it.text == "Nayara Fernanda de Freitas Batista" }
             assertEquals(setOf(0), claimantSignatures.map { it.spacingBefore }.toSet())
             claimantSignatures.forEach { signatureParagraph ->
@@ -215,7 +229,7 @@ class RtExportResourceTest {
             assertEquals(240, witnesses.spacingBefore)
             assertEquals(720, witnesses.spacingAfter)
             val dateParagraphs = document.paragraphs.filter { it.text.startsWith("Cascavel,") }
-            assertEquals(setOf(3_200, 1_200, 5_200), dateParagraphs.map { it.spacingBefore }.toSet())
+            assertEquals(setOf(3_200, 1_200, 2_800), dateParagraphs.map { it.spacingBefore }.toSet())
             dateParagraphs.forEach { dateParagraph ->
                 assertEquals(720, dateParagraph.spacingAfter)
                 assertTrue(dateParagraph.ctp.pPr.isSetKeepNext)

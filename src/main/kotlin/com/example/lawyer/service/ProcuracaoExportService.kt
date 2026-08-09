@@ -105,13 +105,23 @@ class ProcuracaoExportService(
     private fun createDeclaracao(document: XWPFDocument, dados: DadosDocumento) {
         title(document, "DECLARAÇÃO DE HIPOSSUFICIÊNCIA")
         spacer(document)
-        body(
-            document,
-            "Eu, ${dados.qualificacaoReclamante(comNascimento = false).text}, declaro para os devidos fins, de direito sob pena da lei, ser pessoa pobre não tendo condições de arcar com despesas e custas processuais, sem prejuízo de minha subsistência e de meus dependentes."
-        )
+        declarationOpening(document, dados.qualificacaoReclamante(comNascimento = false))
         body(document, "Por ser expressão da verdade firmo o presente.")
         dateAndSignatureBlock(
             document, dados.dataExportacao, dados.nomeReclamante(), DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS
+        )
+    }
+
+    private fun declarationOpening(document: XWPFDocument, qualification: Qualification) {
+        val paragraph = baseParagraph(document)
+        run(paragraph, "Eu")
+        qualification.name.takeIf(String::isNotBlank)?.let {
+            run(paragraph, ", ${it.uppercase(PT_BR)}", bold = true)
+        }
+        qualification.details.takeIf(String::isNotBlank)?.let { run(paragraph, ", $it") }
+        run(
+            paragraph,
+            ", declaro para os devidos fins, de direito sob pena da lei, ser pessoa pobre não tendo condições de arcar com despesas e custas processuais, sem prejuízo de minha subsistência e de meus dependentes."
         )
     }
 
@@ -395,7 +405,22 @@ class ProcuracaoExportService(
         docxHeaderService.addHeader(document)
         val policy = document.createHeaderFooterPolicy()
         val footer = policy.createFooter(XWPFHeaderFooterPolicy.DEFAULT)
-        val footerParagraph = (footer.paragraphs.firstOrNull() ?: footer.createParagraph()).apply(::centerOnPage)
+        val footerLineParagraph = (footer.paragraphs.firstOrNull() ?: footer.createParagraph()).apply {
+            centerOnPage(this)
+            spacingAfter = 0
+        }
+        val footerLineSize = proportionalImageSize(FOOTER_LINE_WIDTH_PX, FOOTER_LINE_HEIGHT_PX)
+        javaClass.getResourceAsStream("/assets/footer_line.png")!!.use { input ->
+            footerLineParagraph.createRun().addPicture(
+                input, XWPFDocument.PICTURE_TYPE_PNG, "footer_line.png",
+                footerLineSize.widthEmu, footerLineSize.heightEmu
+            )
+        }
+
+        val footerParagraph = footer.createParagraph().apply {
+            centerOnPage(this)
+            spacingBefore = 0
+        }
         val footerSize = proportionalImageSize(FOOTER_IMAGE_WIDTH_PX, FOOTER_IMAGE_HEIGHT_PX)
             .scaled(FOOTER_SCALE_PERCENT)
         javaClass.getResourceAsStream("/assets/footer_velasco.png")!!.use { input ->
@@ -568,12 +593,15 @@ class ProcuracaoExportService(
         const val BODY_BOTTOM_MARGIN_TWIPS = 3_200
         const val PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 3_200
         const val CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_200
-        const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 5_200
+        // Calibrado para manter o bloco indivisível de data/assinatura na página única da declaração.
+        const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 2_800
         const val CIDADE_ESCRITORIO = "Cascavel"
         const val IMAGE_MAX_WIDTH_EMU = 7_543_800
         const val IMAGE_MAX_HEIGHT_EMU = 1_044_713
         const val FOOTER_IMAGE_WIDTH_PX = 670
         const val FOOTER_IMAGE_HEIGHT_PX = 202
+        const val FOOTER_LINE_WIDTH_PX = 794
+        const val FOOTER_LINE_HEIGHT_PX = 21
         const val FOOTER_SCALE_PERCENT = 75
         val PT_BR: Locale = Locale("pt", "BR")
         val LONG_DATE_FORMATTER: DateTimeFormatter =
