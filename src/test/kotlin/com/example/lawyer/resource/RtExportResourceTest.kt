@@ -193,20 +193,32 @@ class RtExportResourceTest {
             claimantSignatures.forEach { signatureParagraph ->
                 assertEquals("single", signatureParagraph.ctp.pPr.pBdr.top.`val`.toString())
                 assertTrue(signatureParagraph.ctp.pPr.isSetKeepLines)
+                assertEquals(2_100, signatureParagraph.indentationLeft)
+                assertEquals(2_100, signatureParagraph.indentationRight)
+                assertTrue(signatureParagraph.runs.single().isBold)
             }
-            val contractSignature = document.paragraphs.first { it.text.contains("ADVOGADO:") }
-            assertEquals(0, contractSignature.spacingBefore)
-            assertEquals("single", contractSignature.ctp.pPr.pBdr.top.`val`.toString())
-            assertTrue(contractSignature.ctp.pPr.isSetKeepLines)
-            assertTrue(contractSignature.ctp.pPr.isSetKeepNext)
-            val contractSignatureIndex = document.paragraphs.indexOf(contractSignature)
-            assertEquals("TESTEMUNHAS", document.paragraphs[contractSignatureIndex + 1].text)
+            assertEquals(2, document.tables.size)
+            val signerLabels = document.tables[0].rows.single().tableCells.map { it.text }
+            assertEquals(listOf("Nayara Fernanda de Freitas Batista", "", "ADVOGADO:"), signerLabels)
+            val witnessLabels = document.tables[1].rows.single().tableCells.map { it.text }
+            assertEquals(listOf("TESTEMUNHA 1", "", "TESTEMUNHA 2"), witnessLabels)
+            document.tables.forEach { table ->
+                assertEquals(7_600, table.width)
+                assertTrue(!table.ctTbl.tblPr.isSetTblBorders)
+                listOf(0, 2).forEach { cellIndex ->
+                    val signatureParagraph = table.getRow(0).getCell(cellIndex).paragraphs.single()
+                    assertEquals("single", signatureParagraph.ctp.pPr.pBdr.top.`val`.toString())
+                    assertTrue(signatureParagraph.runs.single().isBold)
+                }
+            }
+            val witnesses = document.paragraphs.first { it.text == "TESTEMUNHAS" }
+            assertEquals(240, witnesses.spacingBefore)
+            assertEquals(720, witnesses.spacingAfter)
             val dateParagraphs = document.paragraphs.filter { it.text.startsWith("Cascavel,") }
             assertEquals(setOf(3_200, 1_200, 5_200), dateParagraphs.map { it.spacingBefore }.toSet())
             dateParagraphs.forEach { dateParagraph ->
-                assertEquals(160, dateParagraph.spacingAfter)
+                assertEquals(720, dateParagraph.spacingAfter)
                 assertTrue(dateParagraph.ctp.pPr.isSetKeepNext)
-                assertEquals(0, document.paragraphs[document.paragraphs.indexOf(dateParagraph) + 1].spacingBefore)
             }
             val contractTitle = document.paragraphs.first { it.text == "CONTRATO DE HONORÁRIOS" }
             val contractTitleIndex = document.paragraphs.indexOf(contractTitle)
@@ -223,7 +235,7 @@ class RtExportResourceTest {
                 assertEquals(java.math.BigInteger.valueOf(927), clause.ctp.pPr.tabs.tabList.single().pos)
                 assertEquals(1, clause.runs.sumOf { it.ctr.tabList.size })
             }
-            assertEquals(java.math.BigInteger.valueOf(2_600), document.document.body.sectPr.pgMar.bottom)
+            assertEquals(java.math.BigInteger.valueOf(3_200), document.document.body.sectPr.pgMar.bottom)
             val secondClause = clauses[1]
             assertTrue(secondClause.runs.first { it.text() == "30% (trinta por cento)" }.isBold)
             assertTrue(secondClause.runs.first { it.text() == "5% (cinco por cento)" }.isBold)

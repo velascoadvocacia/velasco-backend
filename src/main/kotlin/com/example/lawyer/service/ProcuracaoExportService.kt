@@ -14,6 +14,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy
 import org.apache.poi.xwpf.usermodel.BreakType
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment
+import org.apache.poi.xwpf.usermodel.TableRowAlign
 import org.apache.poi.xwpf.usermodel.UnderlinePatterns
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
@@ -267,10 +268,12 @@ class ProcuracaoExportService(
         val signature = baseParagraph(document).apply {
             alignment = ParagraphAlignment.CENTER
             spacingBefore = 0
+            indentationLeft = SIGNATURE_SIDE_INDENT_TWIPS
+            indentationRight = SIGNATURE_SIDE_INDENT_TWIPS
         }
         keepTogether(signature)
         addSignatureLine(signature)
-        run(signature, text)
+        run(signature, text, bold = true)
     }
 
     private fun contractDateAndSignatureBlock(document: XWPFDocument, date: LocalDate, nomeReclamante: String) {
@@ -282,17 +285,43 @@ class ProcuracaoExportService(
         keepTogether(dateParagraph, keepWithNext = true)
         run(dateParagraph, "$CIDADE_ESCRITORIO, ${formatLongDate(date)}.")
 
-        val signature = baseParagraph(document).apply {
-            alignment = ParagraphAlignment.CENTER
-            spacingBefore = 0
-        }
-        keepTogether(signature, keepWithNext = true)
-        addSignatureLine(signature)
-        run(signature, "$nomeReclamante                                      ADVOGADO:")
+        contractSignatureTable(document, nomeReclamante, "ADVOGADO:", keepWithNext = true)
 
-        val witnesses = baseParagraph(document).apply { alignment = ParagraphAlignment.CENTER }
-        keepTogether(witnesses)
+        val witnesses = baseParagraph(document).apply {
+            alignment = ParagraphAlignment.CENTER
+            spacingBefore = WITNESSES_SPACE_BEFORE_TWIPS
+            spacingAfter = DATE_SIGNATURE_GAP_TWIPS
+        }
+        keepTogether(witnesses, keepWithNext = true)
         run(witnesses, "TESTEMUNHAS", bold = true)
+        contractSignatureTable(document, "TESTEMUNHA 1", "TESTEMUNHA 2")
+    }
+
+    private fun contractSignatureTable(
+        document: XWPFDocument,
+        leftLabel: String,
+        rightLabel: String,
+        keepWithNext: Boolean = false
+    ) {
+        val table = document.createTable(1, 3).apply {
+            setWidth(CONTRACT_SIGNATURE_TABLE_WIDTH_TWIPS)
+            setTableAlignment(TableRowAlign.CENTER)
+            removeBorders()
+            setCellMargins(0, 0, 0, 0)
+        }
+        val row = table.getRow(0).apply { setCantSplitRow(true) }
+        listOf(0 to leftLabel, 2 to rightLabel).forEach { (index, label) ->
+            row.getCell(index).apply { setWidth(CONTRACT_SIGNATURE_CELL_WIDTH_TWIPS.toString()) }
+                .paragraphs.first().apply {
+                    alignment = ParagraphAlignment.CENTER
+                    spacingBefore = 0
+                    spacingAfter = 0
+                    keepTogether(this, keepWithNext)
+                    addSignatureLine(this)
+                    run(this, label, bold = true)
+                }
+        }
+        row.getCell(1).setWidth(CONTRACT_SIGNATURE_GAP_WIDTH_TWIPS.toString())
     }
 
     private fun addSignatureLine(paragraph: XWPFParagraph) {
@@ -528,10 +557,15 @@ class ProcuracaoExportService(
         // As cláusulas começam 0,4 cm para dentro; o texto permanece em uma coluna fixa.
         const val CLAUSE_LEFT_INDENT_TWIPS = 227
         const val CLAUSE_TEXT_COLUMN_POSITION_TWIPS = 927
-        // 160 twips = 8 pt de respiro entre a data e a linha de assinatura.
-        const val DATE_SIGNATURE_GAP_TWIPS = 160
-        // Reserva aproximadamente 1,3 cm entre o limite do corpo e a âncora do rodapé.
-        const val BODY_BOTTOM_MARGIN_TWIPS = 2_600
+        // 720 twips = 36 pt, equivalente a aproximadamente três linhas de 12 pt.
+        const val DATE_SIGNATURE_GAP_TWIPS = 720
+        const val SIGNATURE_SIDE_INDENT_TWIPS = 2_100
+        const val CONTRACT_SIGNATURE_TABLE_WIDTH_TWIPS = 7_600
+        const val CONTRACT_SIGNATURE_CELL_WIDTH_TWIPS = 3_500
+        const val CONTRACT_SIGNATURE_GAP_WIDTH_TWIPS = 600
+        const val WITNESSES_SPACE_BEFORE_TWIPS = 240
+        // Amplia a reserva entre o corpo do documento e a imagem do rodapé.
+        const val BODY_BOTTOM_MARGIN_TWIPS = 3_200
         const val PROCURACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 3_200
         const val CONTRATO_SIGNATURE_SPACE_BEFORE_TWIPS = 1_200
         const val DECLARACAO_SIGNATURE_SPACE_BEFORE_TWIPS = 5_200
