@@ -63,15 +63,17 @@ class ProcuracaoExportService(
     private fun createProcuracao(document: XWPFDocument, dados: DadosDocumento) {
         title(document, "PROCURAÇÃO AD JUDICIA")
         spacer(document)
-        qualificationParagraph(document, "OUTORGANTE:", dados.qualificacaoReclamante(comNascimento = true))
-        spacer(document)
-        labeledParagraph(document, "OUTORGADOS:", dados.listaOutorgados())
+        qualificationParagraph(document, "OUTORGANTE:", dados.qualificacaoReclamante(comNascimento = true), OUTORGANTE_INDENT_TWIPS)
+        blockSpacer(document)
+        outorgadosParagraph(document, dados.outorgados())
         labeledParagraph(
             document,
             "PODERES:",
-            "Outorga(m) os mais amplos e gerais poderes da cláusula   “ad judicia et extra” para o foro em geral, qualquer instância ordinária ou extraordinária, na qual o autor ou réu litisconsorte ativo ou passivo, denunciado ou podendo ainda, utilizar dos poderes especiais para firmar compromisso de qualquer   natureza,   concordar   com contas e cálculos, transigir, variar, fazer acordos, receber e dar quitação, receber alvará judicial e guias de retirada, desistir, renunciar ao direito sobre o que se funda a ação, podendo ainda receber importância depositadas em nome do outorgante à conta bancaria referente ao processo encaminhado com o presente, em quaisquer agência bancaria, podendo atuar em conjunto ou separadamente, bem como substabelecer com ou sem reserva de poderes."
+            "Outorga(m) os mais amplos e gerais poderes da cláusula   “ad judicia et extra” para o foro em geral, qualquer instância ordinária ou extraordinária, na qual o autor ou réu litisconsorte ativo ou passivo, denunciado ou podendo ainda, utilizar dos poderes especiais para firmar compromisso de qualquer   natureza,   concordar   com contas e cálculos, transigir, variar, fazer acordos, receber e dar quitação, receber alvará judicial e guias de retirada, desistir, renunciar ao direito sobre o que se funda a ação, podendo ainda receber importância depositadas em nome do outorgante à conta bancaria referente ao processo encaminhado com o presente, em quaisquer agência bancaria, podendo atuar em conjunto ou separadamente, bem como substabelecer com ou sem reserva de poderes.",
+            hangingIndentTwips = PODERES_INDENT_TWIPS
         )
-        labeledParagraph(document, "PODERES ESPECIAIS:", dados.poderesEspeciais())
+        blockSpacer(document)
+        poderesEspeciaisParagraph(document, dados.nomeReclamada())
         spacer(document)
         body(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", alignment = ParagraphAlignment.CENTER)
         repeat(2) { spacer(document) }
@@ -125,18 +127,58 @@ class ProcuracaoExportService(
         document: XWPFDocument,
         label: String,
         value: String,
-        boldValue: Boolean = false
+        boldValue: Boolean = false,
+        hangingIndentTwips: Int? = null
     ) {
         val paragraph = baseParagraph(document)
+        hangingIndentTwips?.let { applyHangingIndent(paragraph, it) }
         run(paragraph, label, bold = true)
         run(paragraph, " $value", bold = boldValue)
     }
 
-    private fun qualificationParagraph(document: XWPFDocument, label: String, qualification: Qualification) {
+    private fun qualificationParagraph(
+        document: XWPFDocument,
+        label: String,
+        qualification: Qualification,
+        hangingIndentTwips: Int? = null
+    ) {
         val paragraph = baseParagraph(document)
+        hangingIndentTwips?.let { applyHangingIndent(paragraph, it) }
         run(paragraph, label, bold = true)
         qualification.name.takeIf { it.isNotBlank() }?.let { run(paragraph, " ${it.uppercase(PT_BR)}", bold = true) }
         qualification.details.takeIf { it.isNotBlank() }?.let { run(paragraph, ", $it") }
+    }
+
+    private fun outorgadosParagraph(document: XWPFDocument, advogados: List<AdvogadoFormatado>) {
+        val paragraph = baseParagraph(document)
+        applyHangingIndent(paragraph, OUTORGADOS_INDENT_TWIPS)
+        run(paragraph, "OUTORGADOS:", bold = true)
+        if (advogados.isEmpty()) {
+            run(paragraph, " Todos estabelecidos na $enderecoEscritorio.")
+            return
+        }
+        advogados.forEachIndexed { index, advogado ->
+            run(paragraph, if (index == 0) " ${advogado.nome}" else ", ${advogado.nome}", bold = true)
+            advogado.detalhes.takeIf(String::isNotBlank)?.let { run(paragraph, ", $it") }
+        }
+        run(paragraph, ", todos estabelecidos na $enderecoEscritorio.")
+    }
+
+    private fun poderesEspeciaisParagraph(document: XWPFDocument, nomeReclamada: String) {
+        val paragraph = baseParagraph(document)
+        run(paragraph, "PODERES ESPECIAIS:", bold = true)
+        run(paragraph, " Para o fim especial de propor Reclamação Trabalhista")
+        if (nomeReclamada.isNotBlank()) {
+            run(paragraph, " em face de ")
+            run(paragraph, nomeReclamada, bold = true, underline = true)
+            run(paragraph, " e outros")
+        }
+        run(paragraph, ".")
+    }
+
+    private fun applyHangingIndent(paragraph: XWPFParagraph, indentTwips: Int) {
+        paragraph.indentationLeft = indentTwips
+        paragraph.indentationHanging = indentTwips
     }
 
     private fun contractOpening(document: XWPFDocument, dados: DadosDocumento) {
@@ -172,18 +214,26 @@ class ProcuracaoExportService(
         spacing.lineRule = STLineSpacingRule.AUTO
     }
 
-    private fun run(paragraph: XWPFParagraph, text: String, bold: Boolean = false) {
+    private fun run(
+        paragraph: XWPFParagraph,
+        text: String,
+        bold: Boolean = false,
+        underline: Boolean = false
+    ) {
         paragraph.createRun().apply {
             setText(text)
             isBold = bold
+            if (underline) this.underline = UnderlinePatterns.SINGLE
             fontFamily = FONT
-        fontSize = BODY_FONT_SIZE
+            fontSize = BODY_FONT_SIZE
         }
     }
 
     private fun spacer(document: XWPFDocument) {
         document.createParagraph().apply { spacingAfter = 0 }
     }
+
+    private fun blockSpacer(document: XWPFDocument) = spacer(document)
 
     private fun addPageBreak(document: XWPFDocument) {
         document.createParagraph().createRun().addBreak(BreakType.PAGE)
@@ -274,31 +324,31 @@ class ProcuracaoExportService(
             return Qualification(nomeReclamante(), parts.joinToString(", ").removePrefix("e "))
         }
 
-        fun listaOutorgados(): String = advogados.takeIf { it.isNotEmpty() }
-            ?.joinToString(", ") { formatAdvogado(it) }
-            ?.plus(", todos estabelecidos na $enderecoEscritorio.")
-            ?: "Todos estabelecidos na $enderecoEscritorio."
+        fun outorgados(): List<AdvogadoFormatado> = advogados.map(::formatAdvogadoParts)
 
         fun primeiroAdvogado(): String = advogados.firstOrNull()?.let(::formatAdvogado).orEmpty()
-        fun poderesEspeciais(): String = "Para o fim especial de ${acaoContraReclamada()}."
         fun acaoContraReclamada(): String = nomeReclamada().takeIf { it.isNotBlank() }
             ?.let { "propor Reclamação Trabalhista em face de $it e outros" }
             ?: "propor Reclamação Trabalhista"
     }
 
-    private fun formatAdvogado(usuario: Usuario): String {
+    private fun formatAdvogado(usuario: Usuario): String = formatAdvogadoParts(usuario).text
+
+    private fun formatAdvogadoParts(usuario: Usuario): AdvogadoFormatado {
         val pessoa = usuario.pessoa
         val generoFeminino = pessoa?.sexo == Sexo.FEMININO || usuario.tratamento == TratamentoAdvogado.DRA
         val profissao = if (generoFeminino) "advogada" else "advogado"
         val inscrito = if (generoFeminino) "inscrita" else "inscrito"
-        val parts = mutableListOf<String>()
-        pessoa?.nome.clean()?.uppercase(PT_BR)?.let(parts::add)
-        pessoa?.nacionalidade.clean()?.lowercase(PT_BR)?.let(parts::add)
-        formatEstadoCivil(pessoa?.estadoCivil, generoFeminino)?.let(parts::add)
-        parts += profissao
+        val details = mutableListOf<String>()
+        pessoa?.nacionalidade.clean()?.lowercase(PT_BR)?.let(details::add)
+        formatEstadoCivil(pessoa?.estadoCivil, generoFeminino)?.let(details::add)
+        details += profissao
         val oab = formatOab(usuario)
-        if (oab != null) parts += "$inscrito na $oab"
-        return parts.joinToString(", ")
+        if (oab != null) details += "$inscrito na $oab"
+        return AdvogadoFormatado(
+            nome = pessoa?.nome.clean()?.uppercase(PT_BR).orEmpty(),
+            detalhes = details.joinToString(", ")
+        )
     }
 
     private fun formatRg(pessoa: Pessoa?): String? = pessoa?.rg.clean()?.let { rg ->
@@ -356,6 +406,10 @@ class ProcuracaoExportService(
         val text: String = listOf(name, details).filter(String::isNotBlank).joinToString(", ")
     }
 
+    private data class AdvogadoFormatado(val nome: String, val detalhes: String) {
+        val text: String = listOf(nome, detalhes).filter(String::isNotBlank).joinToString(", ")
+    }
+
     private data class ImageSize(val widthEmu: Int, val heightEmu: Int)
 
     private fun ImageSize.scaled(percent: Int): ImageSize = ImageSize(
@@ -368,6 +422,9 @@ class ProcuracaoExportService(
     private companion object {
         const val FONT = "Georgia"
         const val BODY_FONT_SIZE = 12
+        const val OUTORGANTE_INDENT_TWIPS = 1_350
+        const val OUTORGADOS_INDENT_TWIPS = 1_350
+        const val PODERES_INDENT_TWIPS = 900
         const val CIDADE_ESCRITORIO = "Cascavel"
         const val IMAGE_MAX_WIDTH_EMU = 7_543_800
         const val IMAGE_MAX_HEIGHT_EMU = 1_044_713
