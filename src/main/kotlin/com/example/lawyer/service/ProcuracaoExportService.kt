@@ -235,10 +235,17 @@ class ProcuracaoExportService(
         paragraph.indentationFirstLine = 0
     }
 
-    private fun proportionalImageSize(originalWidthPx: Int, originalHeightPx: Int): ImageSize = ImageSize(
-        widthEmu = IMAGE_WIDTH_EMU,
-        heightEmu = (IMAGE_WIDTH_EMU.toLong() * originalHeightPx / originalWidthPx).toInt()
-    )
+    private fun proportionalImageSize(originalWidthPx: Int, originalHeightPx: Int): ImageSize {
+        val heightAtMaximumWidth = IMAGE_MAX_WIDTH_EMU.toLong() * originalHeightPx / originalWidthPx
+        return if (heightAtMaximumWidth <= IMAGE_MAX_HEIGHT_EMU) {
+            ImageSize(IMAGE_MAX_WIDTH_EMU, heightAtMaximumWidth.toInt())
+        } else {
+            ImageSize(
+                widthEmu = (IMAGE_MAX_HEIGHT_EMU.toLong() * originalWidthPx / originalHeightPx).toInt(),
+                heightEmu = IMAGE_MAX_HEIGHT_EMU
+            )
+        }
+    }
 
     private fun resolvePessoas(ids: List<Long>, fallback: List<Pessoa>?): List<Pessoa> =
         if (ids.isNotEmpty()) ids.distinct().map(pessoaService::findEntity) else fallback.orEmpty()
@@ -362,7 +369,8 @@ class ProcuracaoExportService(
     private companion object {
         const val FONT = "Georgia"
         const val CIDADE_ESCRITORIO = "Cascavel"
-        const val IMAGE_WIDTH_EMU = 7_543_800
+        const val IMAGE_MAX_WIDTH_EMU = 7_543_800
+        const val IMAGE_MAX_HEIGHT_EMU = 1_044_713
         const val HEADER_IMAGE_WIDTH_PX = 2_484
         const val HEADER_IMAGE_HEIGHT_PX = 344
         const val FOOTER_IMAGE_WIDTH_PX = 670
