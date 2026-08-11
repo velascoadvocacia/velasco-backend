@@ -80,6 +80,10 @@ class RtTemplateService(
             titulo = { "Reversão da justa causa para rescisão indireta" },
             generate = { _, _, variaveis, _ -> reversaoJustaCausaRescisaoIndireta(variaveis) }
         ),
+        REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA to RtBlockDefinition(
+            titulo = { "Reversão da justa causa para dispensa sem justa causa" },
+            generate = { _, _, _, _ -> reversaoJustaCausaDispensaSemJustaCausa() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -308,6 +312,14 @@ class RtTemplateService(
             __Sucessivamente__, **REQUER** seja declarada a nulidade da justa causa aplicada pela ré, com sua __conversão para dispensa sem justa causa__, com a consequente condenação da ré ao pagamento das verbas devidas nesse tipo de rescisão, quais sejam aviso-prévio proporcional ao tempo de serviço, férias integrais e proporcionais + 1/3, décimo terceiro salário proporcional e FGTS + multa de 40%. Consequentemente, **REQUER** seja determinado à ré a expedição das guias para saque do FGTS e do seguro desemprego, sob pena de multa diária, no importe de R$ 1.000,00, ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial.
         """.trimIndent()
     }
+
+    private fun reversaoJustaCausaDispensaSemJustaCausa(): String =
+        "Pelo exposto, **REQUER-SE** a reversão da justa causa para dispensa sem justa causa, com a " +
+            "consequente condenação da ré ao pagamento das verbas devidas nesse tipo de dispensa, quais " +
+            "sejam aviso-prévio proporcional ao tempo de serviço, férias integrais e proporcionais + 1/3, " +
+            "décimo terceiro salário proporcional e FGTS + multa de 40%. Consequentemente, **REQUER-SE** a " +
+            "liberação das guias para saque de FGTS e seguro-desemprego, sob pena de multa diária, no importe " +
+            "de R$ 1.000,00, ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial."
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
@@ -597,6 +609,8 @@ class RtTemplateService(
         const val DANO_MORAL_AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "dano_moral_ausencia_pagamento_verbas_rescisorias"
         const val CONVERSAO_PEDIDO_DEMISSAO_RESCISAO_INDIRETA = "conversao_pedido_demissao_rescisao_indireta"
         const val REVERSAO_JUSTA_CAUSA_RESCISAO_INDIRETA = "reversao_justa_causa_rescisao_indireta"
+        const val REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA =
+            "reversao_justa_causa_dispensa_sem_justa_causa"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"

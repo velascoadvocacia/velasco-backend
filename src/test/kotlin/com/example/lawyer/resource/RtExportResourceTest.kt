@@ -1162,6 +1162,46 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview fixed just cause reversal to dismissal without cause only when selected`() {
+        val expectedText =
+            "Pelo exposto, **REQUER-SE** a reversão da justa causa para dispensa sem justa causa, com a " +
+                "consequente condenação da ré ao pagamento das verbas devidas nesse tipo de dispensa, quais " +
+                "sejam aviso-prévio proporcional ao tempo de serviço, férias integrais e proporcionais + 1/3, " +
+                "décimo terceiro salário proporcional e FGTS + multa de 40%. Consequentemente, **REQUER-SE** a " +
+                "liberação das guias para saque de FGTS e seguro-desemprego, sob pena de multa diária, no importe " +
+                "de R$ 1.000,00, ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial."
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("reversao_justa_causa_dispensa_sem_justa_causa"),
+                    dadosVariaveis = mapOf("campoIgnorado" to "não deve alterar o texto")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("reversao_justa_causa_dispensa_sem_justa_causa"))
+            .body("blocos[0].titulo", equalTo("Reversão da justa causa para dispensa sem justa causa"))
+            .body("blocos[0].texto", equalTo(expectedText))
+            .body("blocos[0].anexos.size()", equalTo(0))
+
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("dados_reclamante")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("dados_reclamante"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")
