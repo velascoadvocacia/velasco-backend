@@ -5,11 +5,15 @@ import com.example.lawyer.domain.enums.EstadoCivil
 import com.example.lawyer.domain.enums.PerfilUsuario
 import com.example.lawyer.domain.enums.TratamentoAdvogado
 import com.example.lawyer.domain.enums.Sexo
+import com.example.lawyer.domain.enums.StatusProcesso
 import com.example.lawyer.dto.request.EnderecoRequest
+import com.example.lawyer.dto.request.EstrategiaProcessualRequest
 import com.example.lawyer.dto.request.PessoaRequestDTO
+import com.example.lawyer.dto.request.ProcessoCreateRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.request.UsuarioCreateRequest
 import com.example.lawyer.service.PessoaService
+import com.example.lawyer.service.ProcessoService
 import com.example.lawyer.service.UsuarioService
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
@@ -42,6 +46,9 @@ class RtExportResourceTest {
 
     @Inject
     lateinit var usuarioService: UsuarioService
+
+    @Inject
+    lateinit var processoService: ProcessoService
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
@@ -1198,6 +1205,123 @@ class RtExportResourceTest {
             .statusCode(200)
             .body("blocos.size()", equalTo(1))
             .body("blocos[0].id", equalTo("dados_reclamante"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and persist indirect termination request justification`() {
+        val suffix = System.nanoTime().toString()
+        val justificativa = "os reiterados atrasos salariais e a ausência de depósitos do FGTS"
+        val expectedText =
+            "Considerando $justificativa, fica evidente o descumprimento de obrigações " +
+                "legais e contratuais por parte da ré.\n\n" +
+                "Pelo exposto, **REQUER-SE** o reconhecimento da __rescisão indireta__ do contrato de " +
+                "trabalho, com a consequente condenação da ré ao pagamento das verbas devidas nesse tipo " +
+                "de rescisão, quais sejam saldo de salário, aviso-prévio proporcional ao tempo de serviço, " +
+                "férias integrais e proporcionais + 1/3, décimo terceiro salário proporcional e FGTS + " +
+                "multa de 40%. Consequentemente, **REQUER-SE** a liberação das guias complementares para " +
+                "saque de FGTS e seguro-desemprego, sob pena de multa diária no importe de R$ 1.000,00, " +
+                "ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial.\n\n" +
+                "__Sucessivamente__, **REQUER-SE** o reconhecimento de __pedido de demissão__ do autor, " +
+                "com a consequente condenação da ré ao pagamento das verbas devidas nesse tipo de rescisão, " +
+                "quais sejam saldo de salário, férias integrais e proporcionais + 1/3, décimo terceiro " +
+                "salário proporcional e FGTS."
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("pedido_rescisao_indireta"),
+                    dadosVariaveis = mapOf("justificativaRescisaoIndireta" to justificativa)
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("pedido_rescisao_indireta"))
+            .body("blocos[0].titulo", equalTo("Pedido de rescisão indireta"))
+            .body("blocos[0].texto", equalTo(expectedText))
+            .body("blocos[0].anexos.size()", equalTo(0))
+
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("pedido_rescisao_indireta")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", startsWith("Considerando ___, fica evidente"))
+
+        val reclamante = pessoaService.create(
+            pessoaRequest(suffix, validCpfFromSuffix(suffix, 3), null, null)
+        )
+        val reclamada = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Reclamada $suffix",
+                cpf = validCpfFromSuffix(suffix, 4),
+                email = "reclamada.$suffix@example.com",
+                tipoPessoa = TipoPessoa.FISICA
+            )
+        )
+        val pessoaAdvogado = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Advogado rescisão $suffix",
+                cpf = validCpfFromSuffix(suffix, 5),
+                email = "advogado.rescisao.$suffix@example.com",
+                tipoPessoa = TipoPessoa.FISICA
+            )
+        )
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.rescisao.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "99.999"
+            )
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "RT-$suffix",
+                descricao = "Teste de persistência da justificativa",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf("pedido_rescisao_indireta"),
+                dadosVariaveis = mapOf(
+                    "pedido_rescisao_indireta" to mapOf(
+                        "justificativaRescisaoIndireta" to justificativa
+                    )
+                )
+            )
+        )
+
+        assertEquals(listOf("pedido_rescisao_indireta"), processo.blocosSelecionados)
+        assertEquals(
+            justificativa,
+            processoService.getById(processo.id)
+                .dadosVariaveis["pedido_rescisao_indireta"]?.get("justificativaRescisaoIndireta")
+        )
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    processoId = processo.id,
+                    blocosSelecionados = listOf("pedido_rescisao_indireta")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", equalTo(expectedText))
     }
 
     @Test

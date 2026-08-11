@@ -84,6 +84,10 @@ class RtTemplateService(
             titulo = { "Reversão da justa causa para dispensa sem justa causa" },
             generate = { _, _, _, _ -> reversaoJustaCausaDispensaSemJustaCausa() }
         ),
+        PEDIDO_RESCISAO_INDIRETA to RtBlockDefinition(
+            titulo = { "Pedido de rescisão indireta" },
+            generate = { _, _, variaveis, _ -> pedidoRescisaoIndireta(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -320,6 +324,24 @@ class RtTemplateService(
             "décimo terceiro salário proporcional e FGTS + multa de 40%. Consequentemente, **REQUER-SE** a " +
             "liberação das guias para saque de FGTS e seguro-desemprego, sob pena de multa diária, no importe " +
             "de R$ 1.000,00, ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial."
+
+    private fun pedidoRescisaoIndireta(variaveis: Map<String, String?>): String {
+        val justificativa = variaveis["justificativaRescisaoIndireta"].orPlaceholder()
+
+        return "Considerando $justificativa, fica evidente o descumprimento de obrigações " +
+            "legais e contratuais por parte da ré.\n\n" +
+            "Pelo exposto, **REQUER-SE** o reconhecimento da __rescisão indireta__ do contrato de " +
+            "trabalho, com a consequente condenação da ré ao pagamento das verbas devidas nesse tipo " +
+            "de rescisão, quais sejam saldo de salário, aviso-prévio proporcional ao tempo de serviço, " +
+            "férias integrais e proporcionais + 1/3, décimo terceiro salário proporcional e FGTS + " +
+            "multa de 40%. Consequentemente, **REQUER-SE** a liberação das guias complementares para " +
+            "saque de FGTS e seguro-desemprego, sob pena de multa diária no importe de R$ 1.000,00, " +
+            "ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial.\n\n" +
+            "__Sucessivamente__, **REQUER-SE** o reconhecimento de __pedido de demissão__ do autor, " +
+            "com a consequente condenação da ré ao pagamento das verbas devidas nesse tipo de rescisão, " +
+            "quais sejam saldo de salário, férias integrais e proporcionais + 1/3, décimo terceiro " +
+            "salário proporcional e FGTS."
+    }
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
@@ -611,6 +633,7 @@ class RtTemplateService(
         const val REVERSAO_JUSTA_CAUSA_RESCISAO_INDIRETA = "reversao_justa_causa_rescisao_indireta"
         const val REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA =
             "reversao_justa_causa_dispensa_sem_justa_causa"
+        const val PEDIDO_RESCISAO_INDIRETA = "pedido_rescisao_indireta"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
