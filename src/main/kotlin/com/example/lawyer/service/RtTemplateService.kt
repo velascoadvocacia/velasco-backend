@@ -4,6 +4,7 @@ import com.example.lawyer.domain.model.Processo
 import com.example.lawyer.domain.model.Usuario
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.response.RtPreviewBlockResponse
+import com.example.lawyer.dto.response.RtPreviewInlineImageResponse
 import com.example.lawyer.exception.BusinessException
 import com.example.lawyer.exception.ResourceNotFoundException
 import com.example.lawyer.repository.UsuarioRepository
@@ -55,6 +56,10 @@ class RtTemplateService(
         DANO_MORAL_AUSENCIA_ANOTACAO_CTPS to RtBlockDefinition(
             titulo = { "Dano moral por ausência de anotação da CTPS" },
             generate = { _, _, variaveis, _ -> danoMoralAusenciaAnotacaoCtps(variaveis) }
+        ),
+        RETENCAO_CTPS_DANO_MORAL to RtBlockDefinition(
+            titulo = { "Retenção da CTPS. Dano moral" },
+            generate = { _, _, variaveis, _ -> retencaoCtpsDanoMoral(variaveis) }
         ),
         DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL to RtBlockDefinition(
             titulo = { "Diferenças salariais. Piso convencional" },
@@ -128,8 +133,7 @@ class RtTemplateService(
             resolveAdvogados(request.advogadosIds)
         }
         val blocosSelecionados = request.blocosSelecionados.map { it.trim() }.toSet()
-        return request.blocosSelecionados.map { it.trim() }
-            .distinct()
+        return orderedSelectedBlockIds(request.blocosSelecionados)
             .mapNotNull { blockId ->
                 blockDefinitions[blockId]?.let { definition ->
                     val variaveis = variaveisDoBloco(processo, blockId) + request.dadosVariaveis
@@ -141,11 +145,35 @@ class RtTemplateService(
                             request.processoId?.let { processoAnexoService.list(it, blockId) }.orEmpty()
                         } else {
                             emptyList()
-                        }
+                        },
+                        imagensFixas = fixedImages(blockId)
                     )
                 }
             }
     }
+
+    private fun orderedSelectedBlockIds(selected: List<String>): List<String> {
+        val ordered = selected.map(String::trim).filter(String::isNotEmpty).distinct().toMutableList()
+        if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
+            ordered.remove(RETENCAO_CTPS_DANO_MORAL)
+            ordered.add(ordered.indexOf(DANO_MORAL_AUSENCIA_ANOTACAO_CTPS) + 1, RETENCAO_CTPS_DANO_MORAL)
+        }
+        return ordered
+    }
+
+    private fun fixedImages(blockId: String): List<RtPreviewInlineImageResponse> =
+        if (blockId == RETENCAO_CTPS_DANO_MORAL) {
+            listOf(
+                RtPreviewInlineImageResponse(
+                    url = RETENCAO_CTPS_IMAGE_URL,
+                    contentType = "image/png",
+                    nomeOriginal = RETENCAO_CTPS_IMAGE_NAME,
+                    afterParagraph = 2
+                )
+            )
+        } else {
+            emptyList()
+        }
 
     private fun variaveisDoBloco(processo: Processo, blocoId: String): Map<String, String?> =
         processo.dadosVariaveis
@@ -222,6 +250,18 @@ class RtTemplateService(
             append("Pelo exposto, com fundamento no **art. 5º, X, da Constituição Federal** e nos **arts. 186 e 927 do Código Civil, REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais.")
             descricaoDano?.let { append("\n\n").append(it) }
         }
+    }
+
+    private fun retencaoCtpsDanoMoral(variaveis: Map<String, String?>): String {
+        val dataAssinaturaCarteira = formatVariableDate(variaveis["dataAssinaturaCarteira"])
+
+        return "A CTPS da parte autora ficou retida pela ré, que formalizou o vínculo de emprego, assinando a " +
+            "CTPS, somente em $dataAssinaturaCarteira, violando o art. 29 da CLT.\n\n" +
+            "O Tribunal Superior do Trabalho firmou tese vinculante a respeito de ser devida indenização por " +
+            "danos morais, por presunção, quando a CTPS é retida injustificadamente pelo empregador além do " +
+            "tempo previsto na CLT:\n\n" +
+            "Pelo exposto, com fundamento no art. 29 da CLT e no Tema 192 do Tribunal Superior do Trabalho, " +
+            "**REQUER-SE** a condenação da ré ao pagamento de danos morais."
     }
 
     private fun diferencasSalariaisPisoConvencional(variaveis: Map<String, String?>): String {
@@ -626,6 +666,10 @@ class RtTemplateService(
         const val RECONHECIMENTO_VINCULO_EMPREGATICIO = "reconhecimento_vinculo_empregaticio"
         const val PERIODO_SEM_REGISTRO_CTPS = "periodo_sem_registro_ctps"
         const val DANO_MORAL_AUSENCIA_ANOTACAO_CTPS = "dano_moral_ausencia_anotacao_ctps"
+        const val RETENCAO_CTPS_DANO_MORAL = "retencao_ctps_dano_moral"
+        const val RETENCAO_CTPS_IMAGE_NAME = "Retenção_da _CTPS_ Dano_moral.png"
+        const val RETENCAO_CTPS_IMAGE_PATH = "/assets/$RETENCAO_CTPS_IMAGE_NAME"
+        const val RETENCAO_CTPS_IMAGE_URL = "/rt/assets/retencao-ctps-dano-moral"
         const val DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL = "diferencas_salariais_piso_convencional"
         const val AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "ausencia_pagamento_verbas_rescisorias"
         const val DANO_MORAL_AUSENCIA_PAGAMENTO_VERBAS_RESCISORIAS = "dano_moral_ausencia_pagamento_verbas_rescisorias"

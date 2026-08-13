@@ -1326,6 +1326,106 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview retention of work card moral damages with fixed image in canonical order`() {
+        val expectedText =
+            "A CTPS da parte autora ficou retida pela ré, que formalizou o vínculo de emprego, assinando a " +
+                "CTPS, somente em 10/08/2026, violando o art. 29 da CLT.\n\n" +
+                "O Tribunal Superior do Trabalho firmou tese vinculante a respeito de ser devida indenização por " +
+                "danos morais, por presunção, quando a CTPS é retida injustificadamente pelo empregador além do " +
+                "tempo previsto na CLT:\n\n" +
+                "Pelo exposto, com fundamento no art. 29 da CLT e no Tema 192 do Tribunal Superior do Trabalho, " +
+                "**REQUER-SE** a condenação da ré ao pagamento de danos morais."
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "retencao_ctps_dano_moral",
+                        "dano_moral_ausencia_anotacao_ctps"
+                    ),
+                    dadosVariaveis = mapOf("dataAssinaturaCarteira" to "2026-08-10")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("dano_moral_ausencia_anotacao_ctps"))
+            .body("blocos[1].id", equalTo("retencao_ctps_dano_moral"))
+            .body("blocos[1].titulo", equalTo("Retenção da CTPS. Dano moral"))
+            .body("blocos[1].texto", equalTo(expectedText))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(1))
+            .body("blocos[1].imagensFixas[0].url", equalTo("/rt/assets/retencao-ctps-dano-moral"))
+            .body("blocos[1].imagensFixas[0].contentType", equalTo("image/png"))
+            .body("blocos[1].imagensFixas[0].nomeOriginal", equalTo("Retenção_da _CTPS_ Dano_moral.png"))
+            .body("blocos[1].imagensFixas[0].afterParagraph", equalTo(2))
+
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("retencao_ctps_dano_moral")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", startsWith("A CTPS da parte autora ficou retida"))
+            .body("blocos[0].texto", containsString("somente em ___"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should serve and embed fixed retention of work card image after second paragraph`() {
+        val expectedImage = Files.readAllBytes(
+            Path.of("src/main/resources/assets/Retenção_da _CTPS_ Dano_moral.png")
+        )
+        val servedImage = given()
+            .`when`()
+            .get("/rt/assets/retencao-ctps-dano-moral")
+            .then()
+            .statusCode(200)
+            .header("Content-Type", startsWith("image/png"))
+            .extract()
+            .asByteArray()
+        assertTrue(expectedImage.contentEquals(servedImage))
+
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["retencao_ctps_dano_moral"],
+            "dadosVariaveis":{"dataAssinaturaCarteira":"2026-08-10"}
+        }""".trimIndent()
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val bodyParagraphs = document.paragraphs
+            val thesisIndex = bodyParagraphs.indexOfFirst {
+                it.text.startsWith("O Tribunal Superior do Trabalho firmou tese vinculante")
+            }
+            assertTrue(thesisIndex >= 0)
+            val imageParagraph = bodyParagraphs[thesisIndex + 1]
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, imageParagraph.alignment)
+            val picture = imageParagraph.runs.single().embeddedPictures.single()
+            assertEquals(org.apache.poi.util.Units.toEMU(450.0).toLong(), picture.ctPicture.spPr.xfrm.ext.cx)
+            assertEquals(
+                695.0 / 416.0,
+                picture.ctPicture.spPr.xfrm.ext.cx.toDouble() / picture.ctPicture.spPr.xfrm.ext.cy,
+                0.001
+            )
+            assertTrue(bodyParagraphs[thesisIndex + 2].text.startsWith("Pelo exposto, com fundamento no art. 29"))
+            assertTrue(document.allPictures.any { expectedImage.contentEquals(it.data) })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")

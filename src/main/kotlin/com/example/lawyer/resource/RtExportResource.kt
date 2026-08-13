@@ -3,6 +3,7 @@ package com.example.lawyer.resource
 import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtExportBlockRequest
 import com.example.lawyer.dto.request.RtExportImageRequest
+import com.example.lawyer.dto.request.RtExportInlineImageRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.request.ProcuracaoExportRequest
 import com.example.lawyer.dto.response.RtPreviewResponse
@@ -14,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.security.RolesAllowed
 import jakarta.validation.Valid
 import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
@@ -60,6 +62,13 @@ class RtExportResource(
             templateService.generateSelectedBlocks(request)
         )
     }
+
+    @GET
+    @Path("/assets/retencao-ctps-dano-moral")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun retencaoCtpsDanoMoralImage(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.RETENCAO_CTPS_IMAGE_PATH), "image/png").build()
 
     @POST
     @Path("/export")
@@ -134,7 +143,17 @@ class RtExportResource(
                     id = block.id,
                     title = block.titulo,
                     content = block.texto,
-                    anexos = anexos
+                    anexos = anexos,
+                    imagensFixas = block.imagensFixas.map {
+                        RtExportInlineImageRequest(
+                            bytes = staticAssetBytes(RtTemplateService.RETENCAO_CTPS_IMAGE_PATH),
+                            contentType = it.contentType,
+                            nomeOriginal = it.nomeOriginal,
+                            afterParagraph = it.afterParagraph,
+                            originalWidthPx = RETENCAO_CTPS_IMAGE_WIDTH_PX,
+                            originalHeightPx = RETENCAO_CTPS_IMAGE_HEIGHT_PX
+                        )
+                    }
                 )
             }
         } else {
@@ -167,6 +186,10 @@ class RtExportResource(
             .build()
     }
 
+    private fun staticAssetBytes(path: String): ByteArray =
+        javaClass.getResourceAsStream(path)?.use { it.readBytes() }
+            ?: error("Imagem estática não encontrada: $path")
+
     private fun sanitizeFilename(value: String): String =
         value.replace(Regex("[\\r\\n\\\\/:*?\"<>|]"), " ")
             .replace(Regex("\\s+"), " ")
@@ -197,6 +220,8 @@ class RtExportResource(
     private companion object {
         val logger: Logger = Logger.getLogger(RtExportResource::class.java)
         const val DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        const val RETENCAO_CTPS_IMAGE_WIDTH_PX = 695
+        const val RETENCAO_CTPS_IMAGE_HEIGHT_PX = 416
         val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/png")
     }
 }

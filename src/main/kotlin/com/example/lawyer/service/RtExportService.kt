@@ -3,6 +3,7 @@ package com.example.lawyer.service
 import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtExportBlockRequest
 import com.example.lawyer.dto.request.RtExportImageRequest
+import com.example.lawyer.dto.request.RtExportInlineImageRequest
 import jakarta.enterprise.context.ApplicationScoped
 import org.apache.poi.util.Units
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy
@@ -147,6 +148,9 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
             if (index == 0) {
                 block.anexos.forEach { image -> addBodyImage(document, image) }
             }
+            block.imagensFixas
+                .filter { it.afterParagraph == index + 1 }
+                .forEach { image -> addInlineImage(document, image) }
         }
     }
 
@@ -234,9 +238,30 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         }
     }
 
+    private fun addInlineImage(document: XWPFDocument, image: RtExportInlineImageRequest) {
+        val widthEmu = Units.toEMU(BODY_IMAGE_MAX_WIDTH_POINTS)
+        val heightEmu = (widthEmu.toLong() * image.originalHeightPx / image.originalWidthPx).toInt()
+        image.bytes.inputStream().use { input ->
+            document.createParagraph().apply {
+                alignment = ParagraphAlignment.CENTER
+                createRun().addPicture(
+                    input,
+                    pictureType(image.contentType),
+                    image.nomeOriginal,
+                    widthEmu,
+                    heightEmu
+                )
+            }
+        }
+    }
+
     private fun pictureType(contentType: String): Int = when (contentType.lowercase()) {
         "image/png" -> XWPFDocument.PICTURE_TYPE_PNG
         else -> XWPFDocument.PICTURE_TYPE_JPEG
+    }
+
+    private companion object {
+        const val BODY_IMAGE_MAX_WIDTH_POINTS = 450.0
     }
 
     // Parágrafo vazio
