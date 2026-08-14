@@ -144,16 +144,7 @@ class RtExportResource(
                     title = block.titulo,
                     content = block.texto,
                     anexos = anexos,
-                    imagensFixas = block.imagensFixas.map {
-                        RtExportInlineImageRequest(
-                            bytes = staticAssetBytes(RtTemplateService.RETENCAO_CTPS_IMAGE_PATH),
-                            contentType = it.contentType,
-                            nomeOriginal = it.nomeOriginal,
-                            afterParagraph = it.afterParagraph,
-                            originalWidthPx = RETENCAO_CTPS_IMAGE_WIDTH_PX,
-                            originalHeightPx = RETENCAO_CTPS_IMAGE_HEIGHT_PX
-                        )
-                    }
+                    imagensFixas = fixedInlineImages(block.id)
                 )
             }
         } else {
@@ -166,9 +157,12 @@ class RtExportResource(
                         RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url)
                     }
                 } else emptyList()
-                val resolved = if (block.anexos.isEmpty()) {
+                var resolved = if (block.anexos.isEmpty()) {
                     block.copy(anexos = anexosMultipart.ifEmpty { anexosPersistidos })
                 } else block
+                if (resolved.imagensFixas.isEmpty()) {
+                    resolved = resolved.copy(imagensFixas = fixedInlineImages(blocoId))
+                }
                 logger.infof("RT export bloco legado '%s': anexos associados=%d", resolved.title, resolved.anexos.size)
                 resolved
             }
@@ -190,6 +184,22 @@ class RtExportResource(
         javaClass.getResourceAsStream(path)?.use { it.readBytes() }
             ?: error("Imagem estática não encontrada: $path")
 
+    private fun fixedInlineImages(blockId: String?): List<RtExportInlineImageRequest> =
+        if (blockId == RtTemplateService.RETENCAO_CTPS_DANO_MORAL) {
+            listOf(
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.RETENCAO_CTPS_IMAGE_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.RETENCAO_CTPS_IMAGE_NAME,
+                    afterParagraph = 2,
+                    originalWidthPx = RETENCAO_CTPS_IMAGE_WIDTH_PX,
+                    originalHeightPx = RETENCAO_CTPS_IMAGE_HEIGHT_PX
+                )
+            )
+        } else {
+            emptyList()
+        }
+
     private fun sanitizeFilename(value: String): String =
         value.replace(Regex("[\\r\\n\\\\/:*?\"<>|]"), " ")
             .replace(Regex("\\s+"), " ")
@@ -201,6 +211,8 @@ class RtExportResource(
             .replace(Regex("\\p{M}+"), "")
             .lowercase()
         return when {
+            "retencao da ctps" in normalized || normalized.endsWith("ctps. dano moral") ->
+                RtTemplateService.RETENCAO_CTPS_DANO_MORAL
             "baixa na ctps" in normalized -> "baixa_ctps_tutela"
             "contrato administrativo" in normalized -> "responsabilidade_subsidiaria_contrato_administrativo"
             "grupo economico" in normalized -> "responsabilidade_solidaria_grupo_economico"

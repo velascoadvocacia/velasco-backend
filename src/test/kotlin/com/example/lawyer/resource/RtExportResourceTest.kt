@@ -1426,6 +1426,40 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should inject fixed retention image in legacy blocks export`() {
+        val expectedImage = Files.readAllBytes(
+            Path.of("src/main/resources/assets/Retenção_da _CTPS_ Dano_moral.png")
+        )
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocks":[{
+                "title":"Retenção da CTPS. Dano moral",
+                "content":"Primeiro paragrafo.\n\nSegundo paragrafo antes da imagem.\n\nTerceiro paragrafo depois da imagem."
+            }]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val secondParagraphIndex = document.paragraphs.indexOfFirst {
+                it.text == "Segundo paragrafo antes da imagem."
+            }
+            assertTrue(secondParagraphIndex >= 0, "Parágrafos exportados: ${document.paragraphs.map { it.text }}")
+            assertTrue(document.paragraphs[secondParagraphIndex + 1].runs.single().embeddedPictures.isNotEmpty())
+            assertEquals("Terceiro paragrafo depois da imagem.", document.paragraphs[secondParagraphIndex + 2].text)
+            assertTrue(document.allPictures.any { expectedImage.contentEquals(it.data) })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview economic group liability with formatting`() {
         given()
             .contentType("application/json")
