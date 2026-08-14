@@ -70,6 +70,13 @@ class RtExportResource(
     fun retencaoCtpsDanoMoralImage(): Response =
         Response.ok(staticAssetBytes(RtTemplateService.RETENCAO_CTPS_IMAGE_PATH), "image/png").build()
 
+    @GET
+    @Path("/assets/multa-art-477")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun multaArt477Image(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.MULTA_ART_477_IMAGE_PATH), "image/png").build()
+
     @POST
     @Path("/export")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -185,8 +192,8 @@ class RtExportResource(
             ?: error("Imagem estática não encontrada: $path")
 
     private fun fixedInlineImages(blockId: String?): List<RtExportInlineImageRequest> =
-        if (blockId == RtTemplateService.RETENCAO_CTPS_DANO_MORAL) {
-            listOf(
+        when (blockId) {
+            RtTemplateService.RETENCAO_CTPS_DANO_MORAL -> listOf(
                 RtExportInlineImageRequest(
                     bytes = staticAssetBytes(RtTemplateService.RETENCAO_CTPS_IMAGE_PATH),
                     contentType = "image/png",
@@ -196,8 +203,17 @@ class RtExportResource(
                     originalHeightPx = RETENCAO_CTPS_IMAGE_HEIGHT_PX
                 )
             )
-        } else {
-            emptyList()
+            RtTemplateService.MULTA_ART_477_CLT -> listOf(
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.MULTA_ART_477_IMAGE_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.MULTA_ART_477_IMAGE_NAME,
+                    afterParagraph = 1,
+                    originalWidthPx = MULTA_ART_477_IMAGE_WIDTH_PX,
+                    originalHeightPx = MULTA_ART_477_IMAGE_HEIGHT_PX
+                )
+            )
+            else -> emptyList()
         }
 
     private fun sanitizeFilename(value: String): String =
@@ -211,6 +227,7 @@ class RtExportResource(
             .replace(Regex("\\p{M}+"), "")
             .lowercase()
         return when {
+            "multa do art. 477" in normalized -> RtTemplateService.MULTA_ART_477_CLT
             "retencao da ctps" in normalized || normalized.endsWith("ctps. dano moral") ->
                 RtTemplateService.RETENCAO_CTPS_DANO_MORAL
             "baixa na ctps" in normalized -> "baixa_ctps_tutela"
@@ -234,6 +251,8 @@ class RtExportResource(
         const val DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         const val RETENCAO_CTPS_IMAGE_WIDTH_PX = 695
         const val RETENCAO_CTPS_IMAGE_HEIGHT_PX = 416
+        const val MULTA_ART_477_IMAGE_WIDTH_PX = 730
+        const val MULTA_ART_477_IMAGE_HEIGHT_PX = 495
         val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/png")
     }
 }

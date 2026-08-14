@@ -89,6 +89,10 @@ class RtTemplateService(
             titulo = { "Reversão da justa causa para dispensa sem justa causa" },
             generate = { _, _, _, _ -> reversaoJustaCausaDispensaSemJustaCausa() }
         ),
+        MULTA_ART_477_CLT to RtBlockDefinition(
+            titulo = { "Multa do art. 477, § 8º, da CLT" },
+            generate = { _, _, _, _ -> multaArt477Clt() }
+        ),
         PEDIDO_RESCISAO_INDIRETA to RtBlockDefinition(
             titulo = { "Pedido de rescisão indireta" },
             generate = { _, _, variaveis, _ -> pedidoRescisaoIndireta(variaveis) }
@@ -158,12 +162,16 @@ class RtTemplateService(
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
             ordered.add(ordered.indexOf(DANO_MORAL_AUSENCIA_ANOTACAO_CTPS) + 1, RETENCAO_CTPS_DANO_MORAL)
         }
+        if (REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA in ordered && MULTA_ART_477_CLT in ordered) {
+            ordered.remove(MULTA_ART_477_CLT)
+            ordered.add(ordered.indexOf(REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA) + 1, MULTA_ART_477_CLT)
+        }
         return ordered
     }
 
     private fun fixedImages(blockId: String): List<RtPreviewInlineImageResponse> =
-        if (blockId == RETENCAO_CTPS_DANO_MORAL) {
-            listOf(
+        when (blockId) {
+            RETENCAO_CTPS_DANO_MORAL -> listOf(
                 RtPreviewInlineImageResponse(
                     url = RETENCAO_CTPS_IMAGE_URL,
                     contentType = "image/png",
@@ -171,8 +179,15 @@ class RtTemplateService(
                     afterParagraph = 2
                 )
             )
-        } else {
-            emptyList()
+            MULTA_ART_477_CLT -> listOf(
+                RtPreviewInlineImageResponse(
+                    url = MULTA_ART_477_IMAGE_URL,
+                    contentType = "image/png",
+                    nomeOriginal = MULTA_ART_477_IMAGE_NAME,
+                    afterParagraph = 1
+                )
+            )
+            else -> emptyList()
         }
 
     private fun variaveisDoBloco(processo: Processo, blocoId: String): Map<String, String?> =
@@ -364,6 +379,12 @@ class RtTemplateService(
             "décimo terceiro salário proporcional e FGTS + multa de 40%. Consequentemente, **REQUER-SE** a " +
             "liberação das guias para saque de FGTS e seguro-desemprego, sob pena de multa diária, no importe " +
             "de R$ 1.000,00, ou outro valor a ser arbitrado por este Juízo, sem prejuízo da emissão de alvará judicial."
+
+    private fun multaArt477Clt(): String =
+        "O Tribunal Superior do Trabalho firmou tese vinculante a respeito de ser devida a multa do art. " +
+            "477 da CLT quando é revertida em Juízo a dispensa por justa causa:\n\n" +
+            "Pelo exposto, com fundamento no Tema 71 do TST, **REQUER-SE** a condenação da ré ao pagamento " +
+            "da multa do **art. 477, § 8º, da CLT**."
 
     private fun pedidoRescisaoIndireta(variaveis: Map<String, String?>): String {
         val justificativa = variaveis["justificativaRescisaoIndireta"].orPlaceholder()
@@ -677,6 +698,10 @@ class RtTemplateService(
         const val REVERSAO_JUSTA_CAUSA_RESCISAO_INDIRETA = "reversao_justa_causa_rescisao_indireta"
         const val REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA =
             "reversao_justa_causa_dispensa_sem_justa_causa"
+        const val MULTA_ART_477_CLT = "multa_art_477_clt"
+        const val MULTA_ART_477_IMAGE_NAME = "multa_art_477.png"
+        const val MULTA_ART_477_IMAGE_PATH = "/assets/$MULTA_ART_477_IMAGE_NAME"
+        const val MULTA_ART_477_IMAGE_URL = "/rt/assets/multa-art-477"
         const val PEDIDO_RESCISAO_INDIRETA = "pedido_rescisao_indireta"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"

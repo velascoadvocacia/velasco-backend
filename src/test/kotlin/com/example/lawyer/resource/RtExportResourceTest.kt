@@ -1209,6 +1209,99 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview article 477 fine immediately after just cause reversal`() {
+        val expectedText =
+            "O Tribunal Superior do Trabalho firmou tese vinculante a respeito de ser devida a multa do art. " +
+                "477 da CLT quando é revertida em Juízo a dispensa por justa causa:\n\n" +
+                "Pelo exposto, com fundamento no Tema 71 do TST, **REQUER-SE** a condenação da ré ao pagamento " +
+                "da multa do **art. 477, § 8º, da CLT**."
+
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "multa_art_477_clt",
+                        "reversao_justa_causa_dispensa_sem_justa_causa"
+                    ),
+                    dadosVariaveis = mapOf("campoIgnorado" to "não altera texto fixo")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("reversao_justa_causa_dispensa_sem_justa_causa"))
+            .body("blocos[1].id", equalTo("multa_art_477_clt"))
+            .body("blocos[1].titulo", equalTo("Multa do art. 477, § 8º, da CLT"))
+            .body("blocos[1].texto", equalTo(expectedText))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(1))
+            .body("blocos[1].imagensFixas[0].url", equalTo("/rt/assets/multa-art-477"))
+            .body("blocos[1].imagensFixas[0].contentType", equalTo("image/png"))
+            .body("blocos[1].imagensFixas[0].nomeOriginal", equalTo("multa_art_477.png"))
+            .body("blocos[1].imagensFixas[0].afterParagraph", equalTo(1))
+
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("dados_reclamante")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("dados_reclamante"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should serve and embed fixed article 477 image after first paragraph`() {
+        val expectedImage = Files.readAllBytes(Path.of("src/main/resources/assets/multa_art_477.png"))
+        val servedImage = given()
+            .`when`()
+            .get("/rt/assets/multa-art-477")
+            .then()
+            .statusCode(200)
+            .header("Content-Type", startsWith("image/png"))
+            .extract()
+            .asByteArray()
+        assertTrue(expectedImage.contentEquals(servedImage))
+
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["multa_art_477_clt"]
+        }""".trimIndent()
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val thesisIndex = document.paragraphs.indexOfFirst {
+                it.text.startsWith("O Tribunal Superior do Trabalho firmou tese vinculante")
+            }
+            assertTrue(thesisIndex >= 0)
+            val imageParagraph = document.paragraphs[thesisIndex + 1]
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, imageParagraph.alignment)
+            val picture = imageParagraph.runs.single().embeddedPictures.single()
+            assertEquals(org.apache.poi.util.Units.toEMU(450.0).toLong(), picture.ctPicture.spPr.xfrm.ext.cx)
+            assertEquals(
+                730.0 / 495.0,
+                picture.ctPicture.spPr.xfrm.ext.cx.toDouble() / picture.ctPicture.spPr.xfrm.ext.cy,
+                0.001
+            )
+            assertTrue(document.paragraphs[thesisIndex + 2].text.startsWith("Pelo exposto, com fundamento no Tema 71"))
+            assertTrue(document.allPictures.any { expectedImage.contentEquals(it.data) })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should preview and persist indirect termination request justification`() {
         val suffix = System.nanoTime().toString()
         val justificativa = "os reiterados atrasos salariais e a ausência de depósitos do FGTS"
