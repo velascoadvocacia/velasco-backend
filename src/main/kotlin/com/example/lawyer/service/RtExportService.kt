@@ -165,31 +165,63 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         spacing.lineRule = STLineSpacingRule.AUTO
         spacing.after = BigInteger.valueOf(120)
 
-        // Combinações suportadas: B, I, U, B+U, B+I e B+I+U.
-        val tokenPattern = Regex("__\\*\\*\\*.+?\\*\\*\\*__|__\\*\\*.+?\\*\\*__|\\*\\*\\*.+?\\*\\*\\*|\\*\\*.+?\\*\\*|__.+?__|\\*.+?\\*")
-        var cursor = 0
-        tokenPattern.findAll(text).forEach { match ->
-            addFormattedRun(p, text.substring(cursor, match.range.first))
-            val token = match.value
-            val style = when {
-                token.startsWith("__***") -> TextStyle(bold = true, underline = true, italic = true, markerLength = 5)
-                token.startsWith("__**") -> TextStyle(bold = true, underline = true, markerLength = 4)
-                token.startsWith("***") -> TextStyle(bold = true, italic = true, markerLength = 3)
-                token.startsWith("**") -> TextStyle(bold = true, markerLength = 2)
-                token.startsWith("__") -> TextStyle(underline = true, markerLength = 2)
-                else -> TextStyle(italic = true, markerLength = 1)
-            }
-            addFormattedRun(
-                p,
-                token.substring(style.markerLength, token.length - style.markerLength),
-                style.bold,
-                style.underline,
-                style.italic
-            )
-            cursor = match.range.last + 1
-        }
-        addFormattedRun(p, text.substring(cursor))
+        addFormattedText(p, text)
     }
+
+    private fun addFormattedText(
+        paragraph: XWPFParagraph,
+        text: String,
+        inherited: TextStyle = TextStyle()
+    ) {
+        var cursor = 0
+        while (cursor < text.length) {
+            val token = formattingTokenAt(text, cursor)
+            if (token == null) {
+                val next = (cursor + 1 until text.length)
+                    .firstOrNull { formattingTokenAt(text, it) != null }
+                    ?: text.length
+                addFormattedRun(paragraph, text.substring(cursor, next), inherited.bold, inherited.underline, inherited.italic)
+                cursor = next
+                continue
+            }
+
+            val closingIndex = if (token.open == "*") {
+                findClosingItalicMarker(text, cursor + 1)
+            } else {
+                text.indexOf(token.close, cursor + token.open.length)
+            }
+            if (closingIndex < 0) {
+                addFormattedRun(paragraph, token.open, inherited.bold, inherited.underline, inherited.italic)
+                cursor += token.open.length
+                continue
+            }
+
+            val style = inherited.merge(token.style)
+            addFormattedText(
+                paragraph,
+                text.substring(cursor + token.open.length, closingIndex),
+                style
+            )
+            cursor = closingIndex + token.close.length
+        }
+    }
+
+    private fun formattingTokenAt(text: String, index: Int): FormattingToken? = when {
+        text.startsWith("__***", index) -> FormattingToken("__***", "***__", TextStyle(bold = true, underline = true, italic = true))
+        text.startsWith("__**", index) -> FormattingToken("__**", "**__", TextStyle(bold = true, underline = true))
+        text.startsWith("***", index) -> FormattingToken("***", "***", TextStyle(bold = true, italic = true))
+        text.startsWith("**", index) -> FormattingToken("**", "**", TextStyle(bold = true))
+        text.startsWith("__", index) -> FormattingToken("__", "__", TextStyle(underline = true))
+        text.startsWith("*", index) -> FormattingToken("*", "*", TextStyle(italic = true))
+        else -> null
+    }
+
+    private fun findClosingItalicMarker(text: String, start: Int): Int =
+        (start until text.length).firstOrNull { index ->
+            text[index] == '*' &&
+                (index == 0 || text[index - 1] != '*') &&
+                (index + 1 >= text.length || text[index + 1] != '*')
+        } ?: -1
 
     private fun addFormattedRun(
         paragraph: XWPFParagraph,
@@ -211,8 +243,19 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
     private data class TextStyle(
         val bold: Boolean = false,
         val underline: Boolean = false,
-        val italic: Boolean = false,
-        val markerLength: Int
+        val italic: Boolean = false
+    ) {
+        fun merge(other: TextStyle) = TextStyle(
+            bold = bold || other.bold,
+            underline = underline || other.underline,
+            italic = italic || other.italic
+        )
+    }
+
+    private data class FormattingToken(
+        val open: String,
+        val close: String,
+        val style: TextStyle
     )
 
     private fun addBodyImage(document: XWPFDocument, image: RtExportImageRequest) {

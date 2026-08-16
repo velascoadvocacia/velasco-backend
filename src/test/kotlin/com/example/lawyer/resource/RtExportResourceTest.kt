@@ -1518,6 +1518,111 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview discriminatory dismissal moral damages in canonical order`() {
+        val response = given()
+            .contentType("application/json")
+            .body(
+                """{
+                    "blocosSelecionados":[
+                        "dispensa_discriminatoria_danos_morais",
+                        "dispensa_discriminatoria_reintegracao_ou_pagamento"
+                    ],
+                    "dadosVariaveis":{
+                        "opcaoDesfecho":"reintegracao"
+                    }
+                }""".trimIndent()
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("dispensa_discriminatoria_reintegracao_ou_pagamento"))
+            .body("blocos[1].id", equalTo("dispensa_discriminatoria_danos_morais"))
+            .body("blocos[1].titulo", equalTo("Dispensa discriminatória. Danos morais"))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract()
+            .path<String>("blocos[1].texto")
+
+        val paragraphs = response.split("\n\n")
+        assertEquals(2, paragraphs.size)
+        assertEquals(
+            "Pelo exposto, considerando a violação ao art. 1° da Lei 9.029/95, e à luz dos arts. " +
+                "186 e 927 do Código Civil e do art. 5°, V e X, da Constituição Federal, **REQUER-SE** " +
+                "a condenação da ré ao pagamento de indenização por danos morais.",
+            paragraphs[0]
+        )
+        assertTrue(paragraphs[1].startsWith("Dadas as circunstâncias da dispensa"))
+        assertTrue(paragraphs[1].contains("**REQUER** a aplicação do § 1º do art. 818 da CLT"))
+        assertTrue(paragraphs[1].contains("*Nos casos previstos em lei"))
+        assertTrue(paragraphs[1].contains("**excessiva dificuldade de cumprir o encargo**"))
+        assertTrue(paragraphs[1].contains("**maior facilidade de obtenção da prova do fato contrário**"))
+        assertTrue(paragraphs[1].contains("**atribuir o ônus da prova de modo diverso**"))
+        assertTrue(paragraphs[1].endsWith("ônus que lhe foi atribuído.*"))
+
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("dados_reclamante")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("dados_reclamante"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export nested bold inside italic moral damages quotation`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["dispensa_discriminatoria_danos_morais"]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val paragraphs = document.paragraphs.filter {
+                it.text.startsWith("Pelo exposto, considerando a violação") ||
+                    it.text.startsWith("Dadas as circunstâncias da dispensa")
+            }
+            assertEquals(2, paragraphs.size)
+            assertTrue(paragraphs[0].runs.first { it.text() == "REQUER-SE" }.isBold)
+
+            val quotation = paragraphs[1]
+            val requestRun = quotation.runs.first { it.text() == "REQUER" }
+            assertTrue(requestRun.isBold)
+            assertFalse(requestRun.isItalic)
+
+            val regularItalic = quotation.runs.first { it.text().startsWith("Nos casos previstos em lei") }
+            assertTrue(regularItalic.isItalic)
+            assertFalse(regularItalic.isBold)
+
+            listOf(
+                "excessiva dificuldade de cumprir o encargo",
+                "maior facilidade de obtenção da prova do fato contrário",
+                "atribuir o ônus da prova de modo diverso"
+            ).forEach { text ->
+                val run = quotation.runs.first { it.text() == text }
+                assertTrue(run.isBold, "Trecho deveria estar em negrito: $text")
+                assertTrue(run.isItalic, "Trecho deveria permanecer em itálico: $text")
+            }
+            val finalItalic = quotation.runs.first { it.text().endsWith("ônus que lhe foi atribuído.") }
+            assertTrue(finalItalic.isItalic)
+            assertFalse(finalItalic.isBold)
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should serve and embed fixed article 477 image after first paragraph`() {
         val expectedImage = Files.readAllBytes(Path.of("src/main/resources/assets/multa_art_477.png"))
         val servedImage = given()

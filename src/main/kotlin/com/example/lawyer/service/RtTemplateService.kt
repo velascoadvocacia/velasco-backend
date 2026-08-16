@@ -116,6 +116,10 @@ class RtTemplateService(
                 dispensaDiscriminatoriaReintegracaoOuPagamento(variaveis)
             }
         ),
+        DISPENSA_DISCRIMINATORIA_DANOS_MORAIS to RtBlockDefinition(
+            titulo = { "Dispensa discriminatória. Danos morais" },
+            generate = { _, _, _, _ -> dispensaDiscriminatoriaDanosMorais() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -184,6 +188,14 @@ class RtTemplateService(
         if (REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA in ordered && MULTA_ART_477_CLT in ordered) {
             ordered.remove(MULTA_ART_477_CLT)
             ordered.add(ordered.indexOf(REVERSAO_JUSTA_CAUSA_DISPENSA_SEM_JUSTA_CAUSA) + 1, MULTA_ART_477_CLT)
+        }
+        if (
+            DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO in ordered &&
+            DISPENSA_DISCRIMINATORIA_DANOS_MORAIS in ordered
+        ) {
+            ordered.remove(DISPENSA_DISCRIMINATORIA_DANOS_MORAIS)
+            val position = ordered.indexOf(DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO) + 1
+            ordered.add(position, DISPENSA_DISCRIMINATORIA_DANOS_MORAIS)
         }
         return ordered
     }
@@ -566,6 +578,33 @@ class RtTemplateService(
         return paragrafos.joinToString("\n\n")
     }
 
+    private fun dispensaDiscriminatoriaDanosMorais(): String {
+        val bold = "*" + "*"
+        val italic = "*"
+        return buildString {
+            append("Pelo exposto, considerando a violação ao art. 1° da Lei 9.029/95, e à luz dos arts. ")
+            append("186 e 927 do Código Civil e do art. 5°, V e X, da Constituição Federal, ")
+            append(bold).append("REQUER-SE").append(bold)
+            append(" a condenação da ré ao pagamento de indenização por danos morais.\n\n")
+            append("Dadas as circunstâncias da dispensa e em virtude da dificuldade da parte autora em ")
+            append("comprovar os motivos que justificaram a sua dispensa, para fins de produção de prova a ")
+            append("respeito desse pedido, ").append(bold).append("REQUER").append(bold)
+            append(" a aplicação do § 1º do art. 818 da CLT: ").append(italic)
+            append("Nos casos previstos em lei ou diante de peculiaridades da causa relacionadas à ")
+            append("impossibilidade ou à ")
+            append(bold).append("excessiva dificuldade de cumprir o encargo").append(bold)
+            append(" nos termos deste artigo ou à ")
+            append(bold).append("maior facilidade de obtenção da prova do fato contrário").append(bold)
+            append(", poderá o juízo ")
+            append(bold)
+            append("atri" + "buir o ônus da prova de modo diverso")
+            append(bold)
+            append(", desde que o faça por decisão fundamentada, ")
+            append("caso em que deverá dar à parte a oportunidade de se desincumbir ")
+            append("do ônus que lhe foi atribuído.").append(italic)
+        }
+    }
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -870,6 +909,8 @@ class RtTemplateService(
         const val TUTELA_URGENCIA_NATUREZA_CAUTELAR = "tutela_urgencia_natureza_cautelar"
         const val DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO =
             "dispensa_discriminatoria_reintegracao_ou_pagamento"
+        const val DISPENSA_DISCRIMINATORIA_DANOS_MORAIS =
+            "dispensa_discriminatoria_danos_morais"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
