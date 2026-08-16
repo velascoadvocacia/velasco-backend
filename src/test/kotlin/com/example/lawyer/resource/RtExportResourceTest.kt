@@ -25,6 +25,7 @@ import org.hamcrest.CoreMatchers.startsWith
 import org.hamcrest.CoreMatchers.not
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.UnderlinePatterns
@@ -1372,6 +1373,146 @@ class RtExportResourceTest {
             val second = document.paragraphs.first { it.text.startsWith("No mérito") }
             assertEquals(UnderlinePatterns.SINGLE, second.runs.first { it.text() == "No mérito" }.underline)
             assertTrue(second.runs.first { it.text() == "REQUER-SE" }.isBold)
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should generate discriminatory dismissal with optional case law and exclusive outcome`() {
+        val reintegrationPayload = """{
+            "blocosSelecionados":["dispensa_discriminatoria_reintegracao_ou_pagamento"],
+            "dadosVariaveis":{
+                "condicaoDiscriminacao":"portadora de doença grave",
+                "comoFicouProvado":"os relatórios médicos anexados",
+                "incluirJurisprudenciaDoenca":true,
+                "opcaoDesfecho":"reintegracao"
+            }
+        }""".trimIndent()
+
+        val reintegrationText = given()
+            .contentType("application/json")
+            .body(reintegrationPayload)
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("dispensa_discriminatoria_reintegracao_ou_pagamento"))
+            .body(
+                "blocos[0].titulo",
+                equalTo("Dispensa discriminatória. Reintegração OU Pagamento do período de afastamento")
+            )
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .extract()
+            .path<String>("blocos[0].texto")
+
+        assertEquals(10, reintegrationText.split("\n\n").size)
+        assertEquals(4, Regex("portadora de doença grave").findAll(reintegrationText).count())
+        assertTrue(reintegrationText.contains("A **Súmula n.º 443** do TST"))
+        assertTrue(reintegrationText.contains("***que não há dúvidas de que ela foi demitida"))
+        assertTrue(reintegrationText.contains("***repudia todo tipo de discriminação"))
+        assertTrue(reintegrationText.contains("**reintegração** da parte autora"))
+        assertFalse(reintegrationText.contains("art. 4º, II"))
+
+        val paymentText = given()
+            .contentType("application/json")
+            .body(
+                """{
+                    "blocosSelecionados":["dispensa_discriminatoria_reintegracao_ou_pagamento"],
+                    "dadosVariaveis":{
+                        "condicaoDiscriminacao":"pessoa com deficiência",
+                        "comoFicouProvado":"o comunicado interno anexado",
+                        "incluirJurisprudenciaDoenca":false,
+                        "opcaoDesfecho":"pagamento_dobro"
+                    }
+                }""".trimIndent()
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .extract()
+            .path<String>("blocos[0].texto")
+
+        assertEquals(7, paymentText.split("\n\n").size)
+        assertFalse(paymentText.contains("Súmula n.º 443"))
+        assertFalse(paymentText.contains("Ag-AIRR"))
+        assertTrue(paymentText.contains("**art. 4º, II, da Lei n.º 9.029/1995, REQUER**"))
+        assertTrue(paymentText.contains("ao **pagamento**, em dobro"))
+        assertFalse(paymentText.contains("promova a **reintegração**"))
+
+        given()
+            .contentType("application/json")
+            .body(
+                """{
+                    "blocosSelecionados":["dispensa_discriminatoria_reintegracao_ou_pagamento"],
+                    "dadosVariaveis":{}
+                }""".trimIndent()
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(400)
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should embed discriminatory dismissal evidence and preserve nested formatting in docx`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["dispensa_discriminatoria_reintegracao_ou_pagamento"],
+            "dadosVariaveis":{
+                "condicaoDiscriminacao":"portadora de doença grave",
+                "comoFicouProvado":"os relatórios médicos anexados",
+                "incluirJurisprudenciaDoenca":true,
+                "opcaoDesfecho":"reintegracao"
+            }
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart(
+                "anexo_dispensa_discriminatoria_reintegracao_ou_pagamento_0",
+                "prova.png",
+                TEST_IMAGE_1,
+                "image/png"
+            )
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        assertDocxImages(
+            docx,
+            listOf(TEST_IMAGE_1),
+            listOf("A parte autora")
+        )
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val openingIndex = document.paragraphs.indexOfFirst {
+                it.text.startsWith("A parte autora é ")
+            }
+            assertTrue(openingIndex >= 0)
+            assertTrue(document.paragraphs[openingIndex + 1].runs.any { it.embeddedPictures.isNotEmpty() })
+            assertTrue(document.paragraphs[openingIndex + 2].text.startsWith("De modo algum"))
+
+            val caseLaw = document.paragraphs.first { it.text.startsWith("A 2ª turma") }
+            val regularItalic = caseLaw.runs.first { it.text().startsWith("\"A autora") }
+            assertTrue(regularItalic.isItalic)
+            assertFalse(regularItalic.isBold)
+            val emphasized = caseLaw.runs.first {
+                it.text().startsWith("que não há dúvidas de que ela foi demitida")
+            }
+            assertTrue(emphasized.isItalic)
+            assertTrue(emphasized.isBold)
+
+            val ruling = document.paragraphs.first { it.text.startsWith("O acórdão ainda ressalta") }
+            val boldOpening = ruling.runs.first { it.text().startsWith("\"A dispensa discriminatória") }
+            assertTrue(boldOpening.isBold)
+            val boldItalicEnding = ruling.runs.first { it.text().startsWith("repudia todo tipo") }
+            assertTrue(boldItalicEnding.isBold)
+            assertTrue(boldItalicEnding.isItalic)
         }
     }
 

@@ -110,6 +110,12 @@ class RtTemplateService(
             titulo = { "Tutela de urgência de natureza cautelar. (art. 300 do CPC)" },
             generate = { _, _, _, _ -> tutelaUrgenciaNaturezaCautelar() }
         ),
+        DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO to RtBlockDefinition(
+            titulo = { "Dispensa discriminatória. Reintegração OU Pagamento do período de afastamento" },
+            generate = { _, _, variaveis, _ ->
+                dispensaDiscriminatoriaReintegracaoOuPagamento(variaveis)
+            }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -476,6 +482,90 @@ class RtTemplateService(
             "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela de urgência, com o seu " +
             "integral acolhimento."
 
+    private fun dispensaDiscriminatoriaReintegracaoOuPagamento(
+        variaveis: Map<String, String?>
+    ): String {
+        val condicao = variaveis["condicaoDiscriminacao"].orPlaceholder()
+        val comoFicouProvado = variaveis["comoFicouProvado"].orPlaceholder()
+        val incluirJurisprudencia =
+            variaveis["incluirJurisprudenciaDoenca"]?.toBooleanStrictOrNull() ?: false
+        val opcaoDesfecho = variaveis["opcaoDesfecho"]?.trim()?.lowercase()
+            ?: throw BusinessException(
+                "Selecione o desfecho da dispensa discriminatória: reintegração ou pagamento em dobro"
+            )
+
+        val paragrafos = mutableListOf(
+            "A parte autora é $condicao e a parte ré tinha conhecimento disso no momento da dispensa. " +
+                "Conforme $comoFicouProvado, a parte autora foi dispensada por ser $condicao:",
+            "De modo algum essa dispensa está relacionada a uma qualificação exigida para o cargo, mas, " +
+                "sim, em discriminação da parte ré com o fato de a parte autora ser $condicao.",
+            "O **art. 1º da Lei n.º 9.029/1995** prevê que *É proibida a adoção de qualquer prática " +
+                "discriminatória e limitativa para efeito de acesso à relação de trabalho, ou de sua " +
+                "manutenção, por motivo de sexo, origem, raça, cor, estado civil, situação familiar, " +
+                "deficiência, reabilitação profissional, idade, entre outros, ressalvadas, nesse caso, as " +
+                "hipóteses de proteção à criança e ao adolescente previstas no inciso XXXIII do art. 7º da " +
+                "Constituição Federal.*",
+            "No mesmo sentido, o **art. 3º, IV, da Constituição Federal** prevê que, dentre outros, constitui " +
+                "objetivo fundamental da República Federativa do Brasil: *promover o bem de todos, sem " +
+                "preconceitos de origem, raça, sexo, cor, idade e quaisquer outras formas de discriminação.*",
+            "E o **art. 5º, XLI, da Constituição Federal** preceitua que *a lei punirá qualquer discriminação " +
+                "atentatória dos direitos e liberdades fundamentais.*",
+            "Com relação à consequência jurídica pela conduta discriminatória, o art. 4º, I e II, da Lei n.º " +
+                "9.029/1995 prevê que O rompimento da relação de trabalho por ato discriminatório, nos moldes " +
+                "desta Lei, além do direito à reparação pelo dano moral, **faculta ao empregado optar** entre: " +
+                "I - **a reintegração com ressarcimento integral de todo o período de afastamento**, mediante " +
+                "pagamento das remunerações devidas, corrigidas monetariamente e acrescidas de juros legais; " +
+                "II - a **percepção, em dobro, da remuneração do período de afastamento**, corrigida " +
+                "monetariamente e acrescida dos juros legais."
+        )
+
+        if (incluirJurisprudencia) {
+            paragrafos += listOf(
+                "A **Súmula n.º 443** do TST prevê: *presume-se discriminatória a despedida de empregado " +
+                    "portador do vírus HIV ou de outra doença grave que suscite estigma ou preconceito. " +
+                    "Inválido o ato, o empregado tem direito à reintegração no emprego.*",
+                "A 2ª turma do Tribunal Superior do Trabalho, no processo Ag-AIRR - " +
+                    "561-94.2019.5.13.0026, entendeu que: *\"A autora, desde novembro de 2018, encontra-se " +
+                    "acometida de patologia na coluna cervical, bem como necessitou se afastar das suas " +
+                    "atividades por um período contínuo, iniciado antes do término do aviso prévio, de modo* " +
+                    "***que não há dúvidas de que ela foi demitida no momento que se encontrava enferma.*** " +
+                    "*Evidencia-se dos depoimentos colhidos, em audiência, que ela tinha total conhecimento " +
+                    "das enfermidades que a acometia, antes mesmo de conceder o aviso prévio, o* " +
+                    "***que configura a alegada dispensa discriminatória. Diante dos referidos relatos, " +
+                    "vislumbra-se a natureza discriminatória e ofensiva do ato patronal, em demitir a " +
+                    "reclamante, no momento em que passava por sérias dificuldades em sua saúde.\"*** " +
+                    "(grifo nosso).",
+                "O acórdão ainda ressalta que: **\"A dispensa discriminatória, nos termos da Lei n. 9.029/95, " +
+                    "não abrange somente casos de doença infamante ou degradante** [...] *Ademais, o direito " +
+                    "de rescisão unilateral do contrato de trabalho, mediante iniciativa do empregador, como " +
+                    "expressão de seu direito potestativo, não é ilimitado, encontrando fronteira em nosso " +
+                    "ordenamento jurídico, notadamente na Constituição Federal, que [...]* ***repudia todo tipo " +
+                    "de discriminação (art. 3.º, IV) e reconhece como direito do trabalhador a proteção da " +
+                    "relação de emprego contra despedida arbitrária (art. 7.º, I).\"*** (grifo nosso)."
+            )
+        }
+
+        paragrafos += when (opcaoDesfecho) {
+            "reintegracao" ->
+                "Pelo exposto, dada a dispensa discriminatória, que foi motivada em razão de a parte autora " +
+                    "ser $condicao, com fundamento no **art. 4º, I, da Lei n.º 9.029/1995, REQUER** seja " +
+                    "determinado à ré que promova a **reintegração** da parte autora no emprego, sob pena de " +
+                    "multa diária de R$ 10.000,00, bem com sua condenação ao **pagamento** da remuneração " +
+                    "integral referente ao período de afastamento (como se trabalhando estivesse)."
+            "pagamento_dobro" ->
+                "Pelo exposto, dada a dispensa discriminatória, que foi motivada em razão de a parte autora " +
+                    "ser $condicao, com fundamento no **art. 4º, II, da Lei n.º 9.029/1995, REQUER** a " +
+                    "condenação da parte ré ao **pagamento**, em dobro, da remuneração integral referente ao " +
+                    "período de afastamento (como se trabalhando estivesse), ou seja, até a data do trânsito " +
+                    "em julgado desta ação."
+            else -> throw BusinessException(
+                "Opção de desfecho inválida. Use 'reintegracao' ou 'pagamento_dobro'"
+            )
+        }
+
+        return paragrafos.joinToString("\n\n")
+    }
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -778,6 +868,8 @@ class RtTemplateService(
         const val RESCISAO_INDIRETA_TUTELA_ANTECIPADA_VERBAS_INCONTROVERSAS =
             "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
         const val TUTELA_URGENCIA_NATUREZA_CAUTELAR = "tutela_urgencia_natureza_cautelar"
+        const val DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO =
+            "dispensa_discriminatoria_reintegracao_ou_pagamento"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
@@ -792,7 +884,8 @@ class RtTemplateService(
             BAIXA_CTPS_TUTELA,
             RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
             RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO,
-            DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL
+            DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL,
+            DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO
         )
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")

@@ -115,11 +115,14 @@ class ProcessoAnexoService(
         const val RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO = "responsabilidade_solidaria_grupo_economico"
         const val RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO = "responsabilidade_subsidiaria_contrato_administrativo"
         const val DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL = "diferencas_salariais_piso_convencional"
+        const val DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO =
+            "dispensa_discriminatoria_reintegracao_ou_pagamento"
         private val BLOCOS_COM_ANEXOS = setOf(
             BAIXA_CTPS_TUTELA,
             RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
             RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO,
-            DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL
+            DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL,
+            DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO
         )
         private val ALLOWED_TYPES = setOf("image/jpeg", "image/png")
     }
