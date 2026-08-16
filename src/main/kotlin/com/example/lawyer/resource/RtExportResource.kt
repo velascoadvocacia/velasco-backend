@@ -108,13 +108,13 @@ class RtExportResource(
         )
         val imagensPorBloco = arquivos
             .map { file ->
-                val blocoId = attachmentBlockId(file.name())
-                    ?: attachmentBlockId(file.fileName())
-                    ?: "baixa_ctps_tutela"
-                blocoId to file
+                val target = attachmentTarget(file.name())
+                    ?: attachmentTarget(file.fileName())
+                    ?: AttachmentTarget("baixa_ctps_tutela", "geral", 1)
+                target to file
             }
-            .groupBy { (blocoId, _) -> canonicalBlockId(blocoId) }
-            .mapValues { (_, entries) -> entries.map { (_, file) ->
+            .groupBy { (target, _) -> canonicalBlockId(target.blockId) }
+            .mapValues { (_, entries) -> entries.map { (target, file) ->
                 val contentType = file.contentType().lowercase()
                 if (contentType !in ALLOWED_IMAGE_TYPES) {
                     throw com.example.lawyer.exception.BusinessException("Tipo de imagem não permitido: $contentType")
@@ -122,7 +122,9 @@ class RtExportResource(
                 RtExportImageRequest(
                     bytes = Files.readAllBytes(file.uploadedFile()),
                     contentType = contentType,
-                    nomeOriginal = file.fileName()
+                    nomeOriginal = file.fileName(),
+                    grupo = target.group,
+                    afterParagraph = target.afterParagraph
                 )
             } }
         logger.infof(
@@ -142,7 +144,13 @@ class RtExportResource(
             ).map { block ->
                 val anexos = imagensPorBloco[block.id].orEmpty().ifEmpty {
                     block.anexos.map {
-                        RtExportImageRequest(contentType = it.contentType, nomeOriginal = it.nomeOriginal, url = it.url)
+                        RtExportImageRequest(
+                            contentType = it.contentType,
+                            nomeOriginal = it.nomeOriginal,
+                            url = it.url,
+                            grupo = it.grupo,
+                            afterParagraph = it.afterParagraph
+                        )
                     }
                 }
                 logger.infof("RT export bloco '%s' (%s): anexos associados=%d", block.titulo, block.id, anexos.size)
@@ -238,8 +246,18 @@ class RtExportResource(
         }
     }
 
-    private fun attachmentBlockId(value: String): String? =
-        Regex("^anexo_(.+)_\\d+(?:\\.[^.]+)?$").matchEntire(value)?.groupValues?.get(1)
+    private fun attachmentTarget(value: String): AttachmentTarget? {
+        val positional = Regex(
+            "^anexo_(desvio_funcao_atividade_efetivamente_exercida)_(cbo|provas)_\\d+(?:\\.[^.]+)?$"
+        ).matchEntire(value)
+        if (positional != null) {
+            val group = positional.groupValues[2]
+            return AttachmentTarget(positional.groupValues[1], group, if (group == "provas") 2 else 1)
+        }
+        val blockId = Regex("^anexo_(.+)_\\d+(?:\\.[^.]+)?$")
+            .matchEntire(value)?.groupValues?.get(1) ?: return null
+        return AttachmentTarget(blockId, "geral", 1)
+    }
 
     private fun canonicalBlockId(value: String): String = when (value) {
         "baixa_ctps", "baixa_ctps_fisica" -> "baixa_ctps_tutela"
@@ -255,4 +273,6 @@ class RtExportResource(
         const val MULTA_ART_477_IMAGE_HEIGHT_PX = 495
         val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/png")
     }
+
+    private data class AttachmentTarget(val blockId: String, val group: String, val afterParagraph: Int)
 }

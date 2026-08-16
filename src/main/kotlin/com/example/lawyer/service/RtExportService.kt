@@ -145,9 +145,9 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         block.content.split("\n\n").forEachIndexed { index, paragraphText ->
             createBodyParagraph(document, paragraphText)
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
-            if (index == 0) {
-                block.anexos.forEach { image -> addBodyImage(document, image) }
-            }
+            block.anexos
+                .filter { it.afterParagraph == index + 1 }
+                .forEach { image -> addBodyImage(document, image) }
             block.imagensFixas
                 .filter { it.afterParagraph == index + 1 }
                 .forEach { image -> addInlineImage(document, image) }

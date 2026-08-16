@@ -27,6 +27,12 @@ open class ProcessoAnexo(
     @Column(name = "bloco_id", nullable = false, length = 100)
     open var blocoId: String = "",
 
+    @Column(name = "grupo", nullable = false, length = 30)
+    open var grupo: String = "geral",
+
+    @Column(name = "ordem", nullable = false)
+    open var ordem: Int = 0,
+
     @Column(name = "s3_key", nullable = false, unique = true, length = 500)
     open var s3Key: String = "",
 

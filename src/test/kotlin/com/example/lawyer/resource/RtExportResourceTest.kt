@@ -610,6 +610,76 @@ class RtExportResourceTest {
         )
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview deviation of function block with reused and specific fields`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("desvio_funcao_atividade_efetivamente_exercida"),
+                    dadosVariaveis = mapOf(
+                        "funcaoContrato" to "auxiliar administrativo",
+                        "funcaoEfetivamenteExercida" to "gerente comercial",
+                        "clausulaConvencional" to "12ª",
+                        "cctReferencia" to "2025/2026",
+                        "redacaoClausula" to "É devido o salário normativo da função."
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("desvio_funcao_atividade_efetivamente_exercida"))
+            .body("blocos[0].texto", containsString("registrada na função de auxiliar administrativo"))
+            .body("blocos[0].texto", containsString("desempenhou a função de gerente comercial"))
+            .body("blocos[0].texto", containsString("**cláusula 12ª da CCT 2025/2026**"))
+            .body("blocos[0].texto", containsString("***excessiva dificuldade de cumprir o encargo***"))
+            .body("blocos[0].anexos.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should place CBO and proof images after their respective paragraphs in DOCX`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["desvio_funcao_atividade_efetivamente_exercida"],
+            "dadosVariaveis":{
+                "funcaoContrato":"auxiliar administrativo",
+                "funcaoEfetivamenteExercida":"gerente comercial",
+                "clausulaConvencional":"12ª",
+                "cctReferencia":"2025/2026",
+                "redacaoClausula":"É devido o salário normativo da função."
+            }
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_desvio_funcao_atividade_efetivamente_exercida_cbo_0", "cbo.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_desvio_funcao_atividade_efetivamente_exercida_provas_0", "prova.png", TEST_IMAGE_2, "image/png")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val paragraphs = document.paragraphs
+            val firstText = paragraphs.indexOfFirst { it.text.startsWith("A parte autora foi registrada") }
+            val secondText = paragraphs.indexOfFirst { it.text.startsWith("Entretanto, durante todo o contrato") }
+            assertTrue(firstText >= 0 && secondText > firstText)
+            assertTrue(paragraphs[firstText + 1].runs.any { it.embeddedPictures.isNotEmpty() })
+            assertTrue(paragraphs[secondText + 1].runs.any { it.embeddedPictures.isNotEmpty() })
+            assertTrue(document.allPictures.any { TEST_IMAGE_1.contentEquals(it.data) })
+            assertTrue(document.allPictures.any { TEST_IMAGE_2.contentEquals(it.data) })
+            val formatted = paragraphs.first { it.text.contains("excessiva dificuldade de cumprir o encargo") }
+            assertTrue(formatted.runs.any { it.isBold && it.isItalic && it.text().contains("excessiva dificuldade") })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

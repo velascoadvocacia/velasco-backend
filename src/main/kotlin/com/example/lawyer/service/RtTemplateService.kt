@@ -120,6 +120,12 @@ class RtTemplateService(
             titulo = { "Dispensa discriminatória. Danos morais" },
             generate = { _, _, _, _ -> dispensaDiscriminatoriaDanosMorais() }
         ),
+        DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA to RtBlockDefinition(
+            titulo = { "Desvio de função. Atividade efetivamente exercida pela parte autora" },
+            generate = { processo, _, variaveis, _ ->
+                desvioFuncaoAtividadeEfetivamenteExercida(processo, variaveis)
+            }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -605,6 +611,42 @@ class RtTemplateService(
         }
     }
 
+    private fun desvioFuncaoAtividadeEfetivamenteExercida(
+        processo: Processo,
+        variaveis: Map<String, String?>
+    ): String {
+        val funcaoRegistrada = processo.contratoTrabalho?.funcaoExercida
+            ?.trim()?.takeIf(String::isNotEmpty)
+            ?: variaveis["funcaoContrato"].orPlaceholder()
+        val funcaoEfetiva = variaveis["funcaoEfetivamenteExercida"].orPlaceholder()
+        val clausula = variaveis["clausulaConvencional"].orPlaceholder()
+        val cct = variaveis["cctReferencia"].orPlaceholder()
+        val textoClausula = variaveis["redacaoClausula"].orPlaceholder()
+        return buildString {
+            append("A parte autora foi registrada na função de $funcaoRegistrada (conforme CTPS anexa), ")
+            append("a qual, de acordo a Classificação Brasileira de Ocupações (CBO), tem a seguinte descrição:\n\n")
+            append("Entretanto, durante todo o contrato de trabalho, a parte autora desempenhou a função de ")
+            append("$funcaoEfetiva:\n\n")
+            append("Esse desvio de função afronta o **art. 9º da CLT**, diante da fraude na formalização da ")
+            append("função efetivamente exercida, bem como viola a **cláusula $clausula da CCT $cct**, ")
+            append("que assim prevê: “$textoClausula”.\n\n")
+            append("Pelo exposto, **REQUER**, em atenção ao princípio da primazia da realidade, o reconhecimento ")
+            append("da real atividade desempenhada pela parte autora, com a respectiva retificação da CTPS, e, ")
+            append("consequentemente, a garantia dos direitos específicos da profissão e dos previstos no ")
+            append("respectivo instrumento coletivo de trabalho, conforme será exposto em tópicos adiante .   ")
+            append("Para fins de produção de prova a respeito desse tema, **REQUER-SE** a aplicação do § 1º ")
+            append("do art. 818 da CLT: *Nos casos previstos em lei ou diante de peculiaridades da causa ")
+            append("relacionadas à impossibilidade ou à* ")
+            append("***excessiva dificuldade de cumprir o encargo*** *nos termos deste artigo ou à* ")
+            append("***maior fac" + "ilidade de obtenção da prova do fato contrário***")
+            append("*, poderá o juízo* ")
+            append("***atri" + "buir o ônus da prova de modo diverso***")
+            append("*, desde que o faça por decisão fundamentada, ")
+            append("caso em que deverá dar à parte a oportunidade ")
+            append("de se desincumbir do ônus que lhe foi atribuído.*")
+        }
+    }
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -911,6 +953,8 @@ class RtTemplateService(
             "dispensa_discriminatoria_reintegracao_ou_pagamento"
         const val DISPENSA_DISCRIMINATORIA_DANOS_MORAIS =
             "dispensa_discriminatoria_danos_morais"
+        const val DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA =
+            "desvio_funcao_atividade_efetivamente_exercida"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
@@ -926,7 +970,8 @@ class RtTemplateService(
             RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
             RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO,
             DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL,
-            DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO
+            DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO,
+            DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA
         )
         private const val PLACEHOLDER = "___"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")

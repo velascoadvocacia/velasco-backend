@@ -26,9 +26,17 @@ class ProcessoAnexoResource(private val service: ProcessoAnexoService) {
     fun upload(
         @PathParam("processoId") processoId: Long,
         @RestForm("arquivos") arquivos: List<FileUpload>,
-        @RestForm("blocoId") blocoId: String?
+        @RestForm("blocoId") blocoId: String?,
+        @RestForm("grupo") grupo: String?
     ): Response = Response.status(Response.Status.CREATED)
-        .entity(service.upload(processoId, arquivos, blocoId ?: ProcessoAnexoService.BAIXA_CTPS_TUTELA))
+        .entity(
+            service.upload(
+                processoId,
+                arquivos,
+                blocoId ?: ProcessoAnexoService.BAIXA_CTPS_TUTELA,
+                grupo ?: ProcessoAnexoService.GRUPO_GERAL
+            )
+        )
         .build()
 
     @GET

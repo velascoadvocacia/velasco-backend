@@ -36,7 +36,9 @@ data class RtExportImageRequest(
     val bytes: ByteArray? = null,
     val contentType: String,
     val nomeOriginal: String,
-    val url: String? = null
+    val url: String? = null,
+    val grupo: String = "geral",
+    val afterParagraph: Int = 1
 )
 
 data class RtExportInlineImageRequest(

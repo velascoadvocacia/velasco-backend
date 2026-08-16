@@ -37,17 +37,20 @@ class ProcessoAnexoService(
     fun upload(
         processoId: Long,
         files: List<FileUpload>,
-        blocoId: String = BAIXA_CTPS_TUTELA
+        blocoId: String = BAIXA_CTPS_TUTELA,
+        grupo: String = GRUPO_GERAL
     ): List<ProcessoAnexoResponse> {
         processoService.findEntity(processoId)
         validateBlocoId(blocoId)
+        validateGrupo(blocoId, grupo)
         if (files.isEmpty()) throw BusinessException("Informe ao menos uma imagem")
-        return files.map { file ->
+        val initialOrder = repository.countByProcessoBlocoGrupo(processoId, blocoId, grupo).toInt()
+        return files.mapIndexed { index, file ->
             val contentType = file.contentType().lowercase()
             if (contentType !in ALLOWED_TYPES) throw BusinessException("Tipo de arquivo não permitido: $contentType")
             if (file.size() > maxFileSize) throw BusinessException("Arquivo excede o tamanho máximo permitido")
             val extension = contentType.substringAfter('/', "bin")
-            val key = "processos/$processoId/$blocoId/${UUID.randomUUID()}.$extension"
+            val key = "processos/$processoId/$blocoId/$grupo/${UUID.randomUUID()}.$extension"
             s3.putObject(
                 PutObjectRequest.builder().bucket(bucket).key(key).contentType(contentType).build(),
                 RequestBody.fromFile(file.uploadedFile())
@@ -56,6 +59,8 @@ class ProcessoAnexoService(
                 ProcessoAnexo(
                     processoId = processoId,
                     blocoId = blocoId,
+                    grupo = grupo,
+                    ordem = initialOrder + index,
                     s3Key = key,
                     nomeOriginal = file.fileName().take(255),
                     contentType = contentType,
@@ -89,11 +94,26 @@ class ProcessoAnexoService(
         }
     }
 
+    private fun validateGrupo(blocoId: String, grupo: String) {
+        val allowed = if (blocoId == DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA) {
+            setOf(GRUPO_CBO, GRUPO_PROVAS)
+        } else {
+            setOf(GRUPO_GERAL)
+        }
+        if (grupo !in allowed) throw BusinessException("Grupo de anexo inválido para o bloco: $grupo")
+    }
+
     private fun toResponse(anexo: ProcessoAnexo): ProcessoAnexoResponse =
         ProcessoAnexoResponse(
             id = anexo.id!!,
             processoId = anexo.processoId,
             blocoId = anexo.blocoId,
+            grupo = anexo.grupo,
+            ordem = anexo.ordem,
+            afterParagraph = when (anexo.grupo) {
+                GRUPO_PROVAS -> 2
+                else -> 1
+            },
             nomeOriginal = anexo.nomeOriginal,
             contentType = anexo.contentType,
             tamanhoBytes = anexo.tamanhoBytes,
@@ -117,12 +137,18 @@ class ProcessoAnexoService(
         const val DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL = "diferencas_salariais_piso_convencional"
         const val DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO =
             "dispensa_discriminatoria_reintegracao_ou_pagamento"
+        const val DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA =
+            "desvio_funcao_atividade_efetivamente_exercida"
+        const val GRUPO_GERAL = "geral"
+        const val GRUPO_CBO = "cbo"
+        const val GRUPO_PROVAS = "provas"
         private val BLOCOS_COM_ANEXOS = setOf(
             BAIXA_CTPS_TUTELA,
             RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
             RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO,
             DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL,
-            DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO
+            DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO,
+            DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA
         )
         private val ALLOWED_TYPES = setOf("image/jpeg", "image/png")
     }
