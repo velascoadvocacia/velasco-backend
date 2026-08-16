@@ -97,6 +97,15 @@ class RtTemplateService(
             titulo = { "Pedido de rescisão indireta" },
             generate = { _, _, variaveis, _ -> pedidoRescisaoIndireta(variaveis) }
         ),
+        RESCISAO_INDIRETA_TUTELA_ANTECIPADA_VERBAS_INCONTROVERSAS to RtBlockDefinition(
+            titulo = {
+                "Rescisão indireta. Tutela antecipada. Verbas incontroversas " +
+                    "(art. 294, parágrafo único, do CPC)"
+            },
+            generate = { _, _, variaveis, _ ->
+                rescisaoIndiretaTutelaAntecipadaVerbasIncontroversas(variaveis)
+            }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -140,7 +149,7 @@ class RtTemplateService(
         return orderedSelectedBlockIds(request.blocosSelecionados)
             .mapNotNull { blockId ->
                 blockDefinitions[blockId]?.let { definition ->
-                    val variaveis = variaveisDoBloco(processo, blockId) + request.dadosVariaveis
+                    val variaveis = variaveisDoBloco(processo, blockId) + normalizeVariables(request.dadosVariaveis)
                     RtPreviewBlockResponse(
                         id = blockId,
                         titulo = definition.titulo(variaveis),
@@ -195,6 +204,27 @@ class RtTemplateService(
             .asSequence()
             .filter { it.blocoId == blocoId }
             .associate { it.campo to it.valor }
+
+    private fun normalizeVariables(variables: Map<String, Any?>): Map<String, String?> =
+        variables.mapValues { (name, value) ->
+            if (name == "sitesEncerramentoAtividades") formatStringList(value) else value?.toString()
+        }
+
+    private fun formatStringList(value: Any?): String {
+        val items = when (value) {
+            is Collection<*> -> value.mapNotNull { it?.toString()?.trim() }
+            is Array<*> -> value.mapNotNull { it?.toString()?.trim() }
+            is String -> listOf(value.trim())
+            else -> emptyList()
+        }.filter(String::isNotEmpty)
+
+        return when (items.size) {
+            0 -> "___"
+            1 -> items.first()
+            2 -> items.joinToString(" e ")
+            else -> items.dropLast(1).joinToString(", ") + " e " + items.last()
+        }
+    }
 
     private fun contratoAspectosGerais(variaveis: Map<String, String?>): String {
         val motivo = opcaoMotivoExtincao(variaveis["motivoExtincao"])?.motivo ?: PLACEHOLDER
@@ -402,6 +432,33 @@ class RtTemplateService(
             "com a consequente condenação da ré ao pagamento das verbas devidas nesse tipo de rescisão, " +
             "quais sejam saldo de salário, férias integrais e proporcionais + 1/3, décimo terceiro " +
             "salário proporcional e FGTS."
+    }
+
+    private fun rescisaoIndiretaTutelaAntecipadaVerbasIncontroversas(
+        variaveis: Map<String, String?>
+    ): String {
+        val sites = variaveis["sitesEncerramentoAtividades"].orPlaceholder()
+
+        return "A parte autora pretende o reconhecimento de sua rescisão indireta, pelos descumprimentos " +
+            "contratuais expostos no tópico anterior, pelo que é incontroverso existirem verbas rescisórias " +
+            "devidas pela ré, se não aquelas próprias da rescisão indireta, ao menos as atinentes à extinção " +
+            "do vínculo empregatício por pedido de demissão (pedido sucessivo, formulado no tópico anterior).\n\n" +
+            "Pelo exposto, com fundamento no **art. 294, parágrafo único, do Código de Processo Civil**, " +
+            "sendo incontroverso que a parte autora tem direito a verbas rescisórias, **REQUER** seja " +
+            "determinado à ré que efetue o pagamento das verbas rescisórias à parte autora, no prazo de 10 " +
+            "dias, na modalidade de pedido de demissão (saldo de salário, FGTS, 13º salário e férias), sem " +
+            "prejuízo de sua complementação na hipótese de acolhimento do pedido de reconhecimento da " +
+            "rescisão indireta, sob pena de execução imediata do valor estimado indicado nesta petição " +
+            "inicial como devido.\n\n" +
+            "Sucessivamente, considerando que a ré está em vias de encerramento de suas atividades " +
+            "empresariais (conforme noticiado pelos seguintes sites: $sites), **REQUER** seja concedida " +
+            "tutela de urgência, nos termos do **art. 300 do CPC**, para que seja efetuada a penhora " +
+            "eletrônica de ativos financeiros em contas bancárias de titularidade da ré por meio do sistema " +
+            "SISBAJUD, com repetição programada (\"Teimosinha\"), bem como seja determinada a " +
+            "indisponibilidade de bens imóveis por meio do convênio CNIB e o bloqueio de circulação dos " +
+            "veículos por meio do RENAJUD, __até o limite do valor estimado atribuído a este pedido.__\n\n" +
+            "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela antecipada, com o seu integral " +
+            "acolhimento."
     }
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -703,6 +760,8 @@ class RtTemplateService(
         const val MULTA_ART_477_IMAGE_PATH = "/assets/$MULTA_ART_477_IMAGE_NAME"
         const val MULTA_ART_477_IMAGE_URL = "/rt/assets/multa-art-477"
         const val PEDIDO_RESCISAO_INDIRETA = "pedido_rescisao_indireta"
+        const val RESCISAO_INDIRETA_TUTELA_ANTECIPADA_VERBAS_INCONTROVERSAS =
+            "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"

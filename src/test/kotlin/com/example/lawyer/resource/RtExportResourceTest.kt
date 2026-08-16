@@ -1256,6 +1256,62 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview indirect termination injunction with naturally joined site list`() {
+        val payload = """{
+            "blocosSelecionados":["rescisao_indireta_tutela_antecipada_verbas_incontroversas"],
+            "dadosVariaveis":{
+                "sitesEncerramentoAtividades":["site1.com","site2.com.br","site3.com"]
+            }
+        }""".trimIndent()
+
+        given()
+            .contentType("application/json")
+            .body(payload)
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("rescisao_indireta_tutela_antecipada_verbas_incontroversas"))
+            .body(
+                "blocos[0].titulo",
+                equalTo(
+                    "Rescisão indireta. Tutela antecipada. Verbas incontroversas " +
+                        "(art. 294, parágrafo único, do CPC)"
+                )
+            )
+            .body("blocos[0].texto", containsString("sites: site1.com, site2.com.br e site3.com"))
+            .body(
+                "blocos[0].texto",
+                containsString("**art. 294, parágrafo único, do Código de Processo Civil**")
+            )
+            .body("blocos[0].texto", containsString("**REQUER** seja determinado à ré"))
+            .body("blocos[0].texto", containsString("**art. 300 do CPC**"))
+            .body(
+                "blocos[0].texto",
+                containsString("__até o limite do valor estimado atribuído a este pedido.__")
+            )
+            .body("blocos[0].texto", containsString("__No mérito__, **REQUER-SE**"))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given()
+            .contentType("application/json")
+            .body(
+                """{
+                    "blocosSelecionados":["rescisao_indireta_tutela_antecipada_verbas_incontroversas"],
+                    "dadosVariaveis":{"sitesEncerramentoAtividades":[]}
+                }""".trimIndent()
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].texto", containsString("sites: ___"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should serve and embed fixed article 477 image after first paragraph`() {
         val expectedImage = Files.readAllBytes(Path.of("src/main/resources/assets/multa_art_477.png"))
         val servedImage = given()

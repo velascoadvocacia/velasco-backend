@@ -14,5 +14,5 @@ data class RtPreviewRequest(
 
     val advogadosIds: List<Long> = emptyList(),
 
-    val dadosVariaveis: Map<String, String?> = emptyMap()
+    val dadosVariaveis: Map<String, Any?> = emptyMap()
 )

@@ -15,7 +15,7 @@ data class RtExportRequest(
     val reclamadasIds: List<Long> = emptyList(),
     val advogadosIds: List<Long> = emptyList(),
     val blocosSelecionados: List<String> = emptyList(),
-    val dadosVariaveis: Map<String, String?> = emptyMap()
+    val dadosVariaveis: Map<String, Any?> = emptyMap()
 )
 
 data class RtExportBlockRequest(
