@@ -1312,6 +1312,71 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export fixed precautionary emergency injunction`() {
+        val expectedText =
+            "Conforme indicado no tópico anterior, a ré está em vias de encerramento de suas atividades, " +
+                "pelo que, para garantir a futura execução, **REQUER** seja concedida tutela de urgência, " +
+                "nos termos do **art. 300 do CPC**, para que seja efetuada a penhora eletrônica de ativos " +
+                "financeiros em contas bancárias de titularidade da ré por meio do sistema SISBAJUD, com " +
+                "repetição programada (\"Teimosinha\"), bem como seja determinada a indisponibilidade de bens " +
+                "imóveis por meio do convênio CNIB e o bloqueio de circulação dos veículos por meio do RENAJUD, " +
+                "__até o limite do valor estimado atribuído a esta ação judicial__.\n\n" +
+                "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela de urgência, com o seu " +
+                "integral acolhimento."
+
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("tutela_urgencia_natureza_cautelar")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("tutela_urgencia_natureza_cautelar"))
+            .body("blocos[0].titulo", equalTo("Tutela de urgência de natureza cautelar. (art. 300 do CPC)"))
+            .body("blocos[0].texto", equalTo(expectedText))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("dados_reclamante")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("dados_reclamante"))
+
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["tutela_urgencia_natureza_cautelar"]
+        }""".trimIndent()
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val first = document.paragraphs.first { it.text.startsWith("Conforme indicado no tópico anterior") }
+            assertTrue(first.runs.first { it.text() == "REQUER" }.isBold)
+            assertTrue(first.runs.first { it.text() == "art. 300 do CPC" }.isBold)
+            assertEquals(
+                UnderlinePatterns.SINGLE,
+                first.runs.first { it.text().startsWith("até o limite do valor estimado") }.underline
+            )
+            val second = document.paragraphs.first { it.text.startsWith("No mérito") }
+            assertEquals(UnderlinePatterns.SINGLE, second.runs.first { it.text() == "No mérito" }.underline)
+            assertTrue(second.runs.first { it.text() == "REQUER-SE" }.isBold)
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should serve and embed fixed article 477 image after first paragraph`() {
         val expectedImage = Files.readAllBytes(Path.of("src/main/resources/assets/multa_art_477.png"))
         val servedImage = given()

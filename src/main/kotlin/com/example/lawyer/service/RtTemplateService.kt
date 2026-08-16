@@ -106,6 +106,10 @@ class RtTemplateService(
                 rescisaoIndiretaTutelaAntecipadaVerbasIncontroversas(variaveis)
             }
         ),
+        TUTELA_URGENCIA_NATUREZA_CAUTELAR to RtBlockDefinition(
+            titulo = { "Tutela de urgência de natureza cautelar. (art. 300 do CPC)" },
+            generate = { _, _, _, _ -> tutelaUrgenciaNaturezaCautelar() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -461,6 +465,17 @@ class RtTemplateService(
             "acolhimento."
     }
 
+    private fun tutelaUrgenciaNaturezaCautelar(): String =
+        "Conforme indicado no tópico anterior, a ré está em vias de encerramento de suas atividades, " +
+            "pelo que, para garantir a futura execução, **REQUER** seja concedida tutela de urgência, " +
+            "nos termos do **art. 300 do CPC**, para que seja efetuada a penhora eletrônica de ativos " +
+            "financeiros em contas bancárias de titularidade da ré por meio do sistema SISBAJUD, com " +
+            "repetição programada (\"Teimosinha\"), bem como seja determinada a indisponibilidade de bens " +
+            "imóveis por meio do convênio CNIB e o bloqueio de circulação dos veículos por meio do RENAJUD, " +
+            "__até o limite do valor estimado atribuído a esta ação judicial__.\n\n" +
+            "__No mérito__, **REQUER-SE** a confirmação do pedido de tutela de urgência, com o seu " +
+            "integral acolhimento."
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -762,6 +777,7 @@ class RtTemplateService(
         const val PEDIDO_RESCISAO_INDIRETA = "pedido_rescisao_indireta"
         const val RESCISAO_INDIRETA_TUTELA_ANTECIPADA_VERBAS_INCONTROVERSAS =
             "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
+        const val TUTELA_URGENCIA_NATUREZA_CAUTELAR = "tutela_urgencia_natureza_cautelar"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
