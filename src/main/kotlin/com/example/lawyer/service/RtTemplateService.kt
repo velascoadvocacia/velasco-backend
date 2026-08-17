@@ -151,6 +151,10 @@ class RtTemplateService(
             },
             paragrafosAlinhadosDireita = setOf(9, 10, 11)
         ),
+        SALARIO_A_LATERE to RtBlockDefinition(
+            titulo = { "Salário a latere" },
+            generate = { _, _, variaveis, _ -> salarioALatere(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -742,6 +746,15 @@ class RtTemplateService(
         variaveis["funcaoAdicional"].orPlaceholder()
     )
 
+    private fun salarioALatere(variaveis: Map<String, String?>): String {
+        val formaRecebimento = variaveis["formaRecebimento"].orPlaceholder()
+        val valorMedioMensal = formatCurrency(variaveis["valorMedioMensal"])
+
+        return SALARIO_A_LATERE_TEMPLATE
+            .replace("{formaRecebimento}", formaRecebimento)
+            .replace("{valorMedioMensal}", valorMedioMensal)
+    }
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1055,6 +1068,7 @@ class RtTemplateService(
             "diferencas_salariais_acumulo_funcoes"
         const val DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR =
             "diferencas_salariais_motorista_carreteiro_carregador"
+        const val SALARIO_A_LATERE = "salario_a_latere"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1097,6 +1111,12 @@ class RtTemplateService(
             MOTORISTA_PARAGRAFO_12,
             MOTORISTA_PARAGRAFO_13,
             MOTORISTA_PARAGRAFO_14
+        ).joinToString("\n\n")
+        private val SALARIO_A_LATERE_TEMPLATE = listOf(
+            "Durante o contrato de trabalho, a parte autora recebia, {formaRecebimento} \"POR FORA\", em média, **R$ {valorMedioMensal} \"por fora\"**.",
+            "Como a parte autora recebia valores que não eram computados como verbas salariais, houve enriquecimento sem justa causa do empregador, à luz do **art. 884 do Código Civil**.",
+            "Essa fraude implica nulidade, nos termos do **art. 9º da CLT**, pois configurou obstáculo à aplicação dos preceitos contidos na legislação trabalhista, especialmente no tocante à remuneração justa pelo labor desempenhado, em afronta ao **art. 7º, VI, da Constituição Federal** (*irredutibilidade do salário*), por acarretar uma forma indireta de redução salarial, bem como ao **art. 7º, X, da Constituição Federal** (*proteção do salário na forma da lei*).",
+            "Pelo exposto, **REQUER-SE** a integração do valor pago \"por fora\" (média mensal de R$ {valorMedioMensal}), com a consequente condenação da ré ao pagamento dos devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
         ).joinToString("\n\n")
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."

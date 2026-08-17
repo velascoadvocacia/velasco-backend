@@ -905,6 +905,82 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview salario a latere with formatted and reused monthly value`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("salario_a_latere"),
+                    dadosVariaveis = mapOf(
+                        "formaRecebimento" to "mediante transferência bancária",
+                        "valorMedioMensal" to "1800.00"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview")
+            .then().statusCode(200)
+            .body("blocos[0].id", equalTo("salario_a_latere"))
+            .body("blocos[0].titulo", equalTo("Salário a latere"))
+            .body("blocos[0].texto", containsString("mediante transferência bancária \"POR FORA\""))
+            .body("blocos[0].texto", containsString("**R$ 1.800,00 \"por fora\"**"))
+            .body("blocos[0].texto", containsString("média mensal de R$ 1.800,00"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholders for missing salario a latere variables`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("salario_a_latere")))
+            .`when`().post("/rt/preview")
+            .then().statusCode(200)
+            .body("blocos[0].texto", containsString("recebia, ___ \"POR FORA\""))
+            .body("blocos[0].texto", containsString("**R$ ___ \"por fora\"**"))
+            .body("blocos[0].texto", containsString("média mensal de R$ ___"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export salario a latere with four paragraphs bold and italic formatting`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["salario_a_latere"],
+          "dadosVariaveis":{
+            "formaRecebimento":"mediante transferência bancária",
+            "valorMedioMensal":"1800.00"
+          }
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val bodyPrefixes = listOf(
+                "Durante o contrato de trabalho",
+                "Como a parte autora recebia valores",
+                "Essa fraude implica nulidade",
+                "Pelo exposto, REQUER-SE"
+            )
+            val body = document.paragraphs.filter { paragraph ->
+                bodyPrefixes.any { paragraph.text.startsWith(it) }
+            }
+            assertEquals(4, body.size)
+            assertTrue(body.any { paragraph ->
+                paragraph.runs.any { it.isBold && it.text().contains("R$ 1.800,00 \"por fora\"") }
+            })
+            assertTrue(body.any { paragraph ->
+                paragraph.runs.any { it.isBold && it.text().contains("REQUER-SE") }
+            })
+            listOf("irredutibilidade do salário", "proteção do salário na forma da lei").forEach { text ->
+                assertTrue(body.any { paragraph ->
+                    paragraph.runs.any { it.isItalic && it.text().contains(text) }
+                })
+            }
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
