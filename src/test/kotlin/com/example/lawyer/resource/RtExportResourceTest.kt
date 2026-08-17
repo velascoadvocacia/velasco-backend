@@ -1131,6 +1131,87 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview transfer allowance with formatted dates and placeholders`() {
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("adicional_transferencia"),
+                    dadosVariaveis = mapOf(
+                        "dataContratacao" to "2023-05-10",
+                        "localidadeTransferencia" to "Curitiba/PR",
+                        "dataInicioTransferencia" to "2024-02-01",
+                        "dataFimTransferencia" to "2024-08-31"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].id", equalTo("adicional_transferencia"))
+            .body("blocos[0].titulo", equalTo("Adicional de transferência"))
+            .body("blocos[0].texto", containsString("contratada em 10/05/2023"))
+            .body("blocos[0].texto", containsString("serviços em Curitiba/PR"))
+            .body("blocos[0].texto", containsString("período de 01/02/2024 até 31/08/2024"))
+            .body("blocos[0].texto", containsString("**art. 469, § 3°, da CLT**"))
+            .body("blocos[0].texto", containsString("PROVI-SORIEDADE"))
+            .body("blocos[0].paragrafosRecuados", equalTo(listOf(4)))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("adicional_transferencia")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body(
+                "blocos[0].texto",
+                containsString("contratada em ___, foi transferida para prestar serviços em ___, no período de ___ até ___")
+            )
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export transfer allowance with five paragraphs nested formatting and indented case law`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["adicional_transferencia"],
+          "dadosVariaveis":{
+            "dataContratacao":"2023-05-10",
+            "localidadeTransferencia":"Curitiba/PR",
+            "dataInicioTransferencia":"2024-02-01",
+            "dataFimTransferencia":"2024-08-31"
+          }
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val jurisprudencia = document.paragraphs.first { it.text.startsWith("ADICIONAL DE TRANSFERÊNCIA") }
+            assertEquals(1440, jurisprudencia.indentationLeft)
+            assertEquals(720, jurisprudencia.indentationRight)
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.BOTH, jurisprudencia.alignment)
+            assertTrue(jurisprudencia.text.contains("PROVI-SORIEDADE"))
+            assertTrue(jurisprudencia.text.endsWith("(grifo nosso)"))
+            listOf(
+                "o ânimo (provisório ou definitivo)",
+                "caracterizada a provisoriedade da transferência"
+            ).forEach { trecho ->
+                assertTrue(jurisprudencia.runs.any { it.isBold && it.text().contains(trecho) })
+            }
+
+            val primeiro = document.paragraphs.first { it.text.startsWith("A parte autora, contratada") }
+            assertTrue(primeiro.runs.any { it.isBold && it.text().contains("art. 469, § 3°, da CLT") })
+            assertTrue(primeiro.runs.any {
+                it.isItalic && it.text().contains("Em caso de necessidade de serviço")
+            })
+            val domicilio = document.paragraphs.first { it.text.startsWith("O art. 72") }
+            assertTrue(domicilio.runs.any {
+                it.isBold && it.isItalic && it.text().contains("à profissão, o lugar onde esta é exercida")
+            })
+            val pedido = document.paragraphs.first { it.text.startsWith("Pelo exposto") }
+            assertTrue(pedido.runs.any { it.isBold && it.text().contains("REQUER-SE") })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

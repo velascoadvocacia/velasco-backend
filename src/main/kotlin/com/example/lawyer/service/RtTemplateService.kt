@@ -166,6 +166,11 @@ class RtTemplateService(
             titulo = { "Dano moral por atraso salarial" },
             generate = { _, _, _, _ -> danoMoralAtrasoSalarial() }
         ),
+        ADICIONAL_TRANSFERENCIA to RtBlockDefinition(
+            titulo = { "Adicional de transferência" },
+            generate = { processo, _, variaveis, _ -> adicionalTransferencia(processo, variaveis) },
+            paragrafosRecuados = setOf(4)
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -781,6 +786,22 @@ class RtTemplateService(
 
     private fun danoMoralAtrasoSalarial(): String = DANO_MORAL_ATRASO_SALARIAL_TEMPLATE
 
+    private fun adicionalTransferencia(
+        processo: Processo,
+        variaveis: Map<String, String?>
+    ): String {
+        val dataContratacao = formatVariableDate(
+            variaveis["dataContratacao"]
+                ?: variaveis["dataAdmissao"]
+                ?: processo.contratoTrabalho?.dataAdmissao?.toString()
+        )
+        return ADICIONAL_TRANSFERENCIA_TEMPLATE
+            .replace("{dataContratacao}", dataContratacao)
+            .replace("{localidadeTransferencia}", variaveis["localidadeTransferencia"].orPlaceholder())
+            .replace("{dataInicioTransferencia}", formatVariableDate(variaveis["dataInicioTransferencia"]))
+            .replace("{dataFimTransferencia}", formatVariableDate(variaveis["dataFimTransferencia"]))
+    }
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1099,6 +1120,7 @@ class RtTemplateService(
         const val INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL =
             "integracao_aluguel_veiculo_particular_natureza_salarial"
         const val DANO_MORAL_ATRASO_SALARIAL = "dano_moral_atraso_salarial"
+        const val ADICIONAL_TRANSFERENCIA = "adicional_transferencia"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1165,6 +1187,15 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             "À luz da **Súmula 33 do TRT da 9ª Região**, tal violação acarreta dano moral presumido: *I - O atraso reiterado ou o não pagamento de salários caracteriza, por si, dano moral, por se tratar de dano in re ipsa*.",
             "Pelo exposto, nos termos do art. 5º, X, da Constituição Federal, do art. 223-G da CLT e dos arts. 186 e 927 do Código Civil, **REQUER-SE** a condenação da parte ré ao pagamento de indenização por danos morais."
         ).joinToString("\n\n")
+        private val ADICIONAL_TRANSFERENCIA_TEMPLATE = listOf(
+            "A parte autora, contratada em {dataContratacao}, foi transferida para prestar serviços em {localidadeTransferencia}, no período de {dataInicioTransferencia} até {dataFimTransferencia}, mas jamais recebeu pagamento suplementar em virtude dessa transferência provisória, em afronta ao **art. 469, § 3°, da CLT** (*Em caso de necessidade de serviço o empregador poderá transferir o empregado para localidade diversa da que resultar do contrato, não obstante as restrições do artigo anterior, mas, nesse caso, ficará obrigado a um pagamento suplementar, nunca inferior a 25% (vinte e cinco por cento) dos salários que o empregado percebia naquela localidade, enquanto durar essa situação.*).",
+            "O art. 72 do Código Civil estabelece que *É também domicílio da pessoa natural, quanto às relações concernentes* ***à profissão, o lugar onde esta é exercida****.*",
+            "Já decidiu o TRT da 3ª Região que há vários fatores para se configurar a transferência:",
+            ADICIONAL_TRANSFERENCIA_JURISPRUDENCIA,
+            "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento de adicional de transferência, com os devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+        ).joinToString("\n\n")
+        private const val ADICIONAL_TRANSFERENCIA_JURISPRUDENCIA = """ADICIONAL DE TRANSFERÊNCIA. SUCESSIVIDADE E PROVI-SORIEDADE. Para verificação do pedido de adicional de transferência, os dados fáticos devem ser analisados em conjunto, não bastando o exame de um único fator, como o tempo, mas sim a conjugação de vários requisitos: **o ânimo (provisório ou definitivo), a sucessividade de transferências e o tempo de duração**. In casu, **caracterizada a provisoriedade da transferência, é mesmo devido o adicional pleiteado**. (TRT-3 -RO: 00101162120215030099 MG 0010116-21.2021.5.03.0099, Relator: Marcio Toledo Goncalves, Data de Julgamento: 28/09/2021, Sétima Turma, Data de Publicação: 28/09/2021)
+(grifo nosso)"""
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
         private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."
