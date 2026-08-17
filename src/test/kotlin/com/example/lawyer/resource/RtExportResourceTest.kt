@@ -1355,6 +1355,60 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview overtime child only when selected and immediately after work schedule parent`() {
+        val expectedText = "Conforme tópico anterior, a parte autora realizava horas extras sem receber a " +
+            "correspondente contraprestação, pelo que se **REQUER** a condenação da ré ao pagamento das horas " +
+            "extras, com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, " +
+            "com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem " +
+            "refletir em aviso prévio (Súmula 94/TST), 13º salários (Súmula 45/TST), férias (Súmula 151/TST) " +
+            "com 1/3 e FGTS (8%) e multa de 40% (Súmula 63/TST), adicional de periculosidade e adicional noturno."
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "jornada_trabalho_horas_extras",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_horas_extras"))
+            .body("blocos[1].titulo", equalTo("a. Horas extras"))
+            .body("blocos[1].texto", equalTo(expectedText))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export overtime child as one paragraph with bold request`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho_horas_extras"]
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val paragraphs = document.paragraphs.filter { it.text.startsWith("Conforme tópico anterior") }
+            assertEquals(1, paragraphs.size)
+            assertTrue(paragraphs.single().text.endsWith("adicional de periculosidade e adicional noturno."))
+            assertTrue(paragraphs.single().runs.any { it.isBold && it.text() == "REQUER" })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

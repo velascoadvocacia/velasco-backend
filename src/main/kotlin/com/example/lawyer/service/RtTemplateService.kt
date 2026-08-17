@@ -179,6 +179,10 @@ class RtTemplateService(
             titulo = { "Jornada de trabalho" },
             generate = { _, _, variaveis, _ -> jornadaTrabalho(variaveis) }
         ),
+        JORNADA_TRABALHO_HORAS_EXTRAS to RtBlockDefinition(
+            titulo = { "a. Horas extras" },
+            generate = { _, _, _, _ -> jornadaTrabalhoHorasExtras() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -830,6 +834,9 @@ class RtTemplateService(
                 variaveis["descricaoAusenciaControleJornada"].orPlaceholder()
             )
 
+    private fun jornadaTrabalhoHorasExtras(): String =
+        JORNADA_TRABALHO_HORAS_EXTRAS_TEMPLATE
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1152,6 +1159,7 @@ class RtTemplateService(
         const val VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA =
             "verbas_rescisorias_media_horas_extras_nao_paga"
         const val JORNADA_TRABALHO = "jornada_trabalho"
+        const val JORNADA_TRABALHO_HORAS_EXTRAS = "jornada_trabalho_horas_extras"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1232,12 +1240,17 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             "Tendo em vista que havia pagamento de horas extras de forma habitual nos meses que antecederam a rescisão do contrato de trabalho, deveria haver a integração da média das horas extras e reflexos nos RSRs ao salário/remuneração para fins de cálculo das demais verbas que compõem a rescisão, o que não ocorreu, conforme TRCT:",
             "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento das diferenças a título de verbas rescisórias, considerando a integração da média das horas extras e reflexos nos RSRs ao salário/remuneração para fins de cálculo das demais verbas que compõem a rescisão, e, com o RSR, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
         ).joinToString("\n\n")
-        private val JORNADA_TRABALHO_BLOCK_ORDER = listOf(JORNADA_TRABALHO)
+        private val JORNADA_TRABALHO_BLOCK_ORDER = listOf(
+            JORNADA_TRABALHO,
+            JORNADA_TRABALHO_HORAS_EXTRAS
+        )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
             "O **art. 2º, I, b, da Lei 13.103/2015** dispõe que o controle fidedigno da jornada é direito do empregado motorista profissional (*Art. 2º São direitos dos motoristas profissionais de que trata esta Lei, sem prejuízo de outros previstos em leis específicas: V - se empregados: b)* ***ter jornada de trabalho controlada e registrada de maneira fidedigna*** *mediante anotação em diário de bordo, papeleta ou ficha de trabalho externo, ou sistema e meios eletrônicos instalados nos veículos, a critério do empregador;*), o que não foi observado pela ré, porquanto {descricaoAusenciaControleJornada}.",
             "Nesse sentido, veja-se as consequências jurídicas aplicáveis, considerando a afronta ao **art. 235-C da CLT**, com redação dada pela Lei nº 13.103/2015 e, por consequência, ao **art. 7º, XVI, da Constituição Federal.**"
         ).joinToString("\n\n")
+        private const val JORNADA_TRABALHO_HORAS_EXTRAS_TEMPLATE =
+            "Conforme tópico anterior, a parte autora realizava horas extras sem receber a correspondente contraprestação, pelo que se **REQUER** a condenação da ré ao pagamento das horas extras, com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem refletir em aviso prévio (Súmula 94/TST), 13º salários (Súmula 45/TST), férias (Súmula 151/TST) com 1/3 e FGTS (8%) e multa de 40% (Súmula 63/TST), adicional de periculosidade e adicional noturno."
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
         private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."
