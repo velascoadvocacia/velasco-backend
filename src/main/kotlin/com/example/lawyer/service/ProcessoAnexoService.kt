@@ -142,6 +142,8 @@ class ProcessoAnexoService(
         const val INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL =
             "integracao_aluguel_veiculo_particular_natureza_salarial"
         const val DANO_MORAL_ATRASO_SALARIAL = "dano_moral_atraso_salarial"
+        const val VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA =
+            "verbas_rescisorias_media_horas_extras_nao_paga"
         const val GRUPO_GERAL = "geral"
         const val GRUPO_CBO = "cbo"
         const val GRUPO_PROVAS = "provas"
@@ -153,7 +155,8 @@ class ProcessoAnexoService(
             DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO,
             DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA,
             INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL,
-            DANO_MORAL_ATRASO_SALARIAL
+            DANO_MORAL_ATRASO_SALARIAL,
+            VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA
         )
         private val ALLOWED_TYPES = setOf("image/jpeg", "image/png")
     }

@@ -1212,6 +1212,63 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview fixed severance differences for unpaid overtime average`() {
+        val expectedText =
+            "Tendo em vista que havia pagamento de horas extras de forma habitual nos meses que antecederam a rescisão do contrato de trabalho, deveria haver a integração da média das horas extras e reflexos nos RSRs ao salário/remuneração para fins de cálculo das demais verbas que compõem a rescisão, o que não ocorreu, conforme TRCT:\n\n" +
+                "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento das diferenças a título de verbas rescisórias, considerando a integração da média das horas extras e reflexos nos RSRs ao salário/remuneração para fins de cálculo das demais verbas que compõem a rescisão, e, com o RSR, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("verbas_rescisorias_media_horas_extras_nao_paga")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("verbas_rescisorias_media_horas_extras_nao_paga"))
+            .body("blocos[0].titulo", equalTo("Verbas rescisórias. Média de horas extras não paga"))
+            .body("blocos[0].texto", equalTo(expectedText))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export unpaid overtime average with multiple TRCT prints after first paragraph`() {
+        val blockId = "verbas_rescisorias_media_horas_extras_nao_paga"
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["$blockId"]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_${blockId}_0", "trct-1.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_${blockId}_1", "trct-2.png", TEST_IMAGE_2, "image/png")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            assertTrue(document.allPictures.any { TEST_IMAGE_1.contentEquals(it.data) })
+            assertTrue(document.allPictures.any { TEST_IMAGE_2.contentEquals(it.data) })
+            val firstParagraphIndex = document.bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text.startsWith("Tendo em vista que havia pagamento")
+            }
+            val proofIndexes = document.bodyElements.withIndex().filter { (_, element) ->
+                element is XWPFParagraph && element.runs.any { it.embeddedPictures.isNotEmpty() }
+            }.map { it.index }
+            val secondParagraphIndex = document.bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text.startsWith("Pelo exposto, REQUER-SE")
+            }
+            assertEquals(listOf(firstParagraphIndex + 1, firstParagraphIndex + 2), proofIndexes)
+            assertEquals(firstParagraphIndex + 3, secondParagraphIndex)
+
+            val pedido = document.paragraphs.first { it.text.startsWith("Pelo exposto") }
+            assertTrue(pedido.runs.any { it.isBold && it.text().contains("REQUER-SE") })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

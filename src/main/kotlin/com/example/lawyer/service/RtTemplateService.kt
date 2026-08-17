@@ -171,6 +171,10 @@ class RtTemplateService(
             generate = { processo, _, variaveis, _ -> adicionalTransferencia(processo, variaveis) },
             paragrafosRecuados = setOf(4)
         ),
+        VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA to RtBlockDefinition(
+            titulo = { "Verbas rescisórias. Média de horas extras não paga" },
+            generate = { _, _, _, _ -> verbasRescisoriasMediaHorasExtrasNaoPaga() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -802,6 +806,9 @@ class RtTemplateService(
             .replace("{dataFimTransferencia}", formatVariableDate(variaveis["dataFimTransferencia"]))
     }
 
+    private fun verbasRescisoriasMediaHorasExtrasNaoPaga(): String =
+        VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA_TEMPLATE
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1121,6 +1128,8 @@ class RtTemplateService(
             "integracao_aluguel_veiculo_particular_natureza_salarial"
         const val DANO_MORAL_ATRASO_SALARIAL = "dano_moral_atraso_salarial"
         const val ADICIONAL_TRANSFERENCIA = "adicional_transferencia"
+        const val VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA =
+            "verbas_rescisorias_media_horas_extras_nao_paga"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1147,7 +1156,8 @@ class RtTemplateService(
             DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO,
             DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA,
             INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL,
-            DANO_MORAL_ATRASO_SALARIAL
+            DANO_MORAL_ATRASO_SALARIAL,
+            VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA
         )
         private const val PLACEHOLDER = "___"
         private val MOTORISTA_CARRETEIRO_CARREGADOR_TEMPLATE = listOf(
@@ -1196,6 +1206,10 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
         ).joinToString("\n\n")
         private const val ADICIONAL_TRANSFERENCIA_JURISPRUDENCIA = """ADICIONAL DE TRANSFERÊNCIA. SUCESSIVIDADE E PROVI-SORIEDADE. Para verificação do pedido de adicional de transferência, os dados fáticos devem ser analisados em conjunto, não bastando o exame de um único fator, como o tempo, mas sim a conjugação de vários requisitos: **o ânimo (provisório ou definitivo), a sucessividade de transferências e o tempo de duração**. In casu, **caracterizada a provisoriedade da transferência, é mesmo devido o adicional pleiteado**. (TRT-3 -RO: 00101162120215030099 MG 0010116-21.2021.5.03.0099, Relator: Marcio Toledo Goncalves, Data de Julgamento: 28/09/2021, Sétima Turma, Data de Publicação: 28/09/2021)
 (grifo nosso)"""
+        private val VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA_TEMPLATE = listOf(
+            "Tendo em vista que havia pagamento de horas extras de forma habitual nos meses que antecederam a rescisão do contrato de trabalho, deveria haver a integração da média das horas extras e reflexos nos RSRs ao salário/remuneração para fins de cálculo das demais verbas que compõem a rescisão, o que não ocorreu, conforme TRCT:",
+            "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento das diferenças a título de verbas rescisórias, considerando a integração da média das horas extras e reflexos nos RSRs ao salário/remuneração para fins de cálculo das demais verbas que compõem a rescisão, e, com o RSR, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+        ).joinToString("\n\n")
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
         private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."
