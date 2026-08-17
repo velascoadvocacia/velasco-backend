@@ -11,7 +11,8 @@ data class RtPreviewBlockResponse(
     val texto: String,
     val anexos: List<ProcessoAnexoResponse> = emptyList(),
     val imagensFixas: List<RtPreviewInlineImageResponse> = emptyList(),
-    val paragrafosAlinhadosDireita: List<Int> = emptyList()
+    val paragrafosAlinhadosDireita: List<Int> = emptyList(),
+    val paragrafosRecuados: List<Int> = emptyList()
 )
 
 data class RtPreviewInlineImageResponse(

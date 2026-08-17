@@ -981,6 +981,93 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview vehicle rental integration with formatting placeholders and indent metadata`() {
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "integracao_aluguel_veiculo_particular_natureza_salarial"
+                    ),
+                    dadosVariaveis = mapOf(
+                        "valorAluguelVeiculo" to "1800.00",
+                        "descricaoProvaAluguelVeiculo" to "dos comprovantes bancários"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].titulo", equalTo("Integração do aluguel do veículo particular. Natureza salarial"))
+            .body("blocos[0].texto", containsString("**R$ 1.800,00**"))
+            .body("blocos[0].texto", containsString("a partir dos comprovantes bancários:"))
+            .body("blocos[0].texto", containsString("**SDC do Tribunal Superior do Trabalho**"))
+            .body("blocos[0].texto", containsString("__**jurisprudência em formação desta Corte Superior"))
+            .body("blocos[0].paragrafosRecuados", equalTo(listOf(3)))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "integracao_aluguel_veiculo_particular_natureza_salarial"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("valor de **R$ ___**"))
+            .body("blocos[0].texto", containsString("a partir ___:"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export vehicle rental integration with multiple proofs after first paragraph and indented case law`() {
+        val blockId = "integracao_aluguel_veiculo_particular_natureza_salarial"
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["$blockId"],
+          "dadosVariaveis":{
+            "valorAluguelVeiculo":"1800.00",
+            "descricaoProvaAluguelVeiculo":"dos comprovantes bancários"
+          }
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_${blockId}_0", "prova-1.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_${blockId}_1", "prova-2.png", TEST_IMAGE_2, "image/png")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            assertTrue(document.allPictures.any { TEST_IMAGE_1.contentEquals(it.data) })
+            assertTrue(document.allPictures.any { TEST_IMAGE_2.contentEquals(it.data) })
+            val firstBodyIndex = document.bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text.startsWith("A parte autora recebia")
+            }
+            val proofIndexes = document.bodyElements.withIndex().filter { (_, element) ->
+                element is XWPFParagraph && element.runs.any { it.embeddedPictures.isNotEmpty() }
+            }.map { it.index }
+            val secondBodyIndex = document.bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text.startsWith("Conforme entendimento do TST")
+            }
+            assertEquals(listOf(firstBodyIndex + 1, firstBodyIndex + 2), proofIndexes)
+            assertEquals(firstBodyIndex + 3, secondBodyIndex)
+
+            val jurisprudencia = document.paragraphs.first {
+                it.text.contains("SDC do Tribunal Superior do Trabalho")
+            }
+            assertEquals(1440, jurisprudencia.indentationLeft)
+            assertEquals(720, jurisprudencia.indentationRight)
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.BOTH, jurisprudencia.alignment)
+            assertTrue(jurisprudencia.runs.any {
+                it.isBold && it.text().contains("SDC do Tribunal Superior do Trabalho")
+            })
+            assertTrue(jurisprudencia.runs.any {
+                it.isBold && it.underline == UnderlinePatterns.SINGLE &&
+                    it.text().contains("jurisprudência em formação")
+            })
+            assertTrue(jurisprudencia.text.contains("(grifo nosso)"))
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

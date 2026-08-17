@@ -31,7 +31,9 @@ data class RtExportBlockRequest(
 
     val imagensFixas: List<RtExportInlineImageRequest> = emptyList(),
 
-    val paragrafosAlinhadosDireita: List<Int> = emptyList()
+    val paragrafosAlinhadosDireita: List<Int> = emptyList(),
+
+    val paragrafosRecuados: List<Int> = emptyList()
 )
 
 data class RtExportImageRequest(

@@ -174,7 +174,8 @@ class RtExportResource(
                     content = block.texto,
                     anexos = anexos,
                     imagensFixas = fixedInlineImages(block.id),
-                    paragrafosAlinhadosDireita = block.paragrafosAlinhadosDireita
+                    paragrafosAlinhadosDireita = block.paragrafosAlinhadosDireita,
+                    paragrafosRecuados = block.paragrafosRecuados
                 )
             }
         } else {
@@ -199,6 +200,10 @@ class RtExportResource(
                     resolved = resolved.copy(
                         paragrafosAlinhadosDireita = paragrafosAlinhadosDireitaDoBackend
                     )
+                }
+                val paragrafosRecuadosDoBackend = templateService.indentedParagraphs(blocoId)
+                if (paragrafosRecuadosDoBackend.isNotEmpty()) {
+                    resolved = resolved.copy(paragrafosRecuados = paragrafosRecuadosDoBackend)
                 }
                 logger.infof("RT export bloco legado '%s': anexos associados=%d", resolved.title, resolved.anexos.size)
                 resolved

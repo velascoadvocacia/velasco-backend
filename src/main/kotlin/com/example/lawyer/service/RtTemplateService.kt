@@ -155,6 +155,13 @@ class RtTemplateService(
             titulo = { "Salário a latere" },
             generate = { _, _, variaveis, _ -> salarioALatere(variaveis) }
         ),
+        INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL to RtBlockDefinition(
+            titulo = { "Integração do aluguel do veículo particular. Natureza salarial" },
+            generate = { _, _, variaveis, _ ->
+                integracaoAluguelVeiculoParticularNaturezaSalarial(variaveis)
+            },
+            paragrafosRecuados = setOf(3)
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -211,7 +218,8 @@ class RtTemplateService(
                             emptyList()
                         },
                         imagensFixas = fixedImages(blockId),
-                        paragrafosAlinhadosDireita = definition.paragrafosAlinhadosDireita.sorted()
+                        paragrafosAlinhadosDireita = definition.paragrafosAlinhadosDireita.sorted(),
+                        paragrafosRecuados = definition.paragrafosRecuados.sorted()
                     )
                 }
             }
@@ -277,6 +285,9 @@ class RtTemplateService(
 
     fun rightAlignedParagraphs(blockId: String?): List<Int> =
         blockId?.let { blockDefinitions[it]?.paragrafosAlinhadosDireita?.sorted() }.orEmpty()
+
+    fun indentedParagraphs(blockId: String?): List<Int> =
+        blockId?.let { blockDefinitions[it]?.paragrafosRecuados?.sorted() }.orEmpty()
 
     private fun variaveisDoBloco(processo: Processo, blocoId: String): Map<String, String?> =
         processo.dadosVariaveis
@@ -755,6 +766,15 @@ class RtTemplateService(
             .replace("{valorMedioMensal}", valorMedioMensal)
     }
 
+    private fun integracaoAluguelVeiculoParticularNaturezaSalarial(
+        variaveis: Map<String, String?>
+    ): String = INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_TEMPLATE
+        .replace("{valorAluguelVeiculo}", formatCurrency(variaveis["valorAluguelVeiculo"]))
+        .replace(
+            "{descricaoProvaAluguelVeiculo}",
+            variaveis["descricaoProvaAluguelVeiculo"].orPlaceholder()
+        )
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1026,7 +1046,8 @@ class RtTemplateService(
     private data class RtBlockDefinition(
         val titulo: (Map<String, String?>) -> String,
         val generate: (Processo, Set<Usuario>, Map<String, String?>, Set<String>) -> String,
-        val paragrafosAlinhadosDireita: Set<Int> = emptySet()
+        val paragrafosAlinhadosDireita: Set<Int> = emptySet(),
+        val paragrafosRecuados: Set<Int> = emptySet()
     )
 
     private data class OpcaoMotivoExtincao(val titulo: String, val motivo: String)
@@ -1069,6 +1090,8 @@ class RtTemplateService(
         const val DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR =
             "diferencas_salariais_motorista_carreteiro_carregador"
         const val SALARIO_A_LATERE = "salario_a_latere"
+        const val INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL =
+            "integracao_aluguel_veiculo_particular_natureza_salarial"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1093,7 +1116,8 @@ class RtTemplateService(
             RESPONSABILIDADE_SUBSIDIARIA_CONTRATO_ADMINISTRATIVO,
             DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL,
             DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO,
-            DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA
+            DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA,
+            INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL
         )
         private const val PLACEHOLDER = "___"
         private val MOTORISTA_CARRETEIRO_CARREGADOR_TEMPLATE = listOf(
@@ -1118,6 +1142,16 @@ class RtTemplateService(
             "Essa fraude implica nulidade, nos termos do **art. 9º da CLT**, pois configurou obstáculo à aplicação dos preceitos contidos na legislação trabalhista, especialmente no tocante à remuneração justa pelo labor desempenhado, em afronta ao **art. 7º, VI, da Constituição Federal** (*irredutibilidade do salário*), por acarretar uma forma indireta de redução salarial, bem como ao **art. 7º, X, da Constituição Federal** (*proteção do salário na forma da lei*).",
             "Pelo exposto, **REQUER-SE** a integração do valor pago \"por fora\" (média mensal de R$ {valorMedioMensal}), com a consequente condenação da ré ao pagamento dos devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
         ).joinToString("\n\n")
+        private val INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_TEMPLATE = listOf(
+            "A parte autora recebia, mensalmente e em média, o valor de **R$ {valorAluguelVeiculo}** a título de pagamento do aluguel de seu veículo particular, conforme se observa a partir {descricaoProvaAluguelVeiculo}:",
+            "Conforme entendimento do TST, tal verba, quando destinada ao **aluguel de veículo particular do empregado**, tem **natureza salarial**, devendo repercutir nas demais verbas trabalhistas, o que afasta a aplicação da Súmula n.º 367, I, do TST, como se observa a partir da seguinte decisão:",
+            INTEGRACAO_ALUGUEL_VEICULO_JURISPRUDENCIA,
+            "Trata-se exatamente do que ocorreu in casu, pois o veículo não era fornecido pela empresa, mas era **particular do empregado**; assim, teve por intuito “mascarar” contraprestação pelo trabalho prestado, devendo ser afastada a natureza jurídica de verba indenizatória, uma vez que implica nulidade, nos termos do **art. 9º da CLT.**",
+            "Pelo exposto, **REQUER-SE** a integração do valor pago a título de aluguel do veículo, com a consequente condenação da ré ao pagamento dos devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+        ).joinToString("\n\n")
+        private const val INTEGRACAO_ALUGUEL_VEICULO_JURISPRUDENCIA = """**SDC do Tribunal Superior do Trabalho**
+RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE AS PARTES. ALUGUEL DE VEÍCULO PARTICULAR DO EMPREGADO. PREVISÃO DE NATUREZA JURÍDICA INDENIZATÓRIA. DISSIMULAÇÃO DO CARÁTER SALARIAL. CLÁUSULA INVÁLIDA. 1. A __**jurisprudência em formação desta Corte Superior, em dissídios individuais, assenta a premissa de que a diretriz da Súmula nº 367, I, do TST não se aplica na hipótese de uso de veículo de propriedade do empregado para o exercício das atividades laborais**__. 2. Nesse contexto, __**é inválida a cláusula coletiva que fixa a natureza indenizatória da parcela paga a título de aluguel do veículo particular utilizado pelo trabalhador em benefício da empregadora, por configurar fraude à legislação trabalhista, impondo ilícita alteração do caráter salarial da verba em afronta ao disposto no art. 9º da CLT**__. 3. Na hipótese vertente, restou patente que o uso de veículo é indispensável à prestação dos serviços, denotando o caráter de contraprestação, mormente sopesados os valores acordados entre as partes, correspondentes em média a mais de 100% do salário nominal, comprovando a intenção de dissimulação. 4. Portanto, não merece reforma a decisão do Tribunal Regional de origem que não homologou a cláusula coletiva desse teor, constante da proposta de conciliação apresentada no presente dissídio coletivo de greve. Recurso ordinário a que se nega provimento. (RO - 22800-09.2012.5.17.0000, Relator Ministro: Walmir Oliveira da Costa, Data de Julgamento: 18/08/2014, Seção Especializada em Dissídios Coletivos, Data de Publicação: DEJT 22/08/2014)
+(grifo nosso)"""
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
         private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."

@@ -149,7 +149,12 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
             } else {
                 ParagraphAlignment.BOTH
             }
-            createBodyParagraph(document, paragraphText, alignment)
+            createBodyParagraph(
+                document,
+                paragraphText,
+                alignment,
+                paragraphNumber in block.paragrafosRecuados
+            )
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             block.anexos
                 .filter { it.afterParagraph == index + 1 }
@@ -166,10 +171,15 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
     private fun createBodyParagraph(
         document: XWPFDocument,
         text: String,
-        alignment: ParagraphAlignment = ParagraphAlignment.BOTH
+        alignment: ParagraphAlignment = ParagraphAlignment.BOTH,
+        recuado: Boolean = false
     ) {
         val p = document.createParagraph()
         p.alignment = alignment
+        if (recuado) {
+            p.indentationLeft = JURISPRUDENCE_LEFT_INDENT_TWIPS
+            p.indentationRight = JURISPRUDENCE_RIGHT_INDENT_TWIPS
+        }
 
         val ppr = p.ctp.pPr ?: p.ctp.addNewPPr()
 
@@ -330,6 +340,8 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
 
     private companion object {
         const val BODY_IMAGE_MAX_WIDTH_POINTS = 450.0
+        const val JURISPRUDENCE_LEFT_INDENT_TWIPS = 1440
+        const val JURISPRUDENCE_RIGHT_INDENT_TWIPS = 720
     }
 
     // Parágrafo vazio
