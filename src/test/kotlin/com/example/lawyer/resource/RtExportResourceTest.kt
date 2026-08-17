@@ -684,6 +684,103 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview salary differences for accumulated functions with dynamic title`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("diferencas_salariais_acumulo_funcoes"),
+                    dadosVariaveis = mapOf(
+                        "funcaoContratada" to "vendedor",
+                        "funcaoAcumulada" to "supervisor de vendas",
+                        "dataAdmissao" to "2024-08-01",
+                        "dataInicioAcumuloFuncao" to "2025-02-10",
+                        "salarioFuncaoContratada" to "2500.00",
+                        "salarioFuncaoAcumulada" to "3800.00",
+                        "salarioAtualAutora" to "2700.00"
+                    )
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("diferencas_salariais_acumulo_funcoes"))
+            .body(
+                "blocos[0].titulo",
+                equalTo("Diferenças salariais. Exercício de função de vendedor e de supervisor de vendas")
+            )
+            .body("blocos[0].texto", startsWith("A parte autora iniciou sua prestação de serviços em favor da parte ré em 01/08/2024"))
+            .body("blocos[0].texto", containsString("**art. 884 do Código Civil**"))
+            .body("blocos[0].texto", containsString("*caput*"))
+            .body("blocos[0].texto", containsString("salário de 2.500,00 somado ao salário de 3.800,00"))
+            .body("blocos[0].texto", containsString("40% sobre o salário de 2.700,00"))
+            .body("blocos[0].anexos.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should use placeholders when accumulated function fields are unavailable`() {
+        given()
+            .contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("diferencas_salariais_acumulo_funcoes")))
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].titulo", equalTo("Diferenças salariais. Exercício de função de ___ e de ___"))
+            .body("blocos[0].texto", containsString("em ___, na função de ___, mas, em ___"))
+            .body("blocos[0].texto", containsString("salário de ___ somado ao salário de ___"))
+            .body("blocos[0].texto", containsString("40% sobre o salário de ___"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export accumulated functions block preserving bold and italic formatting`() {
+        val payload = """{
+            "claimantName":"Maria Silva",
+            "blocosSelecionados":["diferencas_salariais_acumulo_funcoes"],
+            "dadosVariaveis":{
+                "funcaoContrato":"vendedor",
+                "funcaoEfetivamenteExercida":"supervisor de vendas",
+                "dataAdmissao":"2024-08-01",
+                "dataInicioAcumuloFuncao":"2025-02-10",
+                "salarioFuncaoOriginal":"2500.00",
+                "salarioFuncaoAcumulada":"3800.00",
+                "remuneracao":"2700.00"
+            }
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`()
+            .post("/rt/export")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val body = document.paragraphs
+            assertTrue(body.first { it.text.startsWith("A parte autora iniciou") }.text.contains("01/08/2024"))
+            assertTrue(body.any { paragraph ->
+                paragraph.runs.any { it.isBold && it.text().contains("art. 884 do Código Civil") }
+            })
+            assertTrue(body.any { paragraph ->
+                paragraph.runs.any { it.isItalic && it.text().contains("caput") }
+            })
+            assertTrue(body.any { paragraph ->
+                paragraph.runs.any {
+                    it.isBold && it.isItalic && it.text().contains("o desvio funcional e a dupla função")
+                }
+            })
+            assertTrue(body.last { it.text.startsWith("Sucessivamente") }.text.contains("2.700,00"))
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

@@ -126,6 +126,21 @@ class RtTemplateService(
                 desvioFuncaoAtividadeEfetivamenteExercida(processo, variaveis)
             }
         ),
+        DIFERENCAS_SALARIAIS_ACUMULO_FUNCOES to RtBlockDefinition(
+            titulo = { variaveis ->
+                val funcaoContratada = variaveis["funcaoContratada"]
+                    ?.takeIf(String::isNotBlank)
+                    ?: variaveis["funcaoContrato"]
+                val funcaoAcumulada = variaveis["funcaoAcumulada"]
+                    ?.takeIf(String::isNotBlank)
+                    ?: variaveis["funcaoEfetivamenteExercida"]
+                "Diferenças salariais. Exercício de função de " +
+                    "${funcaoContratada.orPlaceholder()} e de " + funcaoAcumulada.orPlaceholder()
+            },
+            generate = { processo, _, variaveis, _ ->
+                diferencasSalariaisAcumuloFuncoes(processo, variaveis)
+            }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -169,7 +184,9 @@ class RtTemplateService(
         return orderedSelectedBlockIds(request.blocosSelecionados)
             .mapNotNull { blockId ->
                 blockDefinitions[blockId]?.let { definition ->
-                    val variaveis = variaveisDoBloco(processo, blockId) + normalizeVariables(request.dadosVariaveis)
+                    val variaveis = variaveisAutomaticas(processo) +
+                        variaveisDoBloco(processo, blockId) +
+                        normalizeVariables(request.dadosVariaveis)
                     RtPreviewBlockResponse(
                         id = blockId,
                         titulo = definition.titulo(variaveis),
@@ -232,6 +249,12 @@ class RtTemplateService(
             .asSequence()
             .filter { it.blocoId == blocoId }
             .associate { it.campo to it.valor }
+
+    private fun variaveisAutomaticas(processo: Processo): Map<String, String?> = mapOf(
+        "funcaoContrato" to processo.contratoTrabalho?.funcaoExercida,
+        "dataAdmissao" to processo.contratoTrabalho?.dataAdmissao?.toString(),
+        "remuneracao" to processo.contratoTrabalho?.ultimaRemuneracao?.toPlainString()
+    ).filterValues { !it.isNullOrBlank() }
 
     private fun normalizeVariables(variables: Map<String, Any?>): Map<String, String?> =
         variables.mapValues { (name, value) ->
@@ -647,6 +670,41 @@ class RtTemplateService(
         }
     }
 
+    private fun diferencasSalariaisAcumuloFuncoes(
+        processo: Processo,
+        variaveis: Map<String, String?>
+    ): String {
+        val contrato = processo.contratoTrabalho
+        val funcaoContratada = (variaveis["funcaoContratada"] ?: variaveis["funcaoContrato"])
+            ?.trim()?.takeIf(String::isNotEmpty)
+            ?: contrato?.funcaoExercida?.trim()?.takeIf(String::isNotEmpty)
+            ?: PLACEHOLDER
+        val funcaoAcumulada = (variaveis["funcaoAcumulada"]
+            ?: variaveis["funcaoEfetivamenteExercida"]).orPlaceholder()
+        val dataAdmissao = formatVariableDate(
+            variaveis["dataAdmissao"] ?: contrato?.dataAdmissao?.toString()
+        )
+        val dataInicioAcumulo = formatVariableDate(variaveis["dataInicioAcumuloFuncao"])
+        val salarioContratada = formatCurrency(
+            variaveis["salarioFuncaoContratada"] ?: variaveis["salarioFuncaoOriginal"]
+        )
+        val salarioAcumulada = formatCurrency(variaveis["salarioFuncaoAcumulada"])
+        val salarioAtual = formatCurrency(
+            variaveis["salarioAtualAutora"]
+                ?: variaveis["remuneracao"]
+                ?: contrato?.ultimaRemuneracao?.toPlainString()
+        )
+
+        return DIFERENCAS_SALARIAIS_ACUMULO_FUNCOES_TEMPLATE
+            .replace("{dataAdmissao}", dataAdmissao)
+            .replace("{funcaoContratada}", funcaoContratada)
+            .replace("{dataInicioAcumuloFuncao}", dataInicioAcumulo)
+            .replace("{funcaoAcumulada}", funcaoAcumulada)
+            .replace("{salarioFuncaoContratada}", salarioContratada)
+            .replace("{salarioFuncaoAcumulada}", salarioAcumulada)
+            .replace("{salarioAtualAutora}", salarioAtual)
+    }
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -955,6 +1013,8 @@ class RtTemplateService(
             "dispensa_discriminatoria_danos_morais"
         const val DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA =
             "desvio_funcao_atividade_efetivamente_exercida"
+        const val DIFERENCAS_SALARIAIS_ACUMULO_FUNCOES =
+            "diferencas_salariais_acumulo_funcoes"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
@@ -974,6 +1034,25 @@ class RtTemplateService(
             DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA
         )
         private const val PLACEHOLDER = "___"
+        private val DIFERENCAS_SALARIAIS_ACUMULO_FUNCOES_TEMPLATE = """
+A parte autora iniciou sua prestação de serviços em favor da parte ré em {dataAdmissao}, na função de {funcaoContratada}, mas, em {dataInicioAcumuloFuncao}, passou a também exercer a função de {funcaoAcumulada}.
+
+Ou seja, mesmo tendo sido contratada para exercer a função de {funcaoContratada}, a parte ré não contratou outro empregado para fazer a função de {funcaoAcumulada}, levando a parte autora a acumular as duas funções.
+
+As funções não eram compatíveis entre si ou com a condição pessoal da parte autora, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que* ***o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal****.*).
+* *
+O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (art. 468, *caput*, da CLT: *Nos contratos individuais de trabalho* ***só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado****, sob pena de nulidade da cláusula infringente desta garantia*.).
+
+Nesse sentido, entende o doutrinador José Affonso Dallegrave Neto (**Responsabilidade civil no direito do trabalho**. 6. Ed. São Paulo: LTr, 2017, p. 278): “*é inegável que* ***o desvio funcional e a dupla função são tidos como ilícitos, na medida em que são caracterizados pela determinação unilateral do empregador, e ao mesmo tempo são prejudiciais ao obreiro, o qual terá de assumir responsabilidades e encargos superiores aos limites do contratado****. Ao assim proceder,* ***o empregador estará exorbitando seu poder de comando (jus variandi) em flagrante abuso de direito de que trata o art. 187 do Código Civil****. Tais hipóteses caracterizam até mesmo ofensa ao art. 468 da CLT, pois entre a função ajustada na celebração do contrato e o que lhe foi imposto posteriormente haverá sensível margem prejudicial ao trabalhador, mormente quando desacompanhada da respectiva compensação salarial.*” (grifo nosso).
+
+Como a parte autora não recebeu a remuneração devida para o exercício concomitante de todas as funções que exercia na prestação de trabalho em favor da ré, houve enriquecimento sem justa causa do empregador, à luz do **art. 884 do Código Civil** (*Aquele que, sem justa causa, se enriquecer à custa de outrem, será obrigado a restituir o indevidamente auferido, feita a atualização dos valores monetários.*).
+
+A conduta da ré é fraudulenta, nos termos do **art. 9º da CLT**, pois configurou obstáculo à aplicação dos preceitos contidos na legislação trabalhista, especialmente no tocante à remuneração justa pelo labor desempenhado, em afronta ao **art. 7º, VI, da Constituição Federal** (*irredutibilidade do salário*), por acarretar uma forma indireta de redução salarial, bem como ao **art. 7º, X, da Constituição Federal** (*proteção do salário na forma da lei*).
+
+Pelo exposto, com fundamento no **art. 187 da CLT**, **REQUER-SE** a condenação da parte ré ao pagamento de diferenças salariais decorrentes do acúmulo de funções, correspondentes ao salário de {salarioFuncaoContratada} somado ao salário de {salarioFuncaoAcumulada}. Consequentemente, **REQUER-SE** a condenação da ré ao pagamento dos reflexos em horas extras, no 13º salário, no aviso prévio e nas férias proporcionais acrescidas de 1/3, FGTS e 40%.
+
+Sucessivamente, **REQUER-SE** a condenação da parte ré ao pagamento de diferenças salariais decorrentes do acúmulo de funções, correspondentes ao acréscimo de 40% sobre o salário de {salarioAtualAutora}. Consequentemente, **REQUER-SE** a condenação da ré ao pagamento dos reflexos em horas extras, no 13º salário, no aviso prévio e nas férias proporcionais acrescidas de 1/3, FGTS e 40%.
+""".trimIndent()
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         private val LONG_DATE_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale("pt", "BR"))
