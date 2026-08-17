@@ -1068,6 +1068,69 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview fixed moral damages for repeated salary delay`() {
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("dano_moral_atraso_salarial")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("dano_moral_atraso_salarial"))
+            .body("blocos[0].titulo", equalTo("Dano moral por atraso salarial"))
+            .body(
+                "blocos[0].texto",
+                equalTo(
+                    "A ré atrasava de forma reiterada o pagamento de salários à parte autora, conforme se observa:\n\n" +
+                        "À luz da **Súmula 33 do TRT da 9ª Região**, tal violação acarreta dano moral presumido: *I - O atraso reiterado ou o não pagamento de salários caracteriza, por si, dano moral, por se tratar de dano in re ipsa*.\n\n" +
+                        "Pelo exposto, nos termos do art. 5º, X, da Constituição Federal, do art. 223-G da CLT e dos arts. 186 e 927 do Código Civil, **REQUER-SE** a condenação da parte ré ao pagamento de indenização por danos morais."
+                )
+            )
+            .body("blocos[0].anexos.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export salary delay moral damages with multiple proofs after first paragraph`() {
+        val blockId = "dano_moral_atraso_salarial"
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["$blockId"]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_${blockId}_0", "atraso-1.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_${blockId}_1", "atraso-2.png", TEST_IMAGE_2, "image/png")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            assertTrue(document.allPictures.any { TEST_IMAGE_1.contentEquals(it.data) })
+            assertTrue(document.allPictures.any { TEST_IMAGE_2.contentEquals(it.data) })
+            val firstParagraphIndex = document.bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text.startsWith("A ré atrasava de forma reiterada")
+            }
+            val proofIndexes = document.bodyElements.withIndex().filter { (_, element) ->
+                element is XWPFParagraph && element.runs.any { it.embeddedPictures.isNotEmpty() }
+            }.map { it.index }
+            val secondParagraphIndex = document.bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text.startsWith("À luz da Súmula 33")
+            }
+            assertEquals(listOf(firstParagraphIndex + 1, firstParagraphIndex + 2), proofIndexes)
+            assertEquals(firstParagraphIndex + 3, secondParagraphIndex)
+
+            val sumula = document.paragraphs.first { it.text.startsWith("À luz da Súmula 33") }
+            assertTrue(sumula.runs.any {
+                it.isBold && it.text().contains("Súmula 33 do TRT da 9ª Região")
+            })
+            assertTrue(sumula.runs.any {
+                it.isItalic && it.text().contains("I - O atraso reiterado") &&
+                    it.text().contains("dano in re ipsa")
+            })
+            val pedido = document.paragraphs.first { it.text.startsWith("Pelo exposto") }
+            assertTrue(pedido.runs.any { it.isBold && it.text().contains("REQUER-SE") })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

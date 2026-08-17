@@ -162,6 +162,10 @@ class RtTemplateService(
             },
             paragrafosRecuados = setOf(3)
         ),
+        DANO_MORAL_ATRASO_SALARIAL to RtBlockDefinition(
+            titulo = { "Dano moral por atraso salarial" },
+            generate = { _, _, _, _ -> danoMoralAtrasoSalarial() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -775,6 +779,8 @@ class RtTemplateService(
             variaveis["descricaoProvaAluguelVeiculo"].orPlaceholder()
         )
 
+    private fun danoMoralAtrasoSalarial(): String = DANO_MORAL_ATRASO_SALARIAL_TEMPLATE
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1092,6 +1098,7 @@ class RtTemplateService(
         const val SALARIO_A_LATERE = "salario_a_latere"
         const val INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL =
             "integracao_aluguel_veiculo_particular_natureza_salarial"
+        const val DANO_MORAL_ATRASO_SALARIAL = "dano_moral_atraso_salarial"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1117,7 +1124,8 @@ class RtTemplateService(
             DIFERENCAS_SALARIAIS_PISO_CONVENCIONAL,
             DISPENSA_DISCRIMINATORIA_REINTEGRACAO_OU_PAGAMENTO,
             DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA,
-            INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL
+            INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL,
+            DANO_MORAL_ATRASO_SALARIAL
         )
         private const val PLACEHOLDER = "___"
         private val MOTORISTA_CARRETEIRO_CARREGADOR_TEMPLATE = listOf(
@@ -1152,6 +1160,11 @@ class RtTemplateService(
         private const val INTEGRACAO_ALUGUEL_VEICULO_JURISPRUDENCIA = """**SDC do Tribunal Superior do Trabalho**
 RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE AS PARTES. ALUGUEL DE VEÍCULO PARTICULAR DO EMPREGADO. PREVISÃO DE NATUREZA JURÍDICA INDENIZATÓRIA. DISSIMULAÇÃO DO CARÁTER SALARIAL. CLÁUSULA INVÁLIDA. 1. A __**jurisprudência em formação desta Corte Superior, em dissídios individuais, assenta a premissa de que a diretriz da Súmula nº 367, I, do TST não se aplica na hipótese de uso de veículo de propriedade do empregado para o exercício das atividades laborais**__. 2. Nesse contexto, __**é inválida a cláusula coletiva que fixa a natureza indenizatória da parcela paga a título de aluguel do veículo particular utilizado pelo trabalhador em benefício da empregadora, por configurar fraude à legislação trabalhista, impondo ilícita alteração do caráter salarial da verba em afronta ao disposto no art. 9º da CLT**__. 3. Na hipótese vertente, restou patente que o uso de veículo é indispensável à prestação dos serviços, denotando o caráter de contraprestação, mormente sopesados os valores acordados entre as partes, correspondentes em média a mais de 100% do salário nominal, comprovando a intenção de dissimulação. 4. Portanto, não merece reforma a decisão do Tribunal Regional de origem que não homologou a cláusula coletiva desse teor, constante da proposta de conciliação apresentada no presente dissídio coletivo de greve. Recurso ordinário a que se nega provimento. (RO - 22800-09.2012.5.17.0000, Relator Ministro: Walmir Oliveira da Costa, Data de Julgamento: 18/08/2014, Seção Especializada em Dissídios Coletivos, Data de Publicação: DEJT 22/08/2014)
 (grifo nosso)"""
+        private val DANO_MORAL_ATRASO_SALARIAL_TEMPLATE = listOf(
+            "A ré atrasava de forma reiterada o pagamento de salários à parte autora, conforme se observa:",
+            "À luz da **Súmula 33 do TRT da 9ª Região**, tal violação acarreta dano moral presumido: *I - O atraso reiterado ou o não pagamento de salários caracteriza, por si, dano moral, por se tratar de dano in re ipsa*.",
+            "Pelo exposto, nos termos do art. 5º, X, da Constituição Federal, do art. 223-G da CLT e dos arts. 186 e 927 do Código Civil, **REQUER-SE** a condenação da parte ré ao pagamento de indenização por danos morais."
+        ).joinToString("\n\n")
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
         private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."
