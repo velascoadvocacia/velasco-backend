@@ -1409,6 +1409,114 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview bank hours invalidity child independently with field placeholder and family order`() {
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho_nulidade_banco_horas")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("jornada_trabalho_nulidade_banco_horas"))
+            .body("blocos[0].titulo", equalTo("b. Nulidade do banco de horas"))
+            .body("blocos[0].texto", containsString("O banco de horas praticado pela ré é nulo, porquanto ___."))
+            .body("blocos[0].texto", containsString("**requisitos formais e materiais**"))
+            .body("blocos[0].texto", containsString("publicado em **23/08/2022**"))
+            .body("blocos[0].texto", containsString("**a)**a compensação"))
+            .body("blocos[0].texto", containsString("art. 59, *caput*e § 2º"))
+            .body("blocos[0].texto", containsString("(grifo original)"))
+            .body("blocos[0].paragrafosRecuados", equalTo(listOf(3, 4, 5, 6, 7, 8)))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("jornada_trabalho_nulidade_banco_horas"),
+                    dadosVariaveis = mapOf(
+                        "descricaoNulidadeBancoHoras" to
+                            "não havia acordo coletivo nem controle de créditos e débitos"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body(
+                "blocos[0].texto",
+                containsString(
+                    "porquanto não havia acordo coletivo nem controle de créditos e débitos."
+                )
+            )
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "jornada_trabalho_nulidade_banco_horas",
+                        "jornada_trabalho_horas_extras",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_horas_extras"))
+            .body("blocos[2].id", equalTo("jornada_trabalho_nulidade_banco_horas"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export bank hours invalidity with formatting and all jurisprudence paragraphs indented`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho_nulidade_banco_horas"],
+          "dadosVariaveis":{
+            "descricaoNulidadeBancoHoras":"não havia acordo coletivo nem controle de créditos e débitos"
+          }
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val body = document.paragraphs.filter {
+                it.text.startsWith("O banco de horas praticado") ||
+                    it.text.startsWith("A esse respeito") ||
+                    it.text.startsWith("Banco de horas:") ||
+                    it.text.startsWith("Especificamente quanto") ||
+                    it.text.startsWith("O Banco de Horas") ||
+                    it.text.startsWith("No aspecto formal") ||
+                    it.text.startsWith("Excepcionalmente") ||
+                    it.text.startsWith("No aspecto material") ||
+                    it.text.startsWith("Pelo exposto")
+            }
+            assertEquals(9, body.size)
+            assertTrue(body[0].indentationLeft <= 0)
+            assertTrue(body[1].indentationLeft <= 0)
+            body.subList(2, 8).forEach { paragraph ->
+                assertTrue(paragraph.indentationLeft > 0, "Parágrafo sem recuo: ${paragraph.text}")
+            }
+            assertTrue(body[7].text.contains("(grifo original)"))
+            assertTrue(body[8].indentationLeft <= 0)
+
+            val introducao = body[1]
+            listOf("requisitos formais e materiais", "23/08/2022").forEach { trecho ->
+                assertTrue(introducao.runs.any { it.isBold && it.text().contains(trecho) })
+            }
+            assertTrue(body[6].runs.any {
+                it.isItalic && it.text().contains("O banco de horas de que trata")
+            })
+            assertTrue(body[7].runs.any { it.isBold && it.text() == "a)" })
+            assertTrue(body[7].runs.any { it.isItalic && it.text() == "caput" })
+            assertTrue(body[8].runs.any { it.isBold && it.text() == "REQUER" })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

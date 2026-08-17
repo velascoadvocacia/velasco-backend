@@ -183,6 +183,11 @@ class RtTemplateService(
             titulo = { "a. Horas extras" },
             generate = { _, _, _, _ -> jornadaTrabalhoHorasExtras() }
         ),
+        JORNADA_TRABALHO_NULIDADE_BANCO_HORAS to RtBlockDefinition(
+            titulo = { "b. Nulidade do banco de horas" },
+            generate = { _, _, variaveis, _ -> jornadaTrabalhoNulidadeBancoHoras(variaveis) },
+            paragrafosRecuados = (3..8).toSet()
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -837,6 +842,12 @@ class RtTemplateService(
     private fun jornadaTrabalhoHorasExtras(): String =
         JORNADA_TRABALHO_HORAS_EXTRAS_TEMPLATE
 
+    private fun jornadaTrabalhoNulidadeBancoHoras(variaveis: Map<String, String?>): String =
+        JORNADA_TRABALHO_NULIDADE_BANCO_HORAS_TEMPLATE.replace(
+            "{descricaoNulidadeBancoHoras}",
+            variaveis["descricaoNulidadeBancoHoras"].orPlaceholder()
+        )
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1160,6 +1171,7 @@ class RtTemplateService(
             "verbas_rescisorias_media_horas_extras_nao_paga"
         const val JORNADA_TRABALHO = "jornada_trabalho"
         const val JORNADA_TRABALHO_HORAS_EXTRAS = "jornada_trabalho_horas_extras"
+        const val JORNADA_TRABALHO_NULIDADE_BANCO_HORAS = "jornada_trabalho_nulidade_banco_horas"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1242,7 +1254,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
         ).joinToString("\n\n")
         private val JORNADA_TRABALHO_BLOCK_ORDER = listOf(
             JORNADA_TRABALHO,
-            JORNADA_TRABALHO_HORAS_EXTRAS
+            JORNADA_TRABALHO_HORAS_EXTRAS,
+            JORNADA_TRABALHO_NULIDADE_BANCO_HORAS
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1251,6 +1264,30 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
         ).joinToString("\n\n")
         private const val JORNADA_TRABALHO_HORAS_EXTRAS_TEMPLATE =
             "Conforme tópico anterior, a parte autora realizava horas extras sem receber a correspondente contraprestação, pelo que se **REQUER** a condenação da ré ao pagamento das horas extras, com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem refletir em aviso prévio (Súmula 94/TST), 13º salários (Súmula 45/TST), férias (Súmula 151/TST) com 1/3 e FGTS (8%) e multa de 40% (Súmula 63/TST), adicional de periculosidade e adicional noturno."
+        private val JORNADA_TRABALHO_NULIDADE_BANCO_HORAS_TEMPLATE = listOf(
+            "O banco de horas praticado pela ré é nulo, porquanto {descricaoNulidadeBancoHoras}.",
+            "A esse respeito, o banco de horas possui, para sua validade, **requisitos formais e materiais**, conforme, didaticamente, decidiu a 6ª Turma do Tribunal Regional do Trabalho da 9ª Região, nos autos do processo n° 0000387-49.2021.5.09.0892, como se observa a partir dos trechos do acórdão de relatoria do Exmo. Desembargador Arnor Lima Neto, publicado em **23/08/2022**:",
+            JORNADA_TRABALHO_NULIDADE_BANCO_HORAS_JURISPRUDENCIA,
+            "Pelo exposto, considerando o descumprimento das normas coletivas pela ré, que jamais celebrou acordo coletivo para instituir banco de horas nem possibilitava o controle do saldo do banco de horas irregularmente praticado, **REQUER** seja declarado nulo o banco de horas, diante do descumprimento dos requisitos de validade formal e material do sistema."
+        ).joinToString("\n\n")
+        private const val JORNADA_TRABALHO_NULIDADE_BANCO_HORAS_JURISPRUDENCIA = """Banco de horas:
+A Constituição Federal autoriza genericamente o regime de compensação no art. 7º, XIII, ao estabelecer "duração do trabalho normal não superior a oito horas diárias e quarenta e quatro semanais, facultada a compensação de horários e a redução da jornada, mediante acordo ou convenção coletiva de trabalho".
+A partir de tal dispositivo constitucional, há respaldo para dois regimes de compensação de jornada, quais sejam, o "banco de horas" e o "acordo de compensação semanal".
+
+Especificamente quanto ao banco de horas, trata-se de regime mais amplo no qual pode ocorrer a compensação de horas trabalhadas além dos limites diários legais ou contratuais com posterior concessão de folgas compensatórias dentro de um período contratual que pode chegar a um ano.
+
+O Banco de Horas é regulado pela antiga redação do art. 59, § 2º, da CLT, e recebe o seguinte tratamento: "Poderá ser dispensado o acréscimo de salário se, **por força de acordo ou convenção coletiva de trabalho**, o excesso de horas em um dia for compensado pela correspondente diminuição em outro dia, de maneira que não exceda, no período máximo de um ano, à soma das jornadas semanais de trabalho previstas, nem seja ultrapassado o limite máximo de dez horas diárias" (grifei).
+
+No **aspecto formal**, portanto, o regime de banco de horas para compensação anual deve ser autorizado pela via da negociação coletiva, por se tratar de regime de trabalho mais gravoso ao trabalhador, que dependerá, dessa forma, da atuação do órgão coletivo sindical. Deverá, ainda, haver o atendimento de outras formalidades que possam vir a ser exigidas pela negociação coletiva para implementação integral do regime de banco de horas.
+
+Excepcionalmente, quando a periodicidade de compensação for de até seis meses, poderá o banco de horas ser formalizado individualmente entre as partes do contrato de trabalho, sem necessidade de intervenção dos entes sindicais, conforme previsão do § 5º, do art. 59, da CLT: *"O banco de horas de que trata o § 2o deste artigo poderá ser pactuado por acordo individual escrito, desde que a compensação ocorra no período máximo de seis meses".*
+
+No **aspecto material**, para conferir sua validade é necessária a observância das seguintes diretrizes:
+**a)**a compensação de saldos positivos de horas extras dentro do período máximo de um ano, salvo se o acordo coletivo trouxer previsão de prazo menor ou se se tratar de acordo individual, cuja periodicidade de compensação deve ocorrer em seis meses;
+**b)** máximo de labor de duas horas extraordinárias diárias ou de dez horas diárias totais, conforme previsões do art. 59, *caput*e § 2º, da CLT;
+**c)**que o sistema de compensação não exceda, no período máximo de um ano, a soma das jornadas semanais de trabalho previstas ou outro somatório que possa ser determinado em acordo coletivo e;
+**d)**deve ser possibilitado ao empregado o acompanhamento do saldo de créditos e débitos em seu nome, no período de execução do ajuste, como forma de conferir transparência à relação de trabalho no que tange à remuneração ou compensação das horas excedentes, inclusive como forma de resguardar a boa-fé objetiva que deve nortear os contratos de trabalho, por aplicação do art. 422, do Código Civil.
+(grifo original)"""
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
         private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."
