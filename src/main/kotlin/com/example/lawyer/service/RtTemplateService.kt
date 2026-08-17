@@ -633,7 +633,7 @@ class RtTemplateService(
             append("Pelo exposto, **REQUER**, em atenção ao princípio da primazia da realidade, o reconhecimento ")
             append("da real atividade desempenhada pela parte autora, com a respectiva retificação da CTPS, e, ")
             append("consequentemente, a garantia dos direitos específicos da profissão e dos previstos no ")
-            append("respectivo instrumento coletivo de trabalho, conforme será exposto em tópicos adiante .   ")
+            append("respectivo instrumento coletivo de trabalho, conforme será exposto em tópicos adiante .\n\n")
             append("Para fins de produção de prova a respeito desse tema, **REQUER-SE** a aplicação do § 1º ")
             append("do art. 818 da CLT: *Nos casos previstos em lei ou diante de peculiaridades da causa ")
             append("relacionadas à impossibilidade ou à* ")

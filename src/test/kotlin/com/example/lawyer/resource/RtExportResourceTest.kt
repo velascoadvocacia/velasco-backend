@@ -676,6 +676,10 @@ class RtExportResourceTest {
             assertTrue(document.allPictures.any { TEST_IMAGE_1.contentEquals(it.data) })
             assertTrue(document.allPictures.any { TEST_IMAGE_2.contentEquals(it.data) })
             val formatted = paragraphs.first { it.text.contains("excessiva dificuldade de cumprir o encargo") }
+            assertTrue(formatted.text.startsWith("Para fins de produção de prova a respeito desse tema"))
+            assertTrue(paragraphs.any {
+                it.text.startsWith("Pelo exposto, REQUER, em atenção ao princípio da primazia da realidade")
+            })
             assertTrue(formatted.runs.any { it.isBold && it.isItalic && it.text().contains("excessiva dificuldade") })
         }
     }
