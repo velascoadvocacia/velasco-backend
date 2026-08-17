@@ -1269,6 +1269,92 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview work schedule parent block with independent fields and placeholders`() {
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("jornada_trabalho"),
+                    dadosVariaveis = mapOf(
+                        "descricaoJornadaMedia" to "de segunda-feira a sábado, das 7h às 19h",
+                        "descricaoAusenciaControleJornada" to
+                            "os registros apresentados não refletiam os horários efetivamente trabalhados"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[0].titulo", equalTo("Jornada de trabalho"))
+            .body("blocos[0].texto", containsString("jornada média de trabalho: de segunda-feira a sábado"))
+            .body("blocos[0].texto", containsString("**art. 2º, I, b, da Lei 13.103/2015**"))
+            .body("blocos[0].texto", containsString("V - se empregados: b)"))
+            .body(
+                "blocos[0].texto",
+                containsString("porquanto os registros apresentados não refletiam os horários efetivamente trabalhados.")
+            )
+            .body("blocos[0].texto", containsString("**art. 235-C da CLT**"))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("jornada média de trabalho: ___"))
+            .body("blocos[0].texto", containsString("porquanto ___."))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("tutela_urgencia_natureza_cautelar")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("tutela_urgencia_natureza_cautelar"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export work schedule parent with three paragraphs and nested formatting`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho"],
+          "dadosVariaveis":{
+            "descricaoJornadaMedia":"de segunda-feira a sábado, das 7h às 19h",
+            "descricaoAusenciaControleJornada":"não havia controle fidedigno"
+          }
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val paragraphs = document.paragraphs.filter {
+                it.text.startsWith("A parte autora executava") ||
+                    it.text.startsWith("O art. 2º") ||
+                    it.text.startsWith("Nesse sentido")
+            }
+            assertEquals(3, paragraphs.size)
+
+            val controle = paragraphs.first { it.text.startsWith("O art. 2º") }
+            assertTrue(controle.runs.any {
+                it.isBold && it.text().contains("art. 2º, I, b, da Lei 13.103/2015")
+            })
+            assertTrue(controle.runs.any {
+                it.isItalic && it.text().contains("Art. 2º São direitos dos motoristas profissionais")
+            })
+            assertTrue(controle.runs.any {
+                it.isBold && it.isItalic &&
+                    it.text().contains("ter jornada de trabalho controlada e registrada de maneira fidedigna")
+            })
+            val consequencias = paragraphs.first { it.text.startsWith("Nesse sentido") }
+            listOf("art. 235-C da CLT", "art. 7º, XVI, da Constituição Federal.").forEach { trecho ->
+                assertTrue(consequencias.runs.any { it.isBold && it.text().contains(trecho) })
+            }
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
