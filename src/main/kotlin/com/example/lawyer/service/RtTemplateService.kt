@@ -271,6 +271,9 @@ class RtTemplateService(
             else -> emptyList()
         }
 
+    fun rightAlignedParagraphs(blockId: String?): List<Int> =
+        blockId?.let { blockDefinitions[it]?.paragrafosAlinhadosDireita?.sorted() }.orEmpty()
+
     private fun variaveisDoBloco(processo: Processo, blocoId: String): Map<String, String?> =
         processo.dadosVariaveis
             .asSequence()

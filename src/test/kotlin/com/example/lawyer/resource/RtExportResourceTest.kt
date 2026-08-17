@@ -14,7 +14,9 @@ import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.request.UsuarioCreateRequest
 import com.example.lawyer.service.PessoaService
 import com.example.lawyer.service.ProcessoService
+import com.example.lawyer.service.RtTemplateService
 import com.example.lawyer.service.UsuarioService
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.apache.poi.xwpf.usermodel.XWPFDocument
+import org.apache.poi.xwpf.usermodel.XWPFParagraph
 import org.apache.poi.xwpf.usermodel.UnderlinePatterns
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -42,6 +45,9 @@ import javax.imageio.ImageIO
 
 @QuarkusTest
 class RtExportResourceTest {
+    @Inject
+    lateinit var objectMapper: ObjectMapper
+
     @Inject
     lateinit var pessoaService: PessoaService
 
@@ -823,13 +829,29 @@ class RtExportResourceTest {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             assertTrue(document.allPictures.any { firstImage.contentEquals(it.data) })
             assertTrue(document.allPictures.any { secondImage.contentEquals(it.data) })
-            listOf("8ª Região", "10ª Região", "14ª Região").forEach { tribunal ->
+            val bodyElements = document.bodyElements
+            val firstImageIndex = bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.runs.any { run -> run.embeddedPictures.any { firstImage.contentEquals(it.pictureData.data) } }
+            }
+            val firstSourceIndex = bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text == RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_1_SOURCE
+            }
+            val secondImageIndex = bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.runs.any { run -> run.embeddedPictures.any { secondImage.contentEquals(it.pictureData.data) } }
+            }
+            val secondSourceIndex = bodyElements.indexOfFirst { element ->
+                element is XWPFParagraph && element.text == RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_2_SOURCE
+            }
+            assertEquals(firstImageIndex + 1, firstSourceIndex)
+            assertEquals(secondImageIndex + 1, secondSourceIndex)
+            listOf("0000577-87.2021", "0001575-23.2016", "0000266-10.2018").forEach { processo ->
                 assertEquals(
                     org.apache.poi.xwpf.usermodel.ParagraphAlignment.RIGHT,
-                    document.paragraphs.first { it.text.contains(tribunal) }.alignment
+                    document.paragraphs.first { it.text.contains(processo) }.alignment
                 )
             }
-            assertTrue(document.paragraphs.any { it.text.contains("Fonte: https://www.ocupacoes.com.br/cbo-mte/782505") })
+            assertTrue(document.paragraphs.any { it.text == RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_1_SOURCE })
+            assertTrue(document.paragraphs.any { it.text == RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_2_SOURCE })
             assertTrue(document.paragraphs.any { paragraph ->
                 paragraph.runs.any {
                     it.isBold && it.isItalic && it.underline == UnderlinePatterns.SINGLE &&
@@ -842,6 +864,44 @@ class RtExportResourceTest {
                         it.text().contains("Considerando que a testemunha")
                 }
             })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should restore right alignment for all truck driver citations in legacy export`() {
+        val content = RtPreviewRequest(
+            blocosSelecionados = listOf("diferencas_salariais_motorista_carreteiro_carregador"),
+            dadosVariaveis = mapOf("funcaoAdicional" to "carregar e descarregar as mercadorias")
+        ).let { request ->
+            given().contentType("application/json").body(request)
+                .`when`().post("/rt/preview").then().statusCode(200)
+                .extract().path<String>("blocos[0].texto")
+        }
+        val payload = objectMapper.writeValueAsString(
+            mapOf(
+                "claimantName" to "Maria Silva",
+                "blocks" to listOf(
+                    mapOf(
+                        "id" to "diferencas_salariais_motorista_carreteiro_carregador",
+                        "title" to "Diferenças salariais. Exercício de função de motorista carreteiro e de carregador de caminhão",
+                        "content" to content,
+                        "paragrafosAlinhadosDireita" to listOf(9)
+                    )
+                )
+            )
+        )
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            listOf("0000577-87.2021", "0001575-23.2016", "0000266-10.2018").forEach { processo ->
+                assertEquals(
+                    org.apache.poi.xwpf.usermodel.ParagraphAlignment.RIGHT,
+                    document.paragraphs.first { it.text.contains(processo) }.alignment
+                )
+            }
         }
     }
 

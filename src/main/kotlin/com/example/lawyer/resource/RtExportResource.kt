@@ -190,8 +190,15 @@ class RtExportResource(
                 var resolved = if (block.anexos.isEmpty()) {
                     block.copy(anexos = anexosMultipart.ifEmpty { anexosPersistidos })
                 } else block
-                if (resolved.imagensFixas.isEmpty()) {
-                    resolved = resolved.copy(imagensFixas = fixedInlineImages(blocoId))
+                val imagensFixasDoBackend = fixedInlineImages(blocoId)
+                if (imagensFixasDoBackend.isNotEmpty()) {
+                    resolved = resolved.copy(imagensFixas = imagensFixasDoBackend)
+                }
+                val paragrafosAlinhadosDireitaDoBackend = templateService.rightAlignedParagraphs(blocoId)
+                if (paragrafosAlinhadosDireitaDoBackend.isNotEmpty()) {
+                    resolved = resolved.copy(
+                        paragrafosAlinhadosDireita = paragrafosAlinhadosDireitaDoBackend
+                    )
                 }
                 logger.infof("RT export bloco legado '%s': anexos associados=%d", resolved.title, resolved.anexos.size)
                 resolved
