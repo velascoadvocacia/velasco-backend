@@ -141,6 +141,16 @@ class RtTemplateService(
                 diferencasSalariaisAcumuloFuncoes(processo, variaveis)
             }
         ),
+        DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR to RtBlockDefinition(
+            titulo = {
+                "Diferenças salariais. Exercício de função de motorista carreteiro e " +
+                    "de carregador de caminhão"
+            },
+            generate = { _, _, variaveis, _ ->
+                diferencasSalariaisMotoristaCarreteiroCarregador(variaveis)
+            },
+            paragrafosAlinhadosDireita = setOf(9, 10, 11)
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -196,7 +206,8 @@ class RtTemplateService(
                         } else {
                             emptyList()
                         },
-                        imagensFixas = fixedImages(blockId)
+                        imagensFixas = fixedImages(blockId),
+                        paragrafosAlinhadosDireita = definition.paragrafosAlinhadosDireita.sorted()
                     )
                 }
             }
@@ -239,6 +250,22 @@ class RtTemplateService(
                     contentType = "image/png",
                     nomeOriginal = MULTA_ART_477_IMAGE_NAME,
                     afterParagraph = 1
+                )
+            )
+            DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(
+                RtPreviewInlineImageResponse(
+                    url = MOTORISTA_CARRETEIRO_IMAGE_1_URL,
+                    contentType = "image/png",
+                    nomeOriginal = MOTORISTA_CARRETEIRO_IMAGE_1_NAME,
+                    afterParagraph = 7,
+                    caption = MOTORISTA_CARRETEIRO_IMAGE_1_SOURCE
+                ),
+                RtPreviewInlineImageResponse(
+                    url = MOTORISTA_CARRETEIRO_IMAGE_2_URL,
+                    contentType = "image/png",
+                    nomeOriginal = MOTORISTA_CARRETEIRO_IMAGE_2_NAME,
+                    afterParagraph = 7,
+                    caption = MOTORISTA_CARRETEIRO_IMAGE_2_SOURCE
                 )
             )
             else -> emptyList()
@@ -705,6 +732,13 @@ class RtTemplateService(
             .replace("{salarioAtualAutora}", salarioAtual)
     }
 
+    private fun diferencasSalariaisMotoristaCarreteiroCarregador(
+        variaveis: Map<String, String?>
+    ): String = MOTORISTA_CARRETEIRO_CARREGADOR_TEMPLATE.replace(
+        "{funcaoAdicional}",
+        variaveis["funcaoAdicional"].orPlaceholder()
+    )
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -975,7 +1009,8 @@ class RtTemplateService(
 
     private data class RtBlockDefinition(
         val titulo: (Map<String, String?>) -> String,
-        val generate: (Processo, Set<Usuario>, Map<String, String?>, Set<String>) -> String
+        val generate: (Processo, Set<Usuario>, Map<String, String?>, Set<String>) -> String,
+        val paragrafosAlinhadosDireita: Set<Int> = emptySet()
     )
 
     private data class OpcaoMotivoExtincao(val titulo: String, val motivo: String)
@@ -1015,6 +1050,16 @@ class RtTemplateService(
             "desvio_funcao_atividade_efetivamente_exercida"
         const val DIFERENCAS_SALARIAIS_ACUMULO_FUNCOES =
             "diferencas_salariais_acumulo_funcoes"
+        const val DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR =
+            "diferencas_salariais_motorista_carreteiro_carregador"
+        const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
+        const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
+        const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
+        const val MOTORISTA_CARRETEIRO_IMAGE_2_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_2_NAME"
+        const val MOTORISTA_CARRETEIRO_IMAGE_1_URL = "/rt/assets/27-carreteiro-caminhao-1"
+        const val MOTORISTA_CARRETEIRO_IMAGE_2_URL = "/rt/assets/27-carreteiro-caminhao-2"
+        const val MOTORISTA_CARRETEIRO_IMAGE_1_SOURCE = "Fonte: https://www.ocupacoes.com.br/cbo-mte/782505-caminhoneiro-autonomo-rotas-regionais-e-internacionais"
+        const val MOTORISTA_CARRETEIRO_IMAGE_2_SOURCE = "Fonte: https://www.ocupacoes.com.br/cbo/783215-carregador-veiculos-de-transportes-terrestres"
         const val VERBAS_RESCISORIAS_AVISO_PREVIO = "verbas_rescisorias_aviso_previo"
         const val VERBAS_RESCISORIAS_FERIAS = "verbas_rescisorias_ferias"
         const val VERBAS_RESCISORIAS_DECIMO_TERCEIRO = "verbas_rescisorias_decimo_terceiro"
@@ -1034,6 +1079,48 @@ class RtTemplateService(
             DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA
         )
         private const val PLACEHOLDER = "___"
+        private val MOTORISTA_CARRETEIRO_CARREGADOR_TEMPLATE = listOf(
+            MOTORISTA_PARAGRAFO_1,
+            "Além da condução dos veículos, o autor era diariamente obrigado a {funcaoAdicional}.",
+            MOTORISTA_PARAGRAFO_3,
+            MOTORISTA_PARAGRAFO_4,
+            MOTORISTA_PARAGRAFO_5,
+            MOTORISTA_PARAGRAFO_6,
+            "A própria CBO (Classificação Brasileira de Ocupações) é distinta para as duas funções, de motorista truck/carreteiro e de carregador/descarregador de caminhão:",
+            "Veja-se as seguintes decisões de reconhecimento de incompatibilidade das funções de motorista e carregador/descarregador, atraindo o direito a um plus salarial:",
+            MOTORISTA_CITACAO_TRT_8,
+            MOTORISTA_CITACAO_TRT_10,
+            MOTORISTA_CITACAO_TRT_14,
+            MOTORISTA_PARAGRAFO_12,
+            MOTORISTA_PARAGRAFO_13,
+            MOTORISTA_PARAGRAFO_14
+        ).joinToString("\n\n")
+        private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
+        private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
+        private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."
+        private const val MOTORISTA_PARAGRAFO_6 = "Como o autor não recebeu a remuneração devida para o exercício concomitante de ambas as funções que exercia na prestação de trabalho em favor das rés, houve enriquecimento sem justa causa do empregador, à luz do **art. 884 do Código Civil** (*Aquele que, sem justa causa, se enriquecer à custa de outrem, será obrigado a restituir o indevidamente auferido, feita a atualização dos valores monetários.*)."
+        private const val MOTORISTA_PARAGRAFO_12 = "A conduta das rés é fraudulenta, nos termos do art. **9º da CLT**, pois configurou obstáculo à aplicação dos preceitos contidos na legislação trabalhista, especialmente no tocante à remuneração justa pelo labor desempenhado, em afronta ao art. **7º, VI, da Constituição Federal** (*irredutibilidade do salário*), por acarretar uma forma indireta de redução salarial, bem como ao **art. 7º, X, da Constituição Federal** (*proteção do salário na forma da lei*)."
+        private const val MOTORISTA_PARAGRAFO_13 = "Pelo exposto, com fundamento no **art. 187 da CLT**, **REQUER** a condenação das rés ao pagamento de diferenças salariais decorrentes do acúmulo de funções, correspondentes ao salário de motorista de caminhão truck/motorista de carreta somado ao salário de carregador/descarregador. __Sucessivamente__, **REQUER-SE** a condenação das rés ao pagamento de um plus salarial no percentual de 20% sobre o salário do autor. Consequentemente, **REQUER-SE** a condenação das rés ao pagamento dos reflexos em horas extras, no 13º salário, no aviso prévio e nas férias proporcionais acrescidas de 1/3, FGTS e 40%."
+        private val MOTORISTA_PARAGRAFO_14 get() = MOTORISTA_PARAGRAFO_14_A + MOTORISTA_PARAGRAFO_14_B + MOTORISTA_PARAGRAFO_14_C
+        private const val MOTORISTA_PARAGRAFO_14_A = "Para fins de produção de prova a respeito desse tema, **REQUER-SE** a aplicação do 1º do art. 818 da CLT: "
+        private val MOTORISTA_PARAGRAFO_14_B get() = MOTORISTA_P14_B1 + MOTORISTA_P14_B2
+        private val MOTORISTA_PARAGRAFO_14_C get() = MOTORISTA_P14_C1 + MOTORISTA_P14_C2
+        private const val MOTORISTA_P14_C1 = "poderá o juízo **atribuir o ônus da prova de modo diverso**, desde que o faça por decisão fundamentada, "
+        private const val MOTORISTA_P14_C2 = "caso em que deverá dar à parte a oportunidade de se desincumbir do ônus que lhe foi atribuído.*"
+        private const val MOTORISTA_P14_B1 = "*Nos casos previstos em lei ou diante de peculiaridades da causa relacionadas à impossibilidade ou à "
+        private val MOTORISTA_P14_B2 get() = MOTORISTA_P14_B2_A + MOTORISTA_P14_B2_B
+        private const val MOTORISTA_P14_B2_A = "**excessiva dificuldade de cumprir o encargo** nos termos deste artigo ou à "
+        private const val MOTORISTA_P14_B2_B = "**maior facilidade de obtenção da prova do fato contrário**, "
+        private const val MOTORISTA_PARAGRAFO_5 = "Nesse sentido, entende o doutrinador José Affonso Dallegrave Neto (**Responsabilidade civil no direito do trabalho.** 6. Ed. São Paulo: LTr, 2017, p. 278): *\"é inegável que ***o desvio funcional e a dupla função são tidos como ilícitos, na medida em que são caracterizados pela determinação unilateral do empregador, e ao mesmo tempo são prejudiciais ao obreiro, o qual terá de assumir responsabilidades e encargos superiores aos limites do contratado.*** Ao assim proceder, ***o empregador estará exorbitando seu poder de comando (jus variandi) em flagrante abuso de direito de que trata o art. 187 do Código Civil.*** Tais hipóteses caracterizam até mesmo ofensa ao art. 468 da CLT, pois entre a função ajustada na celebração do contrato e o que lhe foi imposto posteriormente haverá sensível margem prejudicial ao trabalhador, mormente quando desacompanhada da respectiva compensação salarial.\"* (grifo nosso)."
+        private const val MOTORISTA_CITACAO_TRT_8 = """**Tribunal Regional do Trabalho da 8ª Região**
+[...] III - ACÚMULO DE FUNÇÃO. FUNÇÃO DE MOTORISTA E CARREGADOR - __**Considerando que a testemunha do reclamante afirmou que ele realizava as atividades de motorista e também fazia o descarregamento de mercadorias, restou provado o acúmulo de função, pois fazer descarregamento da mercadoria, de maneira habitual, não pode ser imputada a um motorista, ainda que a sua condição física assim permita, pois é fora das suas atividades típicas**__. [...] Recurso provido. (TRT da 8ª Região; Processo: 0000577-87.2021.5.08.0003 ROT; Data: 07/07/2022; Órgão Julgador: 1ª Turma; Relator.: MARCUS AUGUSTO LOSADA MAIA)
+(grifo nosso)"""
+        private const val MOTORISTA_CITACAO_TRT_10 = """**Tribunal Regional do Trabalho da 10ª Região**
+[...] ACÚMULO DE FUNÇÃO. ATIVIDADE INCOMPATÍVEL COM AQUELA CONTRATADA. COMPROVAÇÃO. 1. O quanto disposto no art. 456, parágrafo único, da CLT, não se aplica na hipótese em que o empregador, furtando-se a uma nova contratação, de forma não eventual e sem o correspondente acréscimo salarial, designa a um empregado inicialmente contratado para um conjunto específico de atividades, o desempenho de funções alheias àquelas, muitas vezes mais complexas, exigindo maior responsabilidade, esforço físico superior, maiores riscos à saúde, ou ainda, extrapolando a jornada normal. __**2. Caso em que, furtando-se a uma nova contratação, e de modo não eventual e sem qualquer diferencial remuneratório, o empregador submete o empregado contratado, especificamente, como motorista, ao acúmulo da função de carregador de mercadorias, atividade não compatível com o conjunto específico daquelas inerentes ao motorista.**__ 3. Recurso a que se nega provimento. [...] (TRT-10 0001575-23.2016.5.10.0020, Relator.: PEDRO LUÍS VICENTIN FOLTRAN, Data de Julgamento: 23/01/2019, Data de Publicação: 01/02/2019)
+(grifo nosso)"""
+        private const val MOTORISTA_CITACAO_TRT_14 = """**Tribunal Regional do Trabalho da 14ª Região**
+[...] ACÚMULO DE FUNÇÃO. MOTORISTA. CARREGADOR. CARGA E DESCARGA. CARACTERIZAÇÃO. "PLUS" SALARIAL DEVIDO. __**Cabível o pagamento de adicional por acúmulo de função quando comprovado que o trabalhador, executou serviços estranhos à função para a qual não foi contratado.**__ (TRT-14 - Recurso Ordinário Trabalhista: 0000266-10.2018.5.14.0141, Relator.: CARLOS AUGUSTO GOMES LOBO, SEGUNDA TURMA - OJ de Análise de Recurso)
+(grifo nosso)"""
         private val DIFERENCAS_SALARIAIS_ACUMULO_FUNCOES_TEMPLATE = """
 A parte autora iniciou sua prestação de serviços em favor da parte ré em {dataAdmissao}, na função de {funcaoContratada}, mas, em {dataInicioAcumuloFuncao}, passou a também exercer a função de {funcaoAcumulada}.
 

@@ -781,6 +781,70 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview truck driver and loader salary differences with fixed images`() {
+        given()
+            .contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("diferencas_salariais_motorista_carreteiro_carregador"),
+                    dadosVariaveis = mapOf("funcaoAdicional" to "carregar e descarregar as mercadorias")
+                )
+            )
+            .`when`()
+            .post("/rt/preview")
+            .then()
+            .statusCode(200)
+            .body("blocos[0].titulo", equalTo("Diferenças salariais. Exercício de função de motorista carreteiro e de carregador de caminhão"))
+            .body("blocos[0].texto", containsString("obrigado a carregar e descarregar as mercadorias"))
+            .body("blocos[0].texto", containsString("__**o empregado se obrigou"))
+            .body("blocos[0].imagensFixas.size()", equalTo(2))
+            .body("blocos[0].imagensFixas[0].afterParagraph", equalTo(7))
+            .body("blocos[0].imagensFixas[0].caption", containsString("782505-caminhoneiro"))
+            .body("blocos[0].imagensFixas[1].caption", containsString("783215-carregador"))
+            .body("blocos[0].paragrafosAlinhadosDireita", equalTo(listOf(9, 10, 11)))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export truck driver block with images captions right citations and nested formatting`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["diferencas_salariais_motorista_carreteiro_carregador"],
+          "dadosVariaveis":{"funcaoAdicional":"carregar e descarregar as mercadorias"}
+        }""".trimIndent()
+        val firstImage = Files.readAllBytes(Path.of("src/main/resources/assets/27_carreteiro_e_caminhao1.png"))
+        val secondImage = Files.readAllBytes(Path.of("src/main/resources/assets/27_carreteiro_e_caminhao2.png"))
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            assertTrue(document.allPictures.any { firstImage.contentEquals(it.data) })
+            assertTrue(document.allPictures.any { secondImage.contentEquals(it.data) })
+            listOf("8ª Região", "10ª Região", "14ª Região").forEach { tribunal ->
+                assertEquals(
+                    org.apache.poi.xwpf.usermodel.ParagraphAlignment.RIGHT,
+                    document.paragraphs.first { it.text.contains(tribunal) }.alignment
+                )
+            }
+            assertTrue(document.paragraphs.any { it.text.contains("Fonte: https://www.ocupacoes.com.br/cbo-mte/782505") })
+            assertTrue(document.paragraphs.any { paragraph ->
+                paragraph.runs.any {
+                    it.isBold && it.isItalic && it.underline == UnderlinePatterns.SINGLE &&
+                        it.text().contains("o empregado se obrigou")
+                }
+            })
+            assertTrue(document.paragraphs.any { paragraph ->
+                paragraph.runs.any {
+                    it.isBold && it.underline == UnderlinePatterns.SINGLE &&
+                        it.text().contains("Considerando que a testemunha")
+                }
+            })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

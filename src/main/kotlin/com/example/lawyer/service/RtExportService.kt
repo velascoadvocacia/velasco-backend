@@ -143,20 +143,33 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
     private fun createBodyContent(document: XWPFDocument, block: RtExportBlockRequest) {
         logger.infof("DOCX bloco '%s': anexos.size=%d; iniciando criação de parágrafos", block.title, block.anexos.size)
         block.content.split("\n\n").forEachIndexed { index, paragraphText ->
-            createBodyParagraph(document, paragraphText)
+            val paragraphNumber = index + 1
+            val alignment = if (paragraphNumber in block.paragrafosAlinhadosDireita) {
+                ParagraphAlignment.RIGHT
+            } else {
+                ParagraphAlignment.BOTH
+            }
+            createBodyParagraph(document, paragraphText, alignment)
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             block.anexos
                 .filter { it.afterParagraph == index + 1 }
                 .forEach { image -> addBodyImage(document, image) }
             block.imagensFixas
                 .filter { it.afterParagraph == index + 1 }
-                .forEach { image -> addInlineImage(document, image) }
+                .forEach { image ->
+                    addInlineImage(document, image)
+                    image.caption?.let { createImageCaption(document, it) }
+                }
         }
     }
 
-    private fun createBodyParagraph(document: XWPFDocument, text: String) {
+    private fun createBodyParagraph(
+        document: XWPFDocument,
+        text: String,
+        alignment: ParagraphAlignment = ParagraphAlignment.BOTH
+    ) {
         val p = document.createParagraph()
-        p.alignment = ParagraphAlignment.BOTH
+        p.alignment = alignment
 
         val ppr = p.ctp.pPr ?: p.ctp.addNewPPr()
 
@@ -166,6 +179,18 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         spacing.after = BigInteger.valueOf(120)
 
         addFormattedText(p, text)
+    }
+
+    private fun createImageCaption(document: XWPFDocument, caption: String) {
+        document.createParagraph().apply {
+            alignment = ParagraphAlignment.CENTER
+            createRun().apply {
+                fontFamily = "Garamond"
+                fontSize = 10
+                isItalic = true
+                setText(caption)
+            }
+        }
     }
 
     private fun addFormattedText(

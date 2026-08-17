@@ -77,6 +77,20 @@ class RtExportResource(
     fun multaArt477Image(): Response =
         Response.ok(staticAssetBytes(RtTemplateService.MULTA_ART_477_IMAGE_PATH), "image/png").build()
 
+    @GET
+    @Path("/assets/27-carreteiro-caminhao-1")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun motoristaCarreteiroImage1(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_1_PATH), "image/png").build()
+
+    @GET
+    @Path("/assets/27-carreteiro-caminhao-2")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun motoristaCarreteiroImage2(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_2_PATH), "image/png").build()
+
     @POST
     @Path("/export")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -159,7 +173,8 @@ class RtExportResource(
                     title = block.titulo,
                     content = block.texto,
                     anexos = anexos,
-                    imagensFixas = fixedInlineImages(block.id)
+                    imagensFixas = fixedInlineImages(block.id),
+                    paragrafosAlinhadosDireita = block.paragrafosAlinhadosDireita
                 )
             }
         } else {
@@ -219,6 +234,26 @@ class RtExportResource(
                     afterParagraph = 1,
                     originalWidthPx = MULTA_ART_477_IMAGE_WIDTH_PX,
                     originalHeightPx = MULTA_ART_477_IMAGE_HEIGHT_PX
+                )
+            )
+            RtTemplateService.DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_1_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_1_NAME,
+                    afterParagraph = 7,
+                    originalWidthPx = 701,
+                    originalHeightPx = 634,
+                    caption = RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_1_SOURCE
+                ),
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_2_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_2_NAME,
+                    afterParagraph = 7,
+                    originalWidthPx = 685,
+                    originalHeightPx = 500,
+                    caption = RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_2_SOURCE
                 )
             )
             else -> emptyList()

@@ -29,7 +29,9 @@ data class RtExportBlockRequest(
 
     val anexos: List<RtExportImageRequest> = emptyList(),
 
-    val imagensFixas: List<RtExportInlineImageRequest> = emptyList()
+    val imagensFixas: List<RtExportInlineImageRequest> = emptyList(),
+
+    val paragrafosAlinhadosDireita: List<Int> = emptyList()
 )
 
 data class RtExportImageRequest(
@@ -47,5 +49,6 @@ data class RtExportInlineImageRequest(
     val nomeOriginal: String,
     val afterParagraph: Int,
     val originalWidthPx: Int,
-    val originalHeightPx: Int
+    val originalHeightPx: Int,
+    val caption: String? = null
 )
