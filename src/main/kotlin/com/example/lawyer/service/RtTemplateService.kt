@@ -194,7 +194,7 @@ class RtTemplateService(
             paragrafosRecuados = setOf(10, 11, 12)
         ),
         JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO to RtBlockDefinition(
-            titulo = { "a. Turnos ininterruptos de revezamento" },
+            titulo = { "d. Turnos ininterruptos de revezamento" },
             generate = { _, _, _, _ -> jornadaTrabalhoTurnosIninterruptosRevezamento() },
             paragrafosRecuados = setOf(3)
         ),
@@ -206,6 +206,11 @@ class RtTemplateService(
         JORNADA_TRABALHO_ADICIONAL_NOTURNO to RtBlockDefinition(
             titulo = { "f. Adicional noturno" },
             generate = { _, _, variaveis, _ -> jornadaTrabalhoAdicionalNoturno(variaveis) }
+        ),
+        JORNADA_TRABALHO_SOBREAVISO to RtBlockDefinition(
+            titulo = { "g. Sobreaviso" },
+            generate = { _, _, variaveis, _ -> jornadaTrabalhoSobreaviso(variaveis) },
+            paragrafosRecuados = setOf(4)
         ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
@@ -890,6 +895,12 @@ class RtTemplateService(
             variaveis["horarioTrabalhoNoturno"].orPlaceholder()
         )
 
+    private fun jornadaTrabalhoSobreaviso(variaveis: Map<String, String?>): String =
+        JORNADA_TRABALHO_SOBREAVISO_TEMPLATE.replace(
+            "{descricaoChamadosSobreaviso}",
+            variaveis["descricaoChamadosSobreaviso"].orPlaceholder()
+        )
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1220,6 +1231,7 @@ class RtTemplateService(
             "jornada_trabalho_turnos_ininterruptos_revezamento"
         const val JORNADA_TRABALHO_DIAS_DESCANSO = "jornada_trabalho_dias_descanso"
         const val JORNADA_TRABALHO_ADICIONAL_NOTURNO = "jornada_trabalho_adicional_noturno"
+        const val JORNADA_TRABALHO_SOBREAVISO = "jornada_trabalho_sobreaviso"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_NAME = "e_Trabalho_em_dias_de_descanso.png"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_PATH = "/assets/$TRABALHO_DIAS_DESCANSO_IMAGE_NAME"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_URL = "/rt/assets/e-trabalho-dias-descanso"
@@ -1310,7 +1322,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA,
             JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO,
             JORNADA_TRABALHO_DIAS_DESCANSO,
-            JORNADA_TRABALHO_ADICIONAL_NOTURNO
+            JORNADA_TRABALHO_ADICIONAL_NOTURNO,
+            JORNADA_TRABALHO_SOBREAVISO
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1389,6 +1402,19 @@ TRABALHO EM DOMINGOS E FERIADOS, NÃO COMPENSADO (incorporada a Orientação Jur
             "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento do adicional noturno, observando-se, para tanto, a **hora noturna reduzida** de que trata o art. 52, § 1º, da CLT, com os devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras e adicional de periculosidade.",
             "Ainda, a partir das jornadas descritas anteriormente, com fundamento na Súmula 60, II, do TST, **REQUER-SE** a condenação da ré ao pagamento do adicional noturno com relação às horas que ultrapassaram 5h da manhã, com os devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras e adicional de periculosidade."
         ).joinToString("\n\n")
+        private val JORNADA_TRABALHO_SOBREAVISO_TEMPLATE = listOf(
+            "A parte autora era chamada ao trabalho após o encerramento de sua jornada regular, {descricaoChamadosSobreaviso}.",
+            "A parte autora permanecia em **regime de sobreaviso**, uma vez que era acionada em qualquer horário pela ré, não podendo sair da sua residência/cidade, pois precisava atender aos chamados da ré **imediatamente**.",
+            "Assim, a conduta da ré limitava o direito de locomoção da parte autora, uma vez que precisava estar sempre à disposição caso a ré lhe acionasse, em afronta ao **art. 7º, XIII, da Constituição Federal**.",
+            SOBREAVISO_JURISPRUDENCIA,
+            "O **§ 2º do art. 244 da CLT** dispõe que *Considera-se de \"sobre-aviso\" o empregado efetivo, que* ***permanecer em sua própria casa, aguardando a qualquer momento o chamado para o serviço****. Cada escala de \"sobre-aviso\" será, no máximo, de vinte e quatro horas, As horas de \"sobre-aviso\", para todos os efeitos, serão contadas à razão de 1/3 (um terço) do salário normal.*",
+            "Pelo exposto, **REQUER** seja a parte ré condenada ao pagamento das horas a título de sobreaviso, com base no salário mensal integral, bem como seus reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+        ).joinToString("\n\n")
+        private const val SOBREAVISO_JURISPRUDENCIA = """Tal cenário configura sobreaviso, conforme **Súmula 428 do TST**:
+**Súmula nº 428 do TST**
+SOBREAVISO APLICAÇÃO ANALÓGICA DO ART. 244, § 2º DA CLT (redação alterada na sessão do Tribunal Pleno realizada em 14.09.2012) - Res. 185/2012, DEJT divulgado em 25, 26 e 27.09.2012
+I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa ao empregado, por si só, não caracteriza o regime de sobreaviso.
+**II - Considera-se em sobreaviso o empregado que, à distância e submetido a controle patronal por instrumentos telemáticos ou informatizados, permanecer em regime de plantão ou equivalente, aguardando a qualquer momento o chamado para o serviço durante o período de descanso.**"""
         private const val SEMANA_INGLESA_JURISPRUDENCIA_5_TURMA = """**5ª Turma do TST**
 [...] II - AGRAVO EM RECURSO DE REVISTA. ACÓRDÃO REGIONAL PUBLICADO ANTES DA VIGÊNCIA DA LEI Nº 13.467/2017. ACORDO DE COMPENSAÇÃO. INAPLICABILIDADE DO ITEM IV DA SÚMULA 85 DO TST. TRABALHO EM DIA DESTINADO À COMPENSAÇÃO. **Extrai-se do acórdão regional não apenas a invalidade formal do acordo, mas também a irregularidade material com trabalho aos sábados, dia destinado à compensação semanal, o que torna evidente que a empresa não cumpriu e descaracterizou o ajuste. A jurisprudência do TST consolidou-se no sentido de não admitir a aplicação do item IV da Súmula 85 nas hipóteses de completo desvirtuamento do acordo de compensação semanal, em razão do labor extraordinário habitual nos dias destinados à compensação ou em extrapolação do limite diário de dez horas de labor previsto no art. 59, § 2º, da CLT. Precedentes. Logo, é devido o pagamento integral, como horas extras, do labor acima dos limites legais de jornada.** Mantém-se a decisão recorrida. Agravo conhecido e desprovido" (Ag-ARR-1451-96.2013.5.09.0594, 5ª Turma, Relatora Ministra Morgana de Almeida Richa, DEJT 05/04/2024. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/9ce91469cdcca901331be11f4fc6e81f)
 (grifo nosso)"""

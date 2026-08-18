@@ -1631,7 +1631,7 @@ class RtExportResourceTest {
             .`when`().post("/rt/preview").then().statusCode(200)
             .body("blocos.size()", equalTo(1))
             .body("blocos[0].id", equalTo(blockId))
-            .body("blocos[0].titulo", equalTo("a. Turnos ininterruptos de revezamento"))
+            .body("blocos[0].titulo", equalTo("d. Turnos ininterruptos de revezamento"))
             .body("blocos[0].texto", containsString("**turnos ininterruptos de revezamento**"))
             .body("blocos[0].texto", containsString("**8ª Turma do TST**"))
             .body("blocos[0].texto", containsString(".; sucessivamente, **REQUER-SE**"))
@@ -1894,6 +1894,91 @@ class RtExportResourceTest {
             assertTrue(body[1].runs.any { it.isBold && it.text() == "hora noturna reduzida" })
             assertTrue(body[1].text.contains("art. 52, § 1º, da CLT"))
             assertTrue(body[2].runs.any { it.isBold && it.text() == "REQUER-SE" })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview standby child with placeholder filled field and family order`() {
+        val blockId = "jornada_trabalho_sobreaviso"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo(blockId))
+            .body("blocos[0].titulo", equalTo("g. Sobreaviso"))
+            .body("blocos[0].texto", containsString("jornada regular, ___."))
+            .body("blocos[0].texto", containsString("Súmula 428 do TST"))
+            .body("blocos[0].paragrafosRecuados", equalTo(listOf(4)))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(blockId),
+                    dadosVariaveis = mapOf("descricaoChamadosSobreaviso" to "inclusive aos finais de semana")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("jornada regular, inclusive aos finais de semana."))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_adicional_noturno",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_adicional_noturno"))
+            .body("blocos[2].id", equalTo(blockId))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export standby child with six paragraphs bold italic and recuo`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho_sobreaviso"],
+          "dadosVariaveis":{"descricaoChamadosSobreaviso":"inclusive aos finais de semana"}
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val body = document.paragraphs.filter {
+                it.text.startsWith("A parte autora era chamada ao trabalho") ||
+                    it.text.startsWith("A parte autora permanecia em") ||
+                    it.text.startsWith("Assim, a conduta da ré") ||
+                    it.text.startsWith("Tal cenário configura") ||
+                    it.text.startsWith("O § 2º do art. 244") ||
+                    it.text.startsWith("Pelo exposto, REQUER")
+            }
+            assertEquals(6, body.size)
+            assertTrue(body[0].text.contains("inclusive aos finais de semana"))
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "regime de sobreaviso" })
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "imediatamente" })
+            assertTrue(body[2].runs.any { it.isBold && it.text() == "art. 7º, XIII, da Constituição Federal" })
+            assertTrue(body[3].runs.any { it.isBold && it.text() == "Súmula 428 do TST" })
+            assertTrue(body[3].runs.any { it.isBold && it.text()!!.startsWith("Súmula nº 428") })
+            assertTrue(body[3].runs.any { it.isBold && it.text()!!.startsWith("II - Considera-se") })
+            assertTrue(body[4].runs.any { it.isBold && it.text() == "§ 2º do art. 244 da CLT" })
+            assertTrue(body[4].runs.any { it.isItalic && it.text()!!.startsWith("Considera-se de") })
+            assertTrue(body[5].runs.any { it.isBold && it.text() == "REQUER" })
+            assertTrue(body[3].indentationLeft > 0)
         }
     }
 
