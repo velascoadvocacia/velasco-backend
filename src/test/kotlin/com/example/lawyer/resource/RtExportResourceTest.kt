@@ -1615,6 +1615,90 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview rotating shifts child independently and order it after english week`() {
+        val blockId = "jornada_trabalho_turnos_ininterruptos_revezamento"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo(blockId))
+            .body("blocos[0].titulo", equalTo("a. Turnos ininterruptos de revezamento"))
+            .body("blocos[0].texto", containsString("**turnos ininterruptos de revezamento**"))
+            .body("blocos[0].texto", containsString("**8ª Turma do TST**"))
+            .body("blocos[0].texto", containsString(".; sucessivamente, **REQUER-SE**"))
+            .body("blocos[0].paragrafosRecuados", equalTo(listOf(3)))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa",
+                        "jornada_trabalho_nulidade_banco_horas",
+                        "jornada_trabalho_horas_extras",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(5))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_horas_extras"))
+            .body("blocos[2].id", equalTo("jornada_trabalho_nulidade_banco_horas"))
+            .body(
+                "blocos[3].id",
+                equalTo("jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa")
+            )
+            .body("blocos[4].id", equalTo(blockId))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export rotating shifts child with four paragraphs bold formatting and indented precedent`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho_turnos_ininterruptos_revezamento"]
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val firstIndex = document.paragraphs.indexOfFirst { it.text.startsWith("Como se observa") }
+            assertTrue(firstIndex >= 0)
+            val body = document.paragraphs.subList(firstIndex, firstIndex + 4)
+            assertEquals(4, body.size)
+            assertEquals("A esse respeito, veja-se a seguinte decisão do TST:", body[1].text)
+            assertTrue(body[2].text.startsWith("8ª Turma do TST"))
+            assertTrue(body[2].text.endsWith("(grifo nosso)"))
+            assertTrue(body[0].indentationLeft <= 0)
+            assertTrue(body[1].indentationLeft <= 0)
+            assertTrue(body[2].indentationLeft > 0)
+            assertTrue(body[3].indentationLeft <= 0)
+
+            assertTrue(body[0].runs.any {
+                it.isBold && it.text() == "turnos ininterruptos de revezamento"
+            })
+            assertTrue(body[2].runs.any { it.isBold && it.text() == "8ª Turma do TST" })
+            assertTrue(body[2].runs.any {
+                it.isBold && it.text().startsWith("A jurisprudência desta Corte")
+            })
+            assertEquals(2, body[3].runs.count { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(body[3].text.contains("adicional de periculosidade.; sucessivamente"))
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

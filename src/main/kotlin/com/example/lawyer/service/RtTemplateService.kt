@@ -193,6 +193,11 @@ class RtTemplateService(
             generate = { _, _, _, _ -> jornadaTrabalhoNulidadeAcordoCompensacaoSemanaInglesa() },
             paragrafosRecuados = setOf(10, 11, 12)
         ),
+        JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO to RtBlockDefinition(
+            titulo = { "a. Turnos ininterruptos de revezamento" },
+            generate = { _, _, _, _ -> jornadaTrabalhoTurnosIninterruptosRevezamento() },
+            paragrafosRecuados = setOf(3)
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -856,6 +861,9 @@ class RtTemplateService(
     private fun jornadaTrabalhoNulidadeAcordoCompensacaoSemanaInglesa(): String =
         JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA_TEMPLATE
 
+    private fun jornadaTrabalhoTurnosIninterruptosRevezamento(): String =
+        JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO_TEMPLATE
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1182,6 +1190,8 @@ class RtTemplateService(
         const val JORNADA_TRABALHO_NULIDADE_BANCO_HORAS = "jornada_trabalho_nulidade_banco_horas"
         const val JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA =
             "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
+        const val JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO =
+            "jornada_trabalho_turnos_ininterruptos_revezamento"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1266,7 +1276,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO,
             JORNADA_TRABALHO_HORAS_EXTRAS,
             JORNADA_TRABALHO_NULIDADE_BANCO_HORAS,
-            JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA
+            JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA,
+            JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1317,6 +1328,15 @@ No **aspecto material**, para conferir sua validade é necessária a observânci
         ).joinToString("\n\n")
         private const val SEMANA_INGLESA_JURISPRUDENCIA_SDI_1 = """**SDI-1 do TST**
 RECURSO DE EMBARGOS REGIDO PELA LEI 13.467/2017. HORAS EXTRAS. ACORDO DE COMPENSAÇÃO INVÁLIDO. TRABALHO EXTRAORDINÁRIO HABITUAL INCLUSIVE NO DIA DESTINADO À COMPENSAÇÃO. INAPLICABILIDADE DA SÚMULA 85, IV, DO TST. No caso, **há elementos que permitem identificar claramente que o sistema compensatório não atendia à finalidade a que se propôs, porquanto ficou expressamente consignado no acórdão do Tribunal Regional transcrito na decisão recorrida que houve a prestação habitual de horas extras inclusive nos dias destinados à compensação. Nesse contexto, afasta-se a aplicação do item IV da Súmula 85 do TST. __Adotar entendimento contrário significaria compactuar com a possibilidade de prorrogação da jornada para além do limite previsto na legislação celetista, estimulando a confecção de acordos esvaziados de sentido desde sua gênese, em detrimento das normas de segurança e medicina do trabalho__**. Precedentes da SDI. Recurso de embargos conhecido e provido (E-RR-1644-60.2012.5.09.0008, Subseção I Especializada em Dissídios Individuais, Relator Ministro Augusto Cesar Leite de Carvalho, DEJT 24/05/2019. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/2e1b08f4366c1dbe7603674bda486268).
+(grifo nosso)"""
+        private val JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO_TEMPLATE = listOf(
+            "Como se observa a partir dos horários de trabalho da parte autora, havia a prática de **turnos ininterruptos de revezamento**, pois havia início e término da jornada diária de trabalho em horários diferentes, ou seja, às vezes pela manhã, às vezes à tarde e outras vezes à noite.",
+            "A esse respeito, veja-se a seguinte decisão do TST:",
+            TURNOS_ININTERRUPTOS_REVEZAMENTO_JURISPRUDENCIA,
+            "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento de horas extras, considerando a prestação de trabalho em turnos ininterruptos de revezamento, pelo que são devidas as horas extras após a 6ª hora diária, adotando-se o divisor 180, com os devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, adicional noturno e adicional de periculosidade.; sucessivamente, **REQUER-SE** a condenação da ré ao pagamento de diferenças de horas extras, nestes mesmos parâmetros, adotando-se o divisor 220."
+        ).joinToString("\n\n")
+        private const val TURNOS_ININTERRUPTOS_REVEZAMENTO_JURISPRUDENCIA = """**8ª Turma do TST**
+AGRAVO EM AGRAVO DE INSTRUMENTO EM RECURSO DE REVISTA DA RECLAMADA. TURNOS ININTERRUPTOS DE REVEZAMENTO. CARACTERIZAÇÃO. ALTERNÂNCIA DE HORÁRIOS, COMPREENDENDO OS PERÍODOS DIURNO E NOTURNO. TRANSCENDÊNCIA NÃO RECONHECIDA. **A jurisprudência desta Corte está amplamente consolidada no sentido de que o desempenho das atividades em sistema de alternância de turnos, ainda que em dois turnos de trabalho, que compreendam, no todo ou em parte, o horário diurno e o noturno (como é o caso dos autos - " No caso, os cartões indicam grande variedade da jornada, que, por exemplo, poderia ter início às 14:55h ou às 05:55h, e término também com grandes variações") caracteriza o trabalho em regime de turnos ininterruptos de revezamento.** Incidência da Orientação Jurisprudencial 360 da SBDI-1 do TST. Ademais, o entendimento desta Corte é firme no sentido de que a alternância de turnos, ainda que quadrimestral ou semestral, não descaracteriza o trabalho em turnos ininterruptos de revezamento. Agravo não provido. (Ag-AIRR-339-71.2018.5.21.0016, 8ª Turma, Relatora Ministra Delaide Alves Miranda Arantes, DEJT 20/06/2022).
 (grifo nosso)"""
         private const val SEMANA_INGLESA_JURISPRUDENCIA_5_TURMA = """**5ª Turma do TST**
 [...] II - AGRAVO EM RECURSO DE REVISTA. ACÓRDÃO REGIONAL PUBLICADO ANTES DA VIGÊNCIA DA LEI Nº 13.467/2017. ACORDO DE COMPENSAÇÃO. INAPLICABILIDADE DO ITEM IV DA SÚMULA 85 DO TST. TRABALHO EM DIA DESTINADO À COMPENSAÇÃO. **Extrai-se do acórdão regional não apenas a invalidade formal do acordo, mas também a irregularidade material com trabalho aos sábados, dia destinado à compensação semanal, o que torna evidente que a empresa não cumpriu e descaracterizou o ajuste. A jurisprudência do TST consolidou-se no sentido de não admitir a aplicação do item IV da Súmula 85 nas hipóteses de completo desvirtuamento do acordo de compensação semanal, em razão do labor extraordinário habitual nos dias destinados à compensação ou em extrapolação do limite diário de dez horas de labor previsto no art. 59, § 2º, da CLT. Precedentes. Logo, é devido o pagamento integral, como horas extras, do labor acima dos limites legais de jornada.** Mantém-se a decisão recorrida. Agravo conhecido e desprovido" (Ag-ARR-1451-96.2013.5.09.0594, 5ª Turma, Relatora Ministra Morgana de Almeida Richa, DEJT 05/04/2024. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/9ce91469cdcca901331be11f4fc6e81f)
