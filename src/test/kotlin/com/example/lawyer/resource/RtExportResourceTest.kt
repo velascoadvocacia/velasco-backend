@@ -1808,6 +1808,95 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview night premium child with filled field placeholder independent selection and family order`() {
+        val blockId = "jornada_trabalho_adicional_noturno"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo(blockId))
+            .body("blocos[0].titulo", equalTo("f. Adicional noturno"))
+            .body("blocos[0].texto", containsString("horário noturno, ___, mas nunca recebeu"))
+            .body("blocos[0].texto", containsString("acréscimo de 20 % (vinte por cento)"))
+            .body("blocos[0].texto", containsString("art. 52, § 1º, da CLT"))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(blockId),
+                    dadosVariaveis = mapOf("horarioTrabalhoNoturno" to "das 22h às 6h")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("horário noturno, das 22h às 6h, mas nunca recebeu"))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_dias_descanso",
+                        "jornada_trabalho_turnos_ininterruptos_revezamento",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(4))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_turnos_ininterruptos_revezamento"))
+            .body("blocos[2].id", equalTo("jornada_trabalho_dias_descanso"))
+            .body("blocos[3].id", equalTo(blockId))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export night premium child with three paragraphs bold and italic formatting`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho_adicional_noturno"],
+          "dadosVariaveis":{"horarioTrabalhoNoturno":"das 22h ate 6h"}
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val body = document.paragraphs.filter {
+                it.text.startsWith("A parte autora trabalhava em horário noturno") ||
+                    it.text.startsWith("Pelo exposto, REQUER-SE") ||
+                    it.text.startsWith("Ainda, a partir das jornadas descritas")
+            }
+            assertEquals(3, body.size)
+            assertTrue(body[0].text.contains("das 22h ate 6h"))
+            assertTrue(body[0].text.contains("acréscimo de 20 % (vinte por cento)"))
+            listOf("art. 73 da CLT", "art. 7º, IX, da Constituição Federal").forEach { trecho ->
+                assertTrue(body[0].runs.any { it.isBold && it.text() == trecho })
+            }
+            listOf(
+                "Salvo nos casos de revezamento semanal ou quinzenal",
+                "remuneração do trabalho noturno superior à do diurno"
+            ).forEach { inicio ->
+                assertTrue(body[0].runs.any { it.isItalic && it.text().startsWith(inicio) })
+            }
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "hora noturna reduzida" })
+            assertTrue(body[1].text.contains("art. 52, § 1º, da CLT"))
+            assertTrue(body[2].runs.any { it.isBold && it.text() == "REQUER-SE" })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
