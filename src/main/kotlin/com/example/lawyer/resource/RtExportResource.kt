@@ -78,6 +78,13 @@ class RtExportResource(
         Response.ok(staticAssetBytes(RtTemplateService.MULTA_ART_477_IMAGE_PATH), "image/png").build()
 
     @GET
+    @Path("/assets/e-trabalho-dias-descanso")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun trabalhoDiasDescansoImage(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.TRABALHO_DIAS_DESCANSO_IMAGE_PATH), "image/png").build()
+
+    @GET
     @Path("/assets/27-carreteiro-caminhao-1")
     @Produces("image/png")
     @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
@@ -248,6 +255,16 @@ class RtExportResource(
                     originalHeightPx = MULTA_ART_477_IMAGE_HEIGHT_PX
                 )
             )
+            RtTemplateService.JORNADA_TRABALHO_DIAS_DESCANSO -> listOf(
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.TRABALHO_DIAS_DESCANSO_IMAGE_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.TRABALHO_DIAS_DESCANSO_IMAGE_NAME,
+                    afterParagraph = 5,
+                    originalWidthPx = TRABALHO_DIAS_DESCANSO_IMAGE_WIDTH_PX,
+                    originalHeightPx = TRABALHO_DIAS_DESCANSO_IMAGE_HEIGHT_PX
+                )
+            )
             RtTemplateService.DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(
                 RtExportInlineImageRequest(
                     bytes = staticAssetBytes(RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_1_PATH),
@@ -318,6 +335,8 @@ class RtExportResource(
         const val RETENCAO_CTPS_IMAGE_HEIGHT_PX = 416
         const val MULTA_ART_477_IMAGE_WIDTH_PX = 730
         const val MULTA_ART_477_IMAGE_HEIGHT_PX = 495
+        const val TRABALHO_DIAS_DESCANSO_IMAGE_WIDTH_PX = 687
+        const val TRABALHO_DIAS_DESCANSO_IMAGE_HEIGHT_PX = 798
         val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/png")
     }
 

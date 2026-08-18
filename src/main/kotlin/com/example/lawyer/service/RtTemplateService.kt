@@ -198,6 +198,11 @@ class RtTemplateService(
             generate = { _, _, _, _ -> jornadaTrabalhoTurnosIninterruptosRevezamento() },
             paragrafosRecuados = setOf(3)
         ),
+        JORNADA_TRABALHO_DIAS_DESCANSO to RtBlockDefinition(
+            titulo = { "e. Trabalho em dias de descanso" },
+            generate = { _, _, _, _ -> jornadaTrabalhoDiasDescanso() },
+            paragrafosRecuados = setOf(4)
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -307,6 +312,14 @@ class RtTemplateService(
                     contentType = "image/png",
                     nomeOriginal = MULTA_ART_477_IMAGE_NAME,
                     afterParagraph = 1
+                )
+            )
+            JORNADA_TRABALHO_DIAS_DESCANSO -> listOf(
+                RtPreviewInlineImageResponse(
+                    url = TRABALHO_DIAS_DESCANSO_IMAGE_URL,
+                    contentType = "image/png",
+                    nomeOriginal = TRABALHO_DIAS_DESCANSO_IMAGE_NAME,
+                    afterParagraph = 5
                 )
             )
             DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(
@@ -864,6 +877,9 @@ class RtTemplateService(
     private fun jornadaTrabalhoTurnosIninterruptosRevezamento(): String =
         JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO_TEMPLATE
 
+    private fun jornadaTrabalhoDiasDescanso(): String =
+        JORNADA_TRABALHO_DIAS_DESCANSO_TEMPLATE
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1192,6 +1208,10 @@ class RtTemplateService(
             "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
         const val JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO =
             "jornada_trabalho_turnos_ininterruptos_revezamento"
+        const val JORNADA_TRABALHO_DIAS_DESCANSO = "jornada_trabalho_dias_descanso"
+        const val TRABALHO_DIAS_DESCANSO_IMAGE_NAME = "e_Trabalho_em_dias_de_descanso.png"
+        const val TRABALHO_DIAS_DESCANSO_IMAGE_PATH = "/assets/$TRABALHO_DIAS_DESCANSO_IMAGE_NAME"
+        const val TRABALHO_DIAS_DESCANSO_IMAGE_URL = "/rt/assets/e-trabalho-dias-descanso"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1277,7 +1297,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_HORAS_EXTRAS,
             JORNADA_TRABALHO_NULIDADE_BANCO_HORAS,
             JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA,
-            JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO
+            JORNADA_TRABALHO_TURNOS_ININTERRUPTOS_REVEZAMENTO,
+            JORNADA_TRABALHO_DIAS_DESCANSO
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1338,6 +1359,19 @@ RECURSO DE EMBARGOS REGIDO PELA LEI 13.467/2017. HORAS EXTRAS. ACORDO DE COMPENS
         private const val TURNOS_ININTERRUPTOS_REVEZAMENTO_JURISPRUDENCIA = """**8ª Turma do TST**
 AGRAVO EM AGRAVO DE INSTRUMENTO EM RECURSO DE REVISTA DA RECLAMADA. TURNOS ININTERRUPTOS DE REVEZAMENTO. CARACTERIZAÇÃO. ALTERNÂNCIA DE HORÁRIOS, COMPREENDENDO OS PERÍODOS DIURNO E NOTURNO. TRANSCENDÊNCIA NÃO RECONHECIDA. **A jurisprudência desta Corte está amplamente consolidada no sentido de que o desempenho das atividades em sistema de alternância de turnos, ainda que em dois turnos de trabalho, que compreendam, no todo ou em parte, o horário diurno e o noturno (como é o caso dos autos - " No caso, os cartões indicam grande variedade da jornada, que, por exemplo, poderia ter início às 14:55h ou às 05:55h, e término também com grandes variações") caracteriza o trabalho em regime de turnos ininterruptos de revezamento.** Incidência da Orientação Jurisprudencial 360 da SBDI-1 do TST. Ademais, o entendimento desta Corte é firme no sentido de que a alternância de turnos, ainda que quadrimestral ou semestral, não descaracteriza o trabalho em turnos ininterruptos de revezamento. Agravo não provido. (Ag-AIRR-339-71.2018.5.21.0016, 8ª Turma, Relatora Ministra Delaide Alves Miranda Arantes, DEJT 20/06/2022).
 (grifo nosso)"""
+        private val JORNADA_TRABALHO_DIAS_DESCANSO_TEMPLATE = listOf(
+            "Conforme exposto anteriormente, a parte autora não usufruiu integralmente dos dias destinados ao descanso, trabalhando sem a concessão de folgas.",
+            "Assim, foi violado o **art. 67 da CLT** (*Será assegurado a todo empregado um descanso semanal de 24 (vinte e quatro) horas consecutivas, o qual, salvo motivo de conveniência pública ou necessidade imperiosa do serviço, deverá coincidir com o domingo, no todo ou em parte*.).",
+            "A **Súmula 146 do TST** prevê que o pagamento do RSR deve ser em dobro quando há o labor nos domingos e feriados (dias de descanso remunerado):",
+            TRABALHO_DIAS_DESCANSO_SUMULA,
+            "Além disso, o **Tema Vinculante 265 do TST** determina o pagamento em dobro do repouso semanal remunerado quando houver labor após o sétimo dia semanal consecutivo trabalhado:",
+            "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento em dobro: **i)** dos dias de feriados e domingos trabalhados (Súmula 146 do TST); **ii)** dos dias em que houve a concessão de RSR após o sétimo dia consecutivo de trabalho (Tema Vinculante 265 do TST).",
+            "Consequentemente, **REQUER-SE** a condenação da parte ré ao pagamento dos reflexos em horas extras, no 13º salário, no aviso prévio, nas férias acrescidas de 1/3, verbas rescisórias, FGTS com a multa de 40%, adicional noturno e adicional de periculosidade.",
+            "Ainda, **REQUER-SE** a integração à jornada, como tempo à disposição do empregador (art. 4º da CLT), do tempo suprimido dos dias destinados ao descanso, com a consequente condenação da ré ao pagamento das horas extras, **com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem refletir em 13º salários (Súmula 45/TST), férias (Súmula 151/TST) com 1/3 e FGTS (8%) (Súmula 63/TST) + multa de 40%.**"
+        ).joinToString("\n\n")
+        private const val TRABALHO_DIAS_DESCANSO_SUMULA = """**Súmula nº 146 do TST**
+TRABALHO EM DOMINGOS E FERIADOS, NÃO COMPENSADO (incorporada a Orientação Jurisprudencial nº 93 da SBDI-1) - Res. 121/2003, DJ 19, 20 e 21.11.2003
+**O trabalho prestado em domingos e feriados, não compensado, deve ser pago em dobro**, sem prejuízo da remuneração relativa ao repouso semanal."""
         private const val SEMANA_INGLESA_JURISPRUDENCIA_5_TURMA = """**5ª Turma do TST**
 [...] II - AGRAVO EM RECURSO DE REVISTA. ACÓRDÃO REGIONAL PUBLICADO ANTES DA VIGÊNCIA DA LEI Nº 13.467/2017. ACORDO DE COMPENSAÇÃO. INAPLICABILIDADE DO ITEM IV DA SÚMULA 85 DO TST. TRABALHO EM DIA DESTINADO À COMPENSAÇÃO. **Extrai-se do acórdão regional não apenas a invalidade formal do acordo, mas também a irregularidade material com trabalho aos sábados, dia destinado à compensação semanal, o que torna evidente que a empresa não cumpriu e descaracterizou o ajuste. A jurisprudência do TST consolidou-se no sentido de não admitir a aplicação do item IV da Súmula 85 nas hipóteses de completo desvirtuamento do acordo de compensação semanal, em razão do labor extraordinário habitual nos dias destinados à compensação ou em extrapolação do limite diário de dez horas de labor previsto no art. 59, § 2º, da CLT. Precedentes. Logo, é devido o pagamento integral, como horas extras, do labor acima dos limites legais de jornada.** Mantém-se a decisão recorrida. Agravo conhecido e desprovido" (Ag-ARR-1451-96.2013.5.09.0594, 5ª Turma, Relatora Ministra Morgana de Almeida Richa, DEJT 05/04/2024. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/9ce91469cdcca901331be11f4fc6e81f)
 (grifo nosso)"""

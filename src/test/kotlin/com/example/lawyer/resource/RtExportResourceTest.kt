@@ -1699,6 +1699,115 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview days off child independently with fixed image and family order`() {
+        val blockId = "jornada_trabalho_dias_descanso"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo(blockId))
+            .body("blocos[0].titulo", equalTo("e. Trabalho em dias de descanso"))
+            .body("blocos[0].texto", containsString("**art. 67 da CLT**"))
+            .body("blocos[0].texto", containsString("**Súmula nº 146 do TST**"))
+            .body("blocos[0].texto", containsString("**Tema Vinculante 265 do TST**"))
+            .body("blocos[0].texto", containsString("**i)** dos dias"))
+            .body("blocos[0].paragrafosRecuados", equalTo(listOf(4)))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(1))
+            .body("blocos[0].imagensFixas[0].url", equalTo("/rt/assets/e-trabalho-dias-descanso"))
+            .body("blocos[0].imagensFixas[0].contentType", equalTo("image/png"))
+            .body(
+                "blocos[0].imagensFixas[0].nomeOriginal",
+                equalTo("e_Trabalho_em_dias_de_descanso.png")
+            )
+            .body("blocos[0].imagensFixas[0].afterParagraph", equalTo(5))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_turnos_ininterruptos_revezamento",
+                        "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa",
+                        "jornada_trabalho_nulidade_banco_horas",
+                        "jornada_trabalho_horas_extras",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(6))
+            .body("blocos[4].id", equalTo("jornada_trabalho_turnos_ininterruptos_revezamento"))
+            .body("blocos[5].id", equalTo(blockId))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should serve and embed days off fixed image after fifth paragraph with formatting and proportion`() {
+        val expectedImage = Files.readAllBytes(
+            Path.of("src/main/resources/assets/e_Trabalho_em_dias_de_descanso.png")
+        )
+        val servedImage = given()
+            .`when`().get("/rt/assets/e-trabalho-dias-descanso")
+            .then().statusCode(200)
+            .header("Content-Type", startsWith("image/png"))
+            .extract().asByteArray()
+        assertTrue(expectedImage.contentEquals(servedImage))
+
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho_dias_descanso"]
+        }""".trimIndent()
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val firstIndex = document.paragraphs.indexOfFirst { it.text.startsWith("Conforme exposto anteriormente") }
+            assertTrue(firstIndex >= 0)
+            val firstFive = document.paragraphs.subList(firstIndex, firstIndex + 5)
+            assertEquals(5, firstFive.size)
+            assertTrue(firstFive[3].text.startsWith("Súmula nº 146 do TST"))
+            assertTrue(firstFive[3].indentationLeft > 0)
+            assertTrue(firstFive[3].runs.any { it.isBold && it.text() == "Súmula nº 146 do TST" })
+            assertTrue(firstFive[3].runs.any {
+                it.isBold && it.text().startsWith("O trabalho prestado em domingos e feriados")
+            })
+            assertTrue(firstFive[1].runs.any {
+                it.isItalic && it.text().startsWith("Será assegurado a todo empregado")
+            })
+            assertTrue(firstFive[4].text.endsWith("trabalhado:"))
+
+            val imageParagraph = document.paragraphs[firstIndex + 5]
+            assertEquals(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER, imageParagraph.alignment)
+            val picture = imageParagraph.runs.single().embeddedPictures.single()
+            assertEquals(org.apache.poi.util.Units.toEMU(450.0).toLong(), picture.ctPicture.spPr.xfrm.ext.cx)
+            assertEquals(
+                687.0 / 798.0,
+                picture.ctPicture.spPr.xfrm.ext.cx.toDouble() / picture.ctPicture.spPr.xfrm.ext.cy,
+                0.001
+            )
+            assertTrue(document.paragraphs[firstIndex + 6].text.startsWith("Pelo exposto, REQUER-SE"))
+            assertTrue(document.allPictures.any { expectedImage.contentEquals(it.data) })
+
+            val pedido = document.paragraphs[firstIndex + 6]
+            assertEquals(3, pedido.runs.count { it.isBold && it.text() in setOf("REQUER-SE", "i)", "ii)") })
+            val ultimoPedido = document.paragraphs[firstIndex + 8]
+            assertTrue(ultimoPedido.runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(ultimoPedido.runs.any {
+                it.isBold && it.text().startsWith("com base no salário mensal")
+            })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
