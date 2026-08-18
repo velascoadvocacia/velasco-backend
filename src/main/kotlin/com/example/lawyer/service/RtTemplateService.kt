@@ -188,6 +188,11 @@ class RtTemplateService(
             generate = { _, _, variaveis, _ -> jornadaTrabalhoNulidadeBancoHoras(variaveis) },
             paragrafosRecuados = (3..8).toSet()
         ),
+        JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA to RtBlockDefinition(
+            titulo = { "c. Nulidade do acordo de compensação de jornada (‘‘semana inglesa’’)" },
+            generate = { _, _, _, _ -> jornadaTrabalhoNulidadeAcordoCompensacaoSemanaInglesa() },
+            paragrafosRecuados = setOf(10, 11, 12)
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -848,6 +853,9 @@ class RtTemplateService(
             variaveis["descricaoNulidadeBancoHoras"].orPlaceholder()
         )
 
+    private fun jornadaTrabalhoNulidadeAcordoCompensacaoSemanaInglesa(): String =
+        JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA_TEMPLATE
+
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
         val atividade = variaveis["descricaoAtividadePrincipal"].orPlaceholder()
         return "As empresas rés, que formam um grupo econômico, se aproveitaram da mão de obra do autor, " +
@@ -1172,6 +1180,8 @@ class RtTemplateService(
         const val JORNADA_TRABALHO = "jornada_trabalho"
         const val JORNADA_TRABALHO_HORAS_EXTRAS = "jornada_trabalho_horas_extras"
         const val JORNADA_TRABALHO_NULIDADE_BANCO_HORAS = "jornada_trabalho_nulidade_banco_horas"
+        const val JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA =
+            "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_NAME = "27_carreteiro_e_caminhao1.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_2_NAME = "27_carreteiro_e_caminhao2.png"
         const val MOTORISTA_CARRETEIRO_IMAGE_1_PATH = "/assets/$MOTORISTA_CARRETEIRO_IMAGE_1_NAME"
@@ -1255,7 +1265,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
         private val JORNADA_TRABALHO_BLOCK_ORDER = listOf(
             JORNADA_TRABALHO,
             JORNADA_TRABALHO_HORAS_EXTRAS,
-            JORNADA_TRABALHO_NULIDADE_BANCO_HORAS
+            JORNADA_TRABALHO_NULIDADE_BANCO_HORAS,
+            JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1288,6 +1299,31 @@ No **aspecto material**, para conferir sua validade é necessária a observânci
 **c)**que o sistema de compensação não exceda, no período máximo de um ano, a soma das jornadas semanais de trabalho previstas ou outro somatório que possa ser determinado em acordo coletivo e;
 **d)**deve ser possibilitado ao empregado o acompanhamento do saldo de créditos e débitos em seu nome, no período de execução do ajuste, como forma de conferir transparência à relação de trabalho no que tange à remuneração ou compensação das horas excedentes, inclusive como forma de resguardar a boa-fé objetiva que deve nortear os contratos de trabalho, por aplicação do art. 422, do Código Civil.
 (grifo original)"""
+        private val JORNADA_TRABALHO_NULIDADE_ACORDO_COMPENSACAO_SEMANA_INGLESA_TEMPLATE = listOf(
+            "Conforme tópico anterior, a parte autora trabalhava 48 minutos além das 8h diárias de segunda a sexta para compensar o sábado que não trabalharia; contudo, a parte ré, habitualmente, determinava que a parte autora também trabalhasse aos sábados.",
+            "O **art. 422 do Código Civil** determina que *os contratantes são obrigados a guardar, assim na conclusão do contrato, como em sua execução, os princípios de probidade e boa-fé*.",
+            "No caso, está ausente a efetiva compensação de jornada, devido ao trabalho no dia destinado à compensação (sábado).",
+            "Ainda, o **art. 7º, XIII, da Constituição Federal** prevê o seguinte: *duração do trabalho normal não superior a oito horas diárias e quarenta e quatro semanais, facultada a compensação de horários e a redução da jornada, mediante acordo ou convenção coletiva de trabalho*.",
+            "O **art. 58 da CLT** também prevê que a *duração normal do trabalho, para os empregados em qualquer atividade privada, não excederá de 8 (oito) horas diárias, desde que não seja fixado expressamente outro limite*.",
+            "O **art. 9º da CLT** prevê que ***serão nulos de pleno direito os atos praticados com o objetivo de desvirtuar, impedir ou fraudar a aplicação dos preceitos contidos na presente Consolidação***.",
+            "Ante a ausência de efetiva compensação, porquanto a parte autora trabalhava a mais durante a semana para não trabalhar aos sábados (“semana inglesa”), mas, na prática, havia trabalho em vários sábados que seriam destinados à compensação (conforme cartões ponto anexos), é **nulo** o acordo de compensação de jornada, por afronta ao princípio pacta sunt servanda.",
+            "Por se tratar de descaracterização de acordo de compensação de jornada pelo empregador, é devido o pagamento, como extras, das horas de trabalho excedentes da jornada normal de trabalho (8h diárias).",
+            "Veja-se a jurisprudência do TST:",
+            SEMANA_INGLESA_JURISPRUDENCIA_SDI_1,
+            SEMANA_INGLESA_JURISPRUDENCIA_5_TURMA,
+            SEMANA_INGLESA_JURISPRUDENCIA_3_TURMA,
+            "Pelo exposto, com fundamento no art. 422 do Código Civil, nos arts. 9º e 58 da CLT e no art. 7º, XIII, da Constituição Federal, **REQUER-SE** o reconhecimento da nulidade do sistema de compensação de jornada que era praticado pela parte autora, diante de sua invalidade material.",
+            "Consequentemente, **REQUER-SE** a condenação da parte ré ao pagamento das horas extras, com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem refletir em aviso prévio (Súmula 94/TST), 13º salários (Súmula 45/TST), férias (Súmula 151/TST) com 1/3 e FGTS (8%) e multa de 40% (Súmula 63/TST), adicional de periculosidade e adicional noturno."
+        ).joinToString("\n\n")
+        private const val SEMANA_INGLESA_JURISPRUDENCIA_SDI_1 = """**SDI-1 do TST**
+RECURSO DE EMBARGOS REGIDO PELA LEI 13.467/2017. HORAS EXTRAS. ACORDO DE COMPENSAÇÃO INVÁLIDO. TRABALHO EXTRAORDINÁRIO HABITUAL INCLUSIVE NO DIA DESTINADO À COMPENSAÇÃO. INAPLICABILIDADE DA SÚMULA 85, IV, DO TST. No caso, **há elementos que permitem identificar claramente que o sistema compensatório não atendia à finalidade a que se propôs, porquanto ficou expressamente consignado no acórdão do Tribunal Regional transcrito na decisão recorrida que houve a prestação habitual de horas extras inclusive nos dias destinados à compensação. Nesse contexto, afasta-se a aplicação do item IV da Súmula 85 do TST. __Adotar entendimento contrário significaria compactuar com a possibilidade de prorrogação da jornada para além do limite previsto na legislação celetista, estimulando a confecção de acordos esvaziados de sentido desde sua gênese, em detrimento das normas de segurança e medicina do trabalho__**. Precedentes da SDI. Recurso de embargos conhecido e provido (E-RR-1644-60.2012.5.09.0008, Subseção I Especializada em Dissídios Individuais, Relator Ministro Augusto Cesar Leite de Carvalho, DEJT 24/05/2019. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/2e1b08f4366c1dbe7603674bda486268).
+(grifo nosso)"""
+        private const val SEMANA_INGLESA_JURISPRUDENCIA_5_TURMA = """**5ª Turma do TST**
+[...] II - AGRAVO EM RECURSO DE REVISTA. ACÓRDÃO REGIONAL PUBLICADO ANTES DA VIGÊNCIA DA LEI Nº 13.467/2017. ACORDO DE COMPENSAÇÃO. INAPLICABILIDADE DO ITEM IV DA SÚMULA 85 DO TST. TRABALHO EM DIA DESTINADO À COMPENSAÇÃO. **Extrai-se do acórdão regional não apenas a invalidade formal do acordo, mas também a irregularidade material com trabalho aos sábados, dia destinado à compensação semanal, o que torna evidente que a empresa não cumpriu e descaracterizou o ajuste. A jurisprudência do TST consolidou-se no sentido de não admitir a aplicação do item IV da Súmula 85 nas hipóteses de completo desvirtuamento do acordo de compensação semanal, em razão do labor extraordinário habitual nos dias destinados à compensação ou em extrapolação do limite diário de dez horas de labor previsto no art. 59, § 2º, da CLT. Precedentes. Logo, é devido o pagamento integral, como horas extras, do labor acima dos limites legais de jornada.** Mantém-se a decisão recorrida. Agravo conhecido e desprovido" (Ag-ARR-1451-96.2013.5.09.0594, 5ª Turma, Relatora Ministra Morgana de Almeida Richa, DEJT 05/04/2024. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/9ce91469cdcca901331be11f4fc6e81f)
+(grifo nosso)"""
+        private const val SEMANA_INGLESA_JURISPRUDENCIA_3_TURMA = """**3ª Turma do TST**
+AGRAVO. AGRAVO DE INSTRUMENTO. RECURSO DE REVISTA. ACORDO DE COMPENSAÇÃO. HORAS EXTRAS HABITUAIS. LABOR NOS DIAS DESTINADOS À COMPENSAÇÃO. SÚMULA Nº 85, IV, DO TST. INAPLICÁVEL 1. A questão discutida nos autos diz respeito à validade do acordo de compensação de jornada nos casos de prestação de horas extras habituais e labor nos dias destinados à compensação. 2. O entendimento consubstanciado no item IV, parte final, da Súmula nº 85, do TST, somente se aplica aos casos em que há inobservância de requisito formal para a compensação de jornada, desde que não dilatada a carga máxima semanal. 3. **Nos casos em que, além da prestação habitual de horas extras, houver descumprimento dos requisitos materiais, como o labor nos dias destinados à compensação da jornada, seráv devido o pagamento total das horas extras, e não apenas do adicional respectivo.** 4. No presente caso, a Corte de Origem constatou o descumprimento formal e material do acordo compensatório em razão da prestação habitual de horas extras, de maneira que se revelou inaplicável a Súmula nº 85, IV, parte final, do TST, com a invalidação total do regime de compensação, e não apenas das semanas em que houve a prestação de horas extras. Agravo a que se nega provimento (Ag-AIRR-688-88.2021.5.14.0008, 3ª Turma, Relator Ministro Alberto Bastos Balazeiro, DEJT 08/03/2024. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/2e298d189189f3db5a92a00c738de3b7)
+(grifo nosso)"""
         private const val MOTORISTA_PARAGRAFO_1 = "O autor foi contratado pelas rés para exercer a função de motorista de caminhão truck/carreta. No entanto, durante todo o pacto laboral, o autor desempenhou atribuições que extrapolavam significativamente as atividades típicas da função contratual."
         private const val MOTORISTA_PARAGRAFO_3 = "As funções não eram compatíveis entre si ou com a condição pessoal do autor, não se configurando a hipótese do art. 456, parágrafo único, da CLT (*A falta de prova ou inexistindo cláusula expressa e tal respeito, entender-se-á que __**o empregado se obrigou a todo e qualquer serviço compatível com a sua condição pessoal.**__*)."
         private const val MOTORISTA_PARAGRAFO_4 = "O acúmulo de função é configurado quando um trabalhador exerce, além da sua função, atividades de um cargo diferente, que não seja acessória ou tangencial à sua função contratada, gerando alteração prejudicial das condições laborais (*art. 468, caput, da CLT: Nos contratos individuais de trabalho __**só é lícita a alteração das respectivas condições por mútuo consentimento, e ainda assim desde que não resultem, direta ou indiretamente, prejuízos ao empregado,**__ sob pena de nulidade da cláusula infringente desta garantia.)*."

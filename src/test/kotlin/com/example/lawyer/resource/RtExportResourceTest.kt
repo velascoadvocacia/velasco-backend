@@ -1517,6 +1517,104 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview english week child independently and order all selected work schedule blocks`() {
+        val blockId = "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo(blockId))
+            .body(
+                "blocos[0].titulo",
+                equalTo("c. Nulidade do acordo de compensação de jornada (‘‘semana inglesa’’)")
+            )
+            .body("blocos[0].texto", containsString("48 minutos além das 8h diárias"))
+            .body("blocos[0].texto", containsString("**art. 422 do Código Civil**"))
+            .body("blocos[0].texto", containsString("***serão nulos de pleno direito"))
+            .body("blocos[0].texto", containsString("__Adotar entendimento contrário"))
+            .body("blocos[0].texto", containsString("seráv devido o pagamento total"))
+            .body("blocos[0].texto", containsString("Consequentemente, **REQUER-SE**"))
+            .body("blocos[0].paragrafosRecuados", equalTo(listOf(10, 11, 12)))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_nulidade_banco_horas",
+                        "jornada_trabalho_horas_extras",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(4))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_horas_extras"))
+            .body("blocos[2].id", equalTo("jornada_trabalho_nulidade_banco_horas"))
+            .body("blocos[3].id", equalTo(blockId))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export english week child with fourteen paragraphs formatting and indented precedents`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"]
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val firstIndex = document.paragraphs.indexOfFirst { it.text.startsWith("Conforme tópico anterior") }
+            assertTrue(firstIndex >= 0)
+            val body = document.paragraphs.subList(firstIndex, firstIndex + 14)
+            assertEquals(14, body.size)
+            assertEquals("Veja-se a jurisprudência do TST:", body[8].text)
+            assertTrue(body[9].text.startsWith("SDI-1 do TST"))
+            assertTrue(body[10].text.startsWith("5ª Turma do TST"))
+            assertTrue(body[11].text.startsWith("3ª Turma do TST"))
+            body.subList(9, 12).forEach { paragraph ->
+                assertTrue(paragraph.indentationLeft > 0, "Jurisprudência sem recuo: ${paragraph.text}")
+                assertTrue(paragraph.text.endsWith("(grifo nosso)"))
+            }
+            listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 13).forEach { index ->
+                assertTrue(body[index].indentationLeft <= 0)
+            }
+
+            assertTrue(body[1].runs.any {
+                it.isBold && it.text().contains("art. 422 do Código Civil")
+            })
+            assertTrue(body[1].runs.any {
+                it.isItalic && it.text().startsWith("os contratantes são obrigados")
+            })
+            assertTrue(body[5].runs.any {
+                it.isBold && it.isItalic && it.text().startsWith("serão nulos de pleno direito")
+            })
+            assertTrue(body[9].runs.any {
+                it.isBold && it.underline == UnderlinePatterns.SINGLE &&
+                    it.text().startsWith("Adotar entendimento contrário")
+            })
+            assertTrue(body[11].runs.any {
+                it.isBold && it.text().contains("seráv devido o pagamento total")
+            })
+            assertTrue(body[12].runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(body[13].runs.any { it.isBold && it.text() == "REQUER-SE" })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
