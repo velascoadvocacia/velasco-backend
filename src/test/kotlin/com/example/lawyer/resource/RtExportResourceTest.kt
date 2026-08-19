@@ -1982,6 +1982,72 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview interjornada interval child only with parent and preserve order and placeholder`() {
+        val blockId = "jornada_trabalho_intervalo_interjornada"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(blockId, "jornada_trabalho_sobreaviso", "jornada_trabalho")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_sobreaviso"))
+            .body("blocos[2].id", equalTo(blockId))
+            .body("blocos[2].titulo", equalTo("h. Intervalo interjornada"))
+            .body("blocos[2].texto", containsString("porquanto ___, com fundamento"))
+            .body("blocos[2].texto", containsString("intervalos interjornada suprimidos"))
+            .body("blocos[2].texto", containsString("FGTS (8%) (Súmula 63/TST) + multa de 40%."))
+            .body("blocos[2].anexos.size()", equalTo(0))
+            .body("blocos[2].imagensFixas.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("jornada_trabalho", blockId),
+                    dadosVariaveis = mapOf(
+                        "descricaoSupressaoIntervaloInterjornada" to "o descanso entre jornadas era inferior a 11 horas\nem diversas ocasiões"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[1].texto", containsString("porquanto o descanso entre jornadas era inferior a 11 horas\nem diversas ocasiões, com fundamento"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export interjornada interval child with two paragraphs and bold formatting`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho","jornada_trabalho_intervalo_interjornada"],
+          "dadosVariaveis":{"descricaoSupressaoIntervaloInterjornada":"o descanso entre jornadas era inferior a 11 horas"}
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val body = document.paragraphs.filter {
+                it.text.startsWith("Considerando a supressão do intervalo interjornada") ||
+                    it.text.startsWith("Ainda, REQUER-SE a integração à jornada")
+            }
+            assertEquals(2, body.size)
+            assertTrue(body[0].text.contains("porquanto o descanso entre jornadas era inferior a 11 horas"))
+            assertTrue(body[0].runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(body[1].runs.any { it.isBold && it.text()!!.startsWith("com base no salário mensal") })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
