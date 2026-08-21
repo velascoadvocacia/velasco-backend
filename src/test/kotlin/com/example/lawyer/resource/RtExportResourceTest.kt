@@ -2533,6 +2533,88 @@ class RtExportResourceTest {
         saveGeneratedDocument("rt-inconstitucionalidade-jornada-habitual-12h-imagem.docx", docx)
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview harmful work environment as independent block after journey family`() {
+        val blockId = "meio_ambiente_trabalho_nocivo_saude"
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h",
+                        "jornada_trabalho_dano_moral_jornada_extenuante",
+                        "jornada_trabalho"
+                    ),
+                    dadosVariaveis = mapOf("descricaoAmbienteTrabalhoNocivo" to "em câmara fria e área úmida")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(4))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_dano_moral_jornada_extenuante"))
+            .body("blocos[2].id", equalTo("jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"))
+            .body("blocos[3].id", equalTo(blockId))
+            .body("blocos[3].titulo", equalTo(HARMFUL_WORK_ENVIRONMENT_TITLE))
+            .body("blocos[3].anexos.size()", equalTo(0))
+            .body("blocos[3].imagensFixas.size()", equalTo(0))
+            .body("blocos[3].paragrafosRecuados", equalTo((3..9).toList() + (13..18).toList()))
+            .extract().response()
+
+        val text = response.jsonPath().getString("blocos[3].texto")
+        assertEquals(21, text.split("\n\n").size)
+        assertTrue(text.startsWith("A parte autora trabalhava em câmara fria e área úmida, sem fornecimento de EPIs"))
+        assertTrue(text.endsWith("se desincumbir do ônus que lhe foi atribuído.*"))
+        assertEquals(HARMFUL_WORK_ENVIRONMENT_TEXT_SHA256, sha256(text))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo(blockId))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export harmful work environment with exact two indentation ranges and canonical burden text`() {
+        val blockId = "meio_ambiente_trabalho_nocivo_saude"
+        val preview = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(blockId),
+                    dadosVariaveis = mapOf("descricaoAmbienteTrabalhoNocivo" to "em ambiente sem ventilação")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200).extract().response()
+        val text = preview.jsonPath().getString("blocos[0].texto")
+        val filler = (1..7).joinToString("\n\n") { "Preenchimento $it para testar quebras nos trechos recuados." }
+        val request = RtExportRequest(
+            claimantName = "Teste meio ambiente nocivo",
+            blocks = listOf(
+                RtExportBlockRequest(title = "Preenchimento", content = filler),
+                RtExportBlockRequest(id = blockId, title = HARMFUL_WORK_ENVIRONMENT_TITLE, content = text)
+            )
+        )
+        val docx = given().multiPart("payload", objectMapper.writeValueAsString(request), "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val start = document.paragraphs.indexOfFirst { it.text.startsWith("A parte autora trabalhava") }
+            val paragraphs = document.paragraphs.drop(start).take(21)
+            assertEquals(21, paragraphs.size)
+            assertTrue((3..9).all { paragraphs[it - 1].indentationLeft > 0 })
+            assertTrue((13..18).all { paragraphs[it - 1].indentationLeft > 0 })
+            assertTrue(((1..2) + (10..12) + (19..21)).all { paragraphs[it - 1].indentationLeft <= 0 })
+            assertTrue(paragraphs[3].runs.any { it.isBold && it.text()!!.startsWith("A submiss") })
+            val burden = paragraphs[20]
+            assertTrue(burden.runs.any { it.isItalic && it.text()!!.startsWith("Nos casos previstos em lei") })
+            assertTrue(burden.runs.any {
+                it.isBold && it.text()!!.startsWith("atribuir o ") && it.text()!!.endsWith("da prova de modo diverso")
+            })
+        }
+        saveGeneratedDocument("rt-meio-ambiente-trabalho-nocivo-recuos.docx", docx)
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
@@ -4032,6 +4114,9 @@ class RtExportResourceTest {
         const val HABITUAL_TWELVE_HOUR_TITLE = "m. Inconstitucionalidade da jornada habitual de 12h diárias"
         const val HABITUAL_TWELVE_HOUR_TEXT_SHA256 =
             "607395d23fcf6eca37124a6be71eff87c35660590a51be47b9bae11a9af029c4"
+        const val HARMFUL_WORK_ENVIRONMENT_TITLE = "Meio ambiente de trabalho nocivo à saúde"
+        const val HARMFUL_WORK_ENVIRONMENT_TEXT_SHA256 =
+            "5f71522290255a38c4260c2ba47f7dec2942c19cce71eb91ea72af2585407a54"
         const val INTRAJORNADA_TITLE =
             "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)"
         const val INTRAJORNADA_INTRODUCTION =

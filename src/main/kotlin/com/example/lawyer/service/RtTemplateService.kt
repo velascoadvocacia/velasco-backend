@@ -245,6 +245,11 @@ class RtTemplateService(
             titulo = { "m. Inconstitucionalidade da jornada habitual de 12h diárias" },
             generate = { _, _, _, _ -> jornadaTrabalhoInconstitucionalidadeJornadaHabitual12h() }
         ),
+        MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE to RtBlockDefinition(
+            titulo = { "Meio ambiente de trabalho nocivo à saúde" },
+            generate = { _, _, variaveis, _ -> meioAmbienteTrabalhoNocivoSaude(variaveis) },
+            paragrafosRecuados = (3..9).toSet() + (13..18).toSet()
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -345,6 +350,11 @@ class RtTemplateService(
             ordered.add(position, DISPENSA_DISCRIMINATORIA_DANOS_MORAIS)
         }
         orderBlockFamily(ordered, JORNADA_TRABALHO_BLOCK_ORDER)
+        if (MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE in ordered) {
+            ordered.remove(MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE)
+            val lastJourneyIndex = JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull() ?: -1
+            ordered.add(lastJourneyIndex + 1, MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE)
+        }
         return ordered
     }
 
@@ -1001,6 +1011,12 @@ class RtTemplateService(
     private fun jornadaTrabalhoInconstitucionalidadeJornadaHabitual12h(): String =
         JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H_TEMPLATE
 
+    private fun meioAmbienteTrabalhoNocivoSaude(variaveis: Map<String, String?>): String =
+        MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE_TEMPLATE.replace(
+            "{descricaoAmbienteTrabalhoNocivo}",
+            variaveis["descricaoAmbienteTrabalhoNocivo"].orPlaceholder()
+        )
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1344,6 +1360,7 @@ class RtTemplateService(
             "jornada_trabalho_dano_moral_jornada_extenuante"
         const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H =
             "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
+        const val MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE = "meio_ambiente_trabalho_nocivo_saude"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
@@ -1676,6 +1693,29 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
             JORNADA_EXTENUANTE_CONCLUSAO_STF,
             """Pelo exposto, com fundamento no **art. 7º, XXII, da Constituição Federal** (*XXII - redução dos riscos inerentes ao trabalho, por meio de normas de saúde, higiene e segurança*) e nos **arts. 186 e 927 do Código Civil**, **REQUER-SE** a condenação da ré ao pagamento de indenização por danos patrimoniais, pela prática de jornada inconstitucional (com base do salário-hora do empregado)."""
         ).joinToString("\n\n")
+        private val MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE_TEMPLATE = listOf(
+            """A parte autora trabalhava {descricaoAmbienteTrabalhoNocivo}, sem fornecimento de EPIs pela parte ré.""",
+            """A respeito da prestação de trabalho em ambiente nocivo à saúde, como no caso da parte autora, a 2ª Turma do Tribunal Regional do Trabalho da 9ª Região já decidiu:""",
+            """**2ª Turma do Tribunal Regional do Trabalho da 9ª Região**""",
+            MEIO_AMBIENTE_DECISAO_SEGUNDA_TURMA,
+            """(grifo nosso)""",
+            """Veja-se, também, a seguinte decisão da 7ª Turma do TRT-9:""",
+            """**7ª Turma do Tribunal Regional do Trabalho da 9ª Região**""",
+            MEIO_AMBIENTE_DECISAO_SETIMA_TURMA,
+            """(grifo nosso)""",
+            """Em acórdão publicado na data de 19/03/2024, a 5ª Turma do Tribunal Regional do Trabalho da 9ª Região, de relatoria do Exmo. Desembargador Sergio Guimarães Sampaio, no processo n.º 0000582-63.2022.5.09.0095, decidiu o seguinte:""",
+            MEIO_AMBIENTE_DECISAO_QUINTA_TURMA,
+            """A Convenção 155 da Organização Internacional do Trabalho assim prevê sobre a necessidade de existência de um meio ambiente de trabalho seguro e saudável:""",
+            """IV. AÇÃO EM NÍVEL DE EMPRESA""",
+            """Artigo 16""",
+            """1.Deverá ser exigido dos empregadores que, na medida que for razoável e possível, **garantam que os locais de trabalho, o maquinário, os equipamentos e as operações e processos que estiverem sob seu controle são seguros e não envolvem risco algum para a segurança e a saúde dos trabalhadores**.""",
+            """2. Deverá ser exigido dos empregadores que, na medida que for razoável e possível, **garantam que os agentes e as substâncias químicas, físicas e biológicas que estiverem sob seu controle não envolvem riscos para a saúde quando são tomadas medidas de proteção adequadas**.""",
+            """3. Quando for necessário, **os empregadores deverão fornecer roupas e equipamentos de proteção adequados a fim de prevenir, na medida que for razoável e possível, os riscos de acidentes ou de efeitos prejudiciais para a saúde**.""",
+            """(grifo nosso)""",
+            """Pelo exposto, com fundamento nos **arts. 186 e 927 do Código Civil**, no **art. 225 da Constituição Federal** e no **art. 16 da Convenção 155 da OIT**, **REQUER-SE** a condenação da parte ré ao pagamento de indenização por danos morais.""",
+            """Ainda, para fins de produção de prova a respeito desse pedido, **REQUER-SE** a aplicação do § 1º do art. 818 da CLT:""",
+            MEIO_AMBIENTE_ONUS_PROVA
+        ).joinToString("\n\n")
         private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
             """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",
             """Como não há cláusula em instrumento coletivo que disponha de maneira diversa, mantém-se a previsão de intervalo intrajornada de **até 2 horas**, mas a parte autora, notadamente, chegava a praticar intervalos superiores a esse tempo, de modo que, havendo ultrapassagem do limite legal para intervalo intrajornada, esse tempo excedente é considerado, nos termos do **art. 4º da CLT**, como **tempo à disposição do empregador** (*Considera-se como de serviço efetivo o período em que o empregado esteja à disposição do empregador, aguardando ou executando ordens, salvo disposição especial expressamente consignada.*).""",
@@ -1762,6 +1802,14 @@ AGRAVO. AGRAVO DE INSTRUMENTO. RECURSO DE REVISTA. ACORDO DE COMPENSAÇÃO. HORA
         private val MOTORISTA_P14_B2 get() = MOTORISTA_P14_B2_A + MOTORISTA_P14_B2_B
         private const val MOTORISTA_P14_B2_A = "**excessiva dificuldade de cumprir o encargo** nos termos deste artigo ou à "
         private const val MOTORISTA_P14_B2_B = "**maior facilidade de obtenção da prova do fato contrário**, "
+        private val MEIO_AMBIENTE_ONUS_PROVA
+            get() = MOTORISTA_P14_B1 + MOTORISTA_P14_B2 + MOTORISTA_P14_C1 + MOTORISTA_P14_C2
+        private const val MEIO_AMBIENTE_DECISAO_SEGUNDA_TURMA =
+            """MEIO AMBIENTE DO TRABALHO. CONDIÇÕES DEGRADANTES DE TRABALHO. DANOS MORAIS. O direito ao meio de ambiente de trabalho hígido e saudável é constitucionalmente assegurado, refletindo em normas protetivas no plano infraconstitucional. **A submissão do trabalhador a condições degradantes de labor implica em ato ilícito, com o potencial de causar danos morais “in re ipsa” ao empregado, em condições de atrair a responsabilidade civil da empregadora e impor o dever de indenizar os danos causados**. Adotam-se como fundamento a dignidade da pessoa humana, o valor social do trabalho, o direito à vida, à segurança e à saúde. Danos morais devidos, sentença mantida. (TRT-9 - ROT: 00006815120225090089, Relator.: CLAUDIA CRISTINA PEREIRA, Data de Julgamento: 29/09/2023, 2ª Turma)"""
+        private const val MEIO_AMBIENTE_DECISAO_SETIMA_TURMA =
+            """MEIO AMBIENTE DO TRABALHO. INEXISTÊNCIA DE BANHEIROS E REFEITÓRIOS NO LOCAL DE TRABALHO. DANO MORAL CONFIGURADO. A Convenção 155 da OIT dispõe sobre a segurança e saúde dos trabalhadores e o meio ambiente do trabalho, imputando ao empregador a obrigação de assegurar-lhes a concretização de tais garantias. Na mesma diretriz, o Pacto Internacional sobre Direitos Econômicos, Sociais e Culturais (PIDESC) assenta a necessidade de se garantir condições de trabalho justas e favoráveis aos trabalhadores. A Constituição da República, na mesma linha, assegura o direito ao meio ambiente ecologicamente equilibrado, bem como a proteção ao meio ambiente do trabalho (arts. 7º, XII, 225 e 200, da CFRB). **Comprovada nos autos a ausência de instalações sanitárias aptas ao uso dos empregados, fica evidenciada a omissão patronal em assegurar a seus empregados condições salubres ao atendimento de suas necessidades humanas básicas, atentando contra sua dignidade, e sua integridade física e mental, em afronta a mandamento constitucional de proteção da dignidade humana e de valorização do trabalho humano** (art. 1º da CF/88). Dano moral configurado. Sentença mantida, no particular. (TRT-9 - ROT: 00004614020225090643, Relator.: ROSEMARIE DIEDRICHS PIMPAO, Data de Julgamento: 16/11/2023, 7ª Turma)"""
+        private const val MEIO_AMBIENTE_DECISAO_QUINTA_TURMA =
+            """“*Um ambiente de trabalho seguro, saudável e equilibrado é de responsabilidade do empregador. No caso,* ***há evidente precariedade do ambiente laboral, especialmente porque o Réu não disponibilizava estrutura básica mínima à realização de necessidades fisiológicas pelos seus empregados****. Fica claro a omissão patronal com a violação da dignidade obreira, motivo pelo qual deverá ressarcir o dano moral provocado, nos termos do art. 186 e 927 do Código Civil. O fato ilícito praticado pelo Réu está comprovado, o que enseja indenização pelo dano moral sofrido. Presume-se a sua ocorrência do dano em virtude do próprio fato ("damnum in re ipsa"), na medida em que* ***a exposição do indivíduo a condições inapropriadas de trabalho, sem local para realizar suas necessidades básicas, abala a sua esfera moral****.*” (grifo nosso)."""
         private const val MOTORISTA_PARAGRAFO_5 = "Nesse sentido, entende o doutrinador José Affonso Dallegrave Neto (**Responsabilidade civil no direito do trabalho.** 6. Ed. São Paulo: LTr, 2017, p. 278): *\"é inegável que ***o desvio funcional e a dupla função são tidos como ilícitos, na medida em que são caracterizados pela determinação unilateral do empregador, e ao mesmo tempo são prejudiciais ao obreiro, o qual terá de assumir responsabilidades e encargos superiores aos limites do contratado.*** Ao assim proceder, ***o empregador estará exorbitando seu poder de comando (jus variandi) em flagrante abuso de direito de que trata o art. 187 do Código Civil.*** Tais hipóteses caracterizam até mesmo ofensa ao art. 468 da CLT, pois entre a função ajustada na celebração do contrato e o que lhe foi imposto posteriormente haverá sensível margem prejudicial ao trabalhador, mormente quando desacompanhada da respectiva compensação salarial.\"* (grifo nosso)."
         private const val MOTORISTA_CITACAO_TRT_8 = """**Tribunal Regional do Trabalho da 8ª Região**
 [...] III - ACÚMULO DE FUNÇÃO. FUNÇÃO DE MOTORISTA E CARREGADOR - __**Considerando que a testemunha do reclamante afirmou que ele realizava as atividades de motorista e também fazia o descarregamento de mercadorias, restou provado o acúmulo de função, pois fazer descarregamento da mercadoria, de maneira habitual, não pode ser imputada a um motorista, ainda que a sua condição física assim permita, pois é fora das suas atividades típicas**__. [...] Recurso provido. (TRT da 8ª Região; Processo: 0000577-87.2021.5.08.0003 ROT; Data: 07/07/2022; Órgão Julgador: 1ª Turma; Relator.: MARCUS AUGUSTO LOSADA MAIA)
