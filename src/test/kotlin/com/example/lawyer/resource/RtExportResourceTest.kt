@@ -3465,6 +3465,118 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export bathroom restriction damages with field full indentation and formatting`() {
+        val restriction = "as pausas dependiam de autorização e eram limitadas a cinco minutos"
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("dano_moral_limitacao_banheiro", "dano_moral_assedio_moral"),
+                    dadosVariaveis = mapOf("descricaoLimitacaoUsoBanheiro" to restriction)
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("dano_moral_assedio_moral"))
+            .body("blocos[1].id", equalTo("dano_moral_limitacao_banheiro"))
+            .body("blocos[1].titulo", equalTo("Dano moral por limitação à utilização do banheiro"))
+            .body("blocos[1].paragrafosRecuados", equalTo((2..12).toList()))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val text = response.jsonPath().getString("blocos[1].texto")
+        val paragraphs = text.split("\n\n")
+        assertEquals(13, paragraphs.size)
+        assertEquals("A ré controlava as idas da parte autora ao banheiro, porquanto $restriction.", paragraphs[0])
+        assertEquals("A esse respeito, a SBDI-1 do TST já decidiu:", paragraphs[1])
+        assertEquals("**SBDI-1 do TST**", paragraphs[2])
+        assertTrue(paragraphs[3].contains("**O acórdão embargado reflete a jurisprudência desta Corte Superior"))
+        assertTrue(paragraphs[3].endsWith("Relatora Ministra Maria Cristina Irigoyen Peduzzi, DEJT 01/02/2023)"))
+        assertEquals("(grifo nosso)", paragraphs[4])
+        assertEquals("**SBDI-1 do TST**", paragraphs[5])
+        assertTrue(paragraphs[6].contains("***in re ipsa*****"))
+        assertTrue(paragraphs[6].endsWith("Relator Ministro Jose Roberto Freire Pimenta, DEJT 19/03/2021)"))
+        assertEquals("(grifo nosso)", paragraphs[7])
+        assertEquals(
+            "Além disso, o TST também já se pronunciou sobre o *quantum* a ser fixado nessa hipótese:",
+            paragraphs[8]
+        )
+        assertEquals("**6ª Turma do TST**", paragraphs[9])
+        assertTrue(paragraphs[10].contains("**A jurisprudência desta Corte, em especial desta Turma"))
+        assertTrue(paragraphs[10].endsWith("Relator Ministro Augusto Cesar Leite de Carvalho, DEJT 12/05/2023)"))
+        assertEquals("(grifo nosso)", paragraphs[11])
+        assertTrue(paragraphs[12].startsWith("**Pelo exposto, REQUER-SE,"))
+        assertTrue(paragraphs[12].endsWith("danos morais.**"))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste Limitação Banheiro",
+                blocosSelecionados = listOf("dano_moral_limitacao_banheiro"),
+                dadosVariaveis = mapOf("descricaoLimitacaoUsoBanheiro" to restriction)
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst { it.text.startsWith("A ré controlava as idas") }
+            assertTrue(opening >= 0)
+            val body = document.paragraphs.drop(opening).take(13)
+            assertEquals(13, body.size)
+            assertTrue((2..12).all { body[it - 1].indentationLeft > 0 && body[it - 1].indentationRight > 0 })
+            assertTrue(listOf(1, 13).all { body[it - 1].indentationLeft <= 0 })
+            assertTrue(body[2].runs.any { it.isBold && it.text() == "SBDI-1 do TST" })
+            assertTrue(body[6].runs.any { it.isBold && it.isItalic && it.text() == "in re ipsa" })
+            assertTrue(body[8].runs.any { it.isItalic && it.text() == "quantum" })
+            assertTrue(body[9].runs.any { it.isBold && it.text() == "6ª Turma do TST" })
+            assertTrue(body[12].runs.filter { it.text().isNotEmpty() }.all { it.isBold })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should persist and restore bathroom restriction description`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(pessoaRequest(suffix, validCpfFromSuffix(suffix, 7), null, null))
+        val reclamada = pessoaService.create(pessoaRequest("re-$suffix", validCpfFromSuffix(suffix, 8), null, null))
+        val pessoaAdvogado = pessoaService.create(pessoaRequest("adv-$suffix", validCpfFromSuffix(suffix, 9), null, null))
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.banheiro.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "55.555"
+            )
+        )
+        val variables = mapOf(
+            "descricaoLimitacaoUsoBanheiro" to "havia controle de frequência\ne registro do tempo de cada pausa"
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "BANHEIRO-$suffix",
+                descricao = "Persistência da limitação ao banheiro",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf("dano_moral_limitacao_banheiro"),
+                dadosVariaveis = mapOf("dano_moral_limitacao_banheiro" to variables)
+            )
+        )
+
+        assertEquals(variables, processoService.getById(processo.id).dadosVariaveis["dano_moral_limitacao_banheiro"])
+        given().contentType("application/json")
+            .body(RtPreviewRequest(processoId = processo.id, blocosSelecionados = listOf("dano_moral_limitacao_banheiro")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("havia controle de frequência\ne registro do tempo de cada pausa"))
+            .body("blocos[0].texto", containsString("***in re ipsa*****"))
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

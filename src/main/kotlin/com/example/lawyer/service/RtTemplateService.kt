@@ -288,6 +288,11 @@ class RtTemplateService(
             titulo = { "Dano moral por assédio moral" },
             generate = { _, _, _, _ -> danoMoralAssedioMoral() }
         ),
+        DANO_MORAL_LIMITACAO_BANHEIRO to RtBlockDefinition(
+            titulo = { "Dano moral por limitação à utilização do banheiro" },
+            generate = { _, _, variaveis, _ -> danoMoralLimitacaoBanheiro(variaveis) },
+            paragrafosRecuados = (2..12).toSet()
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -463,6 +468,13 @@ class RtTemplateService(
                 ?: ordered.indexOf(PERICULOSIDADE_TANQUE_SUPLEMENTAR).takeIf { it >= 0 }
                 ?: -1
             ordered.add(predecessorIndex + 1, DANO_MORAL_ASSEDIO_MORAL)
+        }
+        if (DANO_MORAL_LIMITACAO_BANHEIRO in ordered) {
+            ordered.remove(DANO_MORAL_LIMITACAO_BANHEIRO)
+            val predecessorIndex = ordered.indexOf(DANO_MORAL_ASSEDIO_MORAL).takeIf { it >= 0 }
+                ?: ordered.indexOf(DANO_MORAL_COBRANCA_ABUSIVA_METAS).takeIf { it >= 0 }
+                ?: -1
+            ordered.add(predecessorIndex + 1, DANO_MORAL_LIMITACAO_BANHEIRO)
         }
         return ordered
     }
@@ -1236,6 +1248,25 @@ class RtTemplateService(
         "**Pelo exposto, REQUER-SE, nos termos dos arts. 1º, 5º, V e X, e 7º, XXVIII, da Constituição Federal e dos arts. 186, 927 e 932, III, do Código Civil, a condenação da parte ré ao pagamento de indenização por danos morais.**"
     ).joinToString("\n\n")
 
+    private fun danoMoralLimitacaoBanheiro(variaveis: Map<String, String?>): String {
+        val descricao = variaveis["descricaoLimitacaoUsoBanheiro"].orPlaceholder()
+        return listOf(
+            "A ré controlava as idas da parte autora ao banheiro, porquanto $descricao.",
+            "A esse respeito, a SBDI-1 do TST já decidiu:",
+            "**SBDI-1 do TST**",
+            "EMBARGOS EM AGRAVO EM RECURSO DE REVISTA - OPOSIÇÃO NA VIGÊNCIA DA LEI Nº 13.467/2017 - DANO MORAL - CONFIGURAÇÃO - LIMITE DE TEMPO PARA USO DO SANITÁRIO 1. **O acórdão embargado reflete a jurisprudência desta Corte Superior, que se orienta no sentido de que restrição ao uso do banheiro, mediante controle do tempo ou da frequência, expõe indevidamente a privacidade e a intimidade do empregado, ofende sua dignidade, configura abuso do poder diretivo e enseja o pagamento de indenização por dano moral**. Óbice do § 2º do art. 894 da CLT. 2. Tampouco se divisa contrariedade à Súmula nº 126 do TST, pois a C. Turma procedeu ao exame da controvérsia considerando os fatos registrados no acórdão regional, atinentes à limitação de pausas para uso do banheiro fora dos períodos de folga e repouso intrajornada. Embargos não conhecidos\" (E-Ag-RR-125600-23.2013.5.13.0023, Subseção I Especializada em Dissídios Individuais, Relatora Ministra Maria Cristina Irigoyen Peduzzi, DEJT 01/02/2023)",
+            "(grifo nosso)",
+            "**SBDI-1 do TST**",
+            "EMBARGOS REGIDOS PELA LEI Nº 11.496/2007. INTERPOSIÇÃO PELA RECLAMADA BRASIL TELECOM S.A. DANO MORAL. OPERADORA DE TELEMARKETING. RESTRIÇÃO AO USO DO BANHEIRO. DANO IN RE IPSA. **O Tribunal Superior do Trabalho tem entendido que a restrição pelo empregador ao uso de banheiro pelos seus empregados fere o princípio da dignidade da pessoa humana, tutelado no artigo 1º, inciso III, da Constituição Federal, traduzindo-se em verdadeiro abuso no exercício do poder diretivo da empresa (artigo 2º da CLT), o que configura ato ilícito, sendo, assim, indenizável o dano moral sofrido pelos empregados**. Precedentes desta Corte. Por outro lado, cabe salientar que **a ofensa à honra subjetiva da reclamante revela-se** ***in re ipsa*****, **ou seja, presume-se, sendo desnecessário qualquer tipo de prova para demonstrar o abalo moral sofrido em decorrência da restrição ao uso do banheiro a que a trabalhadora estava submetida**. Isso significa afirmar que o dano moral se configura, independentemente de seus efeitos, já que a dor, o sofrimento, a angústia, a tristeza ou o abalo psíquico da vítima não são passíveis de serem materialmente demonstrados, bastando que ocorra violação efetiva a um direito da personalidade e da dignidade da pessoa humana para que o dano moral esteja configurado. Embargos não conhecidos. [...] (E-RR-1916700-72.2005.5.09.0029, Subseção I Especializada em Dissídios Individuais, Relator Ministro Jose Roberto Freire Pimenta, DEJT 19/03/2021)",
+            "(grifo nosso)",
+            "Além disso, o TST também já se pronunciou sobre o *quantum* a ser fixado nessa hipótese:",
+            "**6ª Turma do TST**",
+            "[...] INDENIZAÇÃO POR DANOS MORAIS. RESTRIÇÃO AO USO DO BANHEIRO. REDUÇÃO DO VALOR. No caso, resultaram provados o controle e a limitação no uso do banheiro pelo autor. **A jurisprudência desta Corte, em especial desta Turma, acerca do valor fixado a título de indenização por danos morais em face da restrição ao uso de sanitário, no sentido de o valor de R$ 10.000,00 (dez mil reais) mostrar-se adequado**. Desse modo, considerando a capacidade econômica da ré, a jurisprudência desta Corte a as premissas fáticas dos autos, o Regional, ao fixar o valor de R$ 10.000,00 à indenização por danos morais, observou os princípios da proporcionalidade e razoabilidade que norteiam a matéria em relação à reclamada, desempenhando, ainda, seu papel punitivo-pedagógico, não se mostrando excessivo o valor da indenização. Recurso de revista não conhecido. [...] (RR-1306-24.2010.5.09.0019, 6ª Turma, Relator Ministro Augusto Cesar Leite de Carvalho, DEJT 12/05/2023)",
+            "(grifo nosso)",
+            "**Pelo exposto, REQUER-SE, nos termos dos arts. 1º, 5º, V e X, e 7º, XXVIII, da Constituição Federal e dos arts. 186, 927 e 932, III, do Código Civil, a condenação da parte ré ao pagamento de indenização a título de danos morais.**"
+        ).joinToString("\n\n")
+    }
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1590,6 +1621,7 @@ class RtTemplateService(
         const val PERICULOSIDADE_TANQUE_SUPLEMENTAR = "periculosidade_tanque_suplementar"
         const val DANO_MORAL_COBRANCA_ABUSIVA_METAS = "dano_moral_cobranca_abusiva_metas"
         const val DANO_MORAL_ASSEDIO_MORAL = "dano_moral_assedio_moral"
+        const val DANO_MORAL_LIMITACAO_BANHEIRO = "dano_moral_limitacao_banheiro"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
