@@ -2701,7 +2701,7 @@ class RtExportResourceTest {
             .body(
                 RtPreviewRequest(
                     blocosSelecionados = listOf(
-                        "diferencas_diarias_viagem",
+                        "diarias_viagem",
                         "ausencia_depositos_fgts",
                         "meio_ambiente_trabalho_nocivo_saude"
                     ),
@@ -2717,8 +2717,8 @@ class RtExportResourceTest {
             .body("blocos.size()", equalTo(3))
             .body("blocos[0].id", equalTo("meio_ambiente_trabalho_nocivo_saude"))
             .body("blocos[1].id", equalTo("ausencia_depositos_fgts"))
-            .body("blocos[2].id", equalTo("diferencas_diarias_viagem"))
-            .body("blocos[2].titulo", equalTo("Diferenças de diárias de viagem"))
+            .body("blocos[2].id", equalTo("diarias_viagem"))
+            .body("blocos[2].titulo", equalTo("Diárias de viagem"))
             .extract().response()
 
         val paragraphs = response.jsonPath().getString("blocos[2].texto").split("\n\n")
@@ -2739,7 +2739,7 @@ class RtExportResourceTest {
     fun `should export travel allowance differences preserving all paragraphs`() {
         val payload = """{
             "claimantName":"Teste Diárias",
-            "blocosSelecionados":["diferencas_diarias_viagem"],
+            "blocosSelecionados":["diarias_viagem"],
             "dadosVariaveis":{
                 "clausulaConvencional":"15ª",
                 "cctReferencia":"2025/2026",

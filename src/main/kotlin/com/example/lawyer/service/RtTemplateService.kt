@@ -254,8 +254,8 @@ class RtTemplateService(
             titulo = { "Ausência de depósitos de FGTS" },
             generate = { _, _, _, _ -> ausenciaDepositosFgts() }
         ),
-        DIFERENCAS_DIARIAS_VIAGEM to RtBlockDefinition(
-            titulo = { "Diferenças de diárias de viagem" },
+        DIARIAS_VIAGEM to RtBlockDefinition(
+            titulo = { "Diárias de viagem" },
             generate = { _, _, variaveis, _ -> diferencasDiariasViagem(variaveis) }
         ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
@@ -370,13 +370,13 @@ class RtTemplateService(
                 ?: -1
             ordered.add(predecessorIndex + 1, AUSENCIA_DEPOSITOS_FGTS)
         }
-        if (DIFERENCAS_DIARIAS_VIAGEM in ordered) {
-            ordered.remove(DIFERENCAS_DIARIAS_VIAGEM)
+        if (DIARIAS_VIAGEM in ordered) {
+            ordered.remove(DIARIAS_VIAGEM)
             val predecessorIndex = ordered.indexOf(AUSENCIA_DEPOSITOS_FGTS).takeIf { it >= 0 }
                 ?: ordered.indexOf(MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE).takeIf { it >= 0 }
                 ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
                 ?: -1
-            ordered.add(predecessorIndex + 1, DIFERENCAS_DIARIAS_VIAGEM)
+            ordered.add(predecessorIndex + 1, DIARIAS_VIAGEM)
         }
         return ordered
     }
@@ -1394,7 +1394,7 @@ class RtTemplateService(
             "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
         const val MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE = "meio_ambiente_trabalho_nocivo_saude"
         const val AUSENCIA_DEPOSITOS_FGTS = "ausencia_depositos_fgts"
-        const val DIFERENCAS_DIARIAS_VIAGEM = "diferencas_diarias_viagem"
+        const val DIARIAS_VIAGEM = "diarias_viagem"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
