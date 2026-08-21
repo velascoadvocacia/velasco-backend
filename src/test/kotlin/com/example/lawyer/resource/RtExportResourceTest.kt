@@ -2694,6 +2694,75 @@ class RtExportResourceTest {
         saveGeneratedDocument("rt-ausencia-depositos-fgts-multiplas-provas.docx", docx)
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview travel allowance differences with canonical fields and order`() {
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "diferencas_diarias_viagem",
+                        "ausencia_depositos_fgts",
+                        "meio_ambiente_trabalho_nocivo_saude"
+                    ),
+                    dadosVariaveis = mapOf(
+                        "clausulaConvencional" to "15ª",
+                        "cctReferencia" to "2025/2026",
+                        "textoClausulaDiariasViagem" to "Diária integral de R$ 150,00.",
+                        "mediaViagensMensais" to "18"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("meio_ambiente_trabalho_nocivo_saude"))
+            .body("blocos[1].id", equalTo("ausencia_depositos_fgts"))
+            .body("blocos[2].id", equalTo("diferencas_diarias_viagem"))
+            .body("blocos[2].titulo", equalTo("Diferenças de diárias de viagem"))
+            .extract().response()
+
+        val paragraphs = response.jsonPath().getString("blocos[2].texto").split("\n\n")
+        assertEquals(6, paragraphs.size)
+        assertEquals(
+            "A ré não pagou a integralidade das diárias de viagem devidas à parte autora, nos termos da cláusula 15ª da CCT 2025/2026:",
+            paragraphs[0]
+        )
+        assertEquals("Diária integral de R$ 150,00.", paragraphs[1])
+        assertTrue(paragraphs[2].endsWith("conforme previsto na cláusula 15ª da CCT 2025/2026."))
+        assertTrue(paragraphs[3].endsWith("o número de 18 viagens."))
+        assertEquals("OU", paragraphs[4])
+        assertTrue(paragraphs[5].endsWith("nos valores previstos nas CCTs)."))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export travel allowance differences preserving all paragraphs`() {
+        val payload = """{
+            "claimantName":"Teste Diárias",
+            "blocosSelecionados":["diferencas_diarias_viagem"],
+            "dadosVariaveis":{
+                "clausulaConvencional":"15ª",
+                "cctReferencia":"2025/2026",
+                "textoClausulaDiariasViagem":"Valor integral de R$ 150,00.",
+                "mediaViagensMensais":"18"
+            }
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst { it.text.startsWith("A ré não pagou a integralidade das diárias") }
+            assertTrue(opening >= 0)
+            assertEquals("Valor integral de R$ 150,00.", document.paragraphs[opening + 1].text)
+            assertTrue(document.paragraphs[opening + 2].text.startsWith("Pelo exposto, REQUER-SE"))
+            assertTrue(document.paragraphs[opening + 3].text.endsWith("o número de 18 viagens."))
+            assertEquals("OU", document.paragraphs[opening + 4].text)
+            assertTrue(document.paragraphs[opening + 5].text.startsWith("Ainda, para fins de prova"))
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

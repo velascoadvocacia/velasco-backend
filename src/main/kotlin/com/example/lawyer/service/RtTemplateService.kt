@@ -254,6 +254,10 @@ class RtTemplateService(
             titulo = { "Ausência de depósitos de FGTS" },
             generate = { _, _, _, _ -> ausenciaDepositosFgts() }
         ),
+        DIFERENCAS_DIARIAS_VIAGEM to RtBlockDefinition(
+            titulo = { "Diferenças de diárias de viagem" },
+            generate = { _, _, variaveis, _ -> diferencasDiariasViagem(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -365,6 +369,14 @@ class RtTemplateService(
                 ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
                 ?: -1
             ordered.add(predecessorIndex + 1, AUSENCIA_DEPOSITOS_FGTS)
+        }
+        if (DIFERENCAS_DIARIAS_VIAGEM in ordered) {
+            ordered.remove(DIFERENCAS_DIARIAS_VIAGEM)
+            val predecessorIndex = ordered.indexOf(AUSENCIA_DEPOSITOS_FGTS).takeIf { it >= 0 }
+                ?: ordered.indexOf(MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE).takeIf { it >= 0 }
+                ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
+                ?: -1
+            ordered.add(predecessorIndex + 1, DIFERENCAS_DIARIAS_VIAGEM)
         }
         return ordered
     }
@@ -1030,6 +1042,13 @@ class RtTemplateService(
 
     private fun ausenciaDepositosFgts(): String = AUSENCIA_DEPOSITOS_FGTS_TEMPLATE
 
+    private fun diferencasDiariasViagem(variaveis: Map<String, String?>): String =
+        DIFERENCAS_DIARIAS_VIAGEM_TEMPLATE
+            .replace("{clausulaConvencional}", variaveis["clausulaConvencional"].orPlaceholder())
+            .replace("{cctReferencia}", variaveis["cctReferencia"].orPlaceholder())
+            .replace("{textoClausulaDiariasViagem}", variaveis["textoClausulaDiariasViagem"].orPlaceholder())
+            .replace("{mediaViagensMensais}", variaveis["mediaViagensMensais"].orPlaceholder())
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1375,6 +1394,7 @@ class RtTemplateService(
             "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
         const val MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE = "meio_ambiente_trabalho_nocivo_saude"
         const val AUSENCIA_DEPOSITOS_FGTS = "ausencia_depositos_fgts"
+        const val DIFERENCAS_DIARIAS_VIAGEM = "diferencas_diarias_viagem"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
@@ -1734,6 +1754,14 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
         private val AUSENCIA_DEPOSITOS_FGTS_TEMPLATE = listOf(
             """A ré não realizou integralmente os depósitos de FGTS em favor da parte autora, conforme se observa a partir do extrato do FGTS:""",
             """Pelo exposto, à luz do **art.** **7º, III, da Constituição Federal**, **do art. 15 da Lei n. 8.036/1990** e da **Súmula 461 do Tribunal Superior do Trabalho** (que preceitua ser do empregador o ônus da prova a respeito da regularidade dos depósitos de FGTS), **REQUER** seja a ré condenada ao pagamento dos depósitos de FGTS inadimplidos."""
+        ).joinToString("\n\n")
+        private val DIFERENCAS_DIARIAS_VIAGEM_TEMPLATE = listOf(
+            """A ré não pagou a integralidade das diárias de viagem devidas à parte autora, nos termos da cláusula {clausulaConvencional} da CCT {cctReferencia}:""",
+            """{textoClausulaDiariasViagem}""",
+            """Pelo exposto, REQUER-SE a condenação da ré ao pagamento das diferenças a título de diárias de viagem, conforme previsto na cláusula {clausulaConvencional} da CCT {cctReferencia}.""",
+            """Ainda, REQUER seja determinado à ré que junte os controles de jornada da parte autora, para que seja verificada a quantidade de viagens realizadas a cada mês; caso a ré não junte tais documentos, REQUER seja considerada como média de quantidade de viagens realizadas por mês o número de {mediaViagensMensais} viagens.""",
+            """OU""",
+            """Ainda, para fins de prova sobre as viagens feitas e os valores de diárias pagos à parte autora, REQUER-SE a intimação da ré para que junte aos autos os documentos de prestações de contas da parte autora. Na hipótese de ausência de apresentação das prestações de contas, REQUER-SE a adoção, como critério de cálculo, de 26 dias por mês, no valor integral por dia (café da manhã, almoço, jantar e pernoite, nos valores previstos nas CCTs)."""
         ).joinToString("\n\n")
         private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
             """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",
