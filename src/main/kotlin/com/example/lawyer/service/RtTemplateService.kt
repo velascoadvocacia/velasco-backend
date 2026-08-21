@@ -258,6 +258,10 @@ class RtTemplateService(
             titulo = { "Diárias de viagem" },
             generate = { _, _, variaveis, _ -> diferencasDiariasViagem(variaveis) }
         ),
+        VALE_ALIMENTACAO to RtBlockDefinition(
+            titulo = { "Vale-alimentação" },
+            generate = { _, _, variaveis, _ -> valeAlimentacao(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -377,6 +381,15 @@ class RtTemplateService(
                 ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
                 ?: -1
             ordered.add(predecessorIndex + 1, DIARIAS_VIAGEM)
+        }
+        if (VALE_ALIMENTACAO in ordered) {
+            ordered.remove(VALE_ALIMENTACAO)
+            val predecessorIndex = ordered.indexOf(DIARIAS_VIAGEM).takeIf { it >= 0 }
+                ?: ordered.indexOf(AUSENCIA_DEPOSITOS_FGTS).takeIf { it >= 0 }
+                ?: ordered.indexOf(MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE).takeIf { it >= 0 }
+                ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
+                ?: -1
+            ordered.add(predecessorIndex + 1, VALE_ALIMENTACAO)
         }
         return ordered
     }
@@ -1064,6 +1077,17 @@ class RtTemplateService(
         ).joinToString("\n\n")
     }
 
+    private fun valeAlimentacao(variaveis: Map<String, String?>): String {
+        val clausula = variaveis["clausulaCctValeAlimentacao"].orPlaceholder()
+        val cct = variaveis["identificacaoCctValeAlimentacao"].orPlaceholder()
+        return listOf(
+            "A ré não pagou a integralidade dos valores a título de vale-alimentação devidos à parte autora, nos termos da cláusula $clausula da CCT $cct:",
+            variaveis["textoClausulaValeAlimentacao"].orPlaceholder(),
+            DIARIAS_VIAGEM_ONUS_PROVA,
+            "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento das diferenças a título de vale-alimentação, nos termos da cláusula $clausula da CCT $cct."
+        ).joinToString("\n\n")
+    }
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1410,6 +1434,7 @@ class RtTemplateService(
         const val MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE = "meio_ambiente_trabalho_nocivo_saude"
         const val AUSENCIA_DEPOSITOS_FGTS = "ausencia_depositos_fgts"
         const val DIARIAS_VIAGEM = "diarias_viagem"
+        const val VALE_ALIMENTACAO = "vale_alimentacao"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"

@@ -2802,6 +2802,127 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export meal allowance with repeated canonical fields and formatting`() {
+        val variables = mapOf(
+            "clausulaCctValeAlimentacao" to "21ª",
+            "identificacaoCctValeAlimentacao" to "2025/2026",
+            "textoClausulaValeAlimentacao" to "É devido vale-alimentação diário de R$ 35,00."
+        )
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("vale_alimentacao", "diarias_viagem"),
+                    dadosVariaveis = variables + mapOf(
+                        "clausulaCctDiariasViagem" to "15ª",
+                        "identificacaoCctDiariasViagem" to "2025/2026",
+                        "textoClausulaDiariasViagem" to "Diárias convencionais.",
+                        "criterioProvaDiariasViagem" to "PRESTACOES_CONTAS"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("diarias_viagem"))
+            .body("blocos[1].id", equalTo("vale_alimentacao"))
+            .body("blocos[1].titulo", equalTo("Vale-alimentação"))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val paragraphs = response.jsonPath().getString("blocos[1].texto").split("\n\n")
+        assertEquals(4, paragraphs.size)
+        assertEquals(2, paragraphs.count { it.contains("cláusula 21ª da CCT 2025/2026") })
+        assertEquals("É devido vale-alimentação diário de R$ 35,00.", paragraphs[1])
+        assertTrue(paragraphs[2].startsWith("Para fins de produção de prova"))
+        assertTrue(paragraphs[2].contains("* ***maior facilidade de obtenção da prova do fato contrário****"))
+        assertFalse(paragraphs[2].contains("\n"))
+        assertTrue(paragraphs[3].startsWith("Pelo exposto, **REQUER-SE**"))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste Vale Alimentacao",
+                blocosSelecionados = listOf("vale_alimentacao"),
+                dadosVariaveis = mapOf(
+                    "clausulaCctValeAlimentacao" to "21a",
+                    "identificacaoCctValeAlimentacao" to "2025/2026",
+                    "textoClausulaValeAlimentacao" to "Valor diario de R$ 35,00."
+                )
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst { it.text.startsWith("A ré não pagou a integralidade dos valores") }
+            assertTrue(opening >= 0)
+            val blockParagraphs = document.paragraphs.drop(opening).take(4)
+            assertEquals(4, blockParagraphs.size)
+            assertEquals("Valor diario de R$ 35,00.", blockParagraphs[1].text)
+            val proof = blockParagraphs[2]
+            assertTrue(proof.runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(proof.runs.any { it.isBold && it.isItalic && it.text().contains("maior facilidade") })
+            assertTrue(proof.runs.any { it.isItalic && it.text().contains("Nos casos previstos em lei") })
+            assertTrue(blockParagraphs[3].runs.any { it.isBold && it.text() == "REQUER-SE" })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should persist and restore meal allowance variables`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(
+            pessoaRequest(suffix, validCpfFromSuffix(suffix, 1), null, null)
+        )
+        val reclamada = pessoaService.create(
+            pessoaRequest("re-$suffix", validCpfFromSuffix(suffix, 2), null, null)
+        )
+        val pessoaAdvogado = pessoaService.create(
+            pessoaRequest("adv-$suffix", validCpfFromSuffix(suffix, 3), null, null)
+        )
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.vale.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "88.888"
+            )
+        )
+        val variables = mapOf(
+            "clausulaCctValeAlimentacao" to "21ª",
+            "identificacaoCctValeAlimentacao" to "CCT 2025/2026",
+            "textoClausulaValeAlimentacao" to "Conteúdo integral da cláusula de vale-alimentação."
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "VALE-$suffix",
+                descricao = "Persistência do vale-alimentação",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf("vale_alimentacao"),
+                dadosVariaveis = mapOf("vale_alimentacao" to variables)
+            )
+        )
+
+        assertEquals(variables, processoService.getById(processo.id).dadosVariaveis["vale_alimentacao"])
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    processoId = processo.id,
+                    blocosSelecionados = listOf("vale_alimentacao")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("cláusula 21ª da CCT CCT 2025/2026"))
+            .body("blocos[0].texto", containsString("Conteúdo integral da cláusula de vale-alimentação."))
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
