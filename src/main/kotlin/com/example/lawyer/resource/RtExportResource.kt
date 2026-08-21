@@ -98,6 +98,20 @@ class RtExportResource(
     fun motoristaCarreteiroImage2(): Response =
         Response.ok(staticAssetBytes(RtTemplateService.MOTORISTA_CARRETEIRO_IMAGE_2_PATH), "image/png").build()
 
+    @GET
+    @Path("/assets/l-jornada-extenuante-1")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun jornadaExtenuanteImage1(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.JORNADA_EXTENUANTE_IMAGE_1_PATH), "image/png").build()
+
+    @GET
+    @Path("/assets/l-jornada-extenuante-2")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun jornadaExtenuanteImage2(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.JORNADA_EXTENUANTE_IMAGE_2_PATH), "image/png").build()
+
     @POST
     @Path("/export")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -263,6 +277,24 @@ class RtExportResource(
                     afterParagraph = 5,
                     originalWidthPx = TRABALHO_DIAS_DESCANSO_IMAGE_WIDTH_PX,
                     originalHeightPx = TRABALHO_DIAS_DESCANSO_IMAGE_HEIGHT_PX
+                )
+            )
+            RtTemplateService.JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE -> listOf(
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.JORNADA_EXTENUANTE_IMAGE_1_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.JORNADA_EXTENUANTE_IMAGE_1_NAME,
+                    afterParagraph = 18,
+                    originalWidthPx = 736,
+                    originalHeightPx = 662
+                ),
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.JORNADA_EXTENUANTE_IMAGE_2_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.JORNADA_EXTENUANTE_IMAGE_2_NAME,
+                    afterParagraph = 21,
+                    originalWidthPx = 690,
+                    originalHeightPx = 843
                 )
             )
             RtTemplateService.DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(

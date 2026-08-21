@@ -236,6 +236,11 @@ class RtTemplateService(
             generate = { _, _, _, _ -> jornadaTrabalhoInconstitucionalidadeTempoEspera() },
             paragrafosRecuados = setOf(2, 3)
         ),
+        JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE to RtBlockDefinition(
+            titulo = { "l. Dano moral pelo cumprimento de jornada extenuante" },
+            generate = { _, _, variaveis, _ -> jornadaTrabalhoDanoMoralJornadaExtenuante(variaveis) },
+            paragrafosRecuados = (5..17).toSet()
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -313,6 +318,9 @@ class RtTemplateService(
         if (JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA in ordered && JORNADA_TRABALHO !in ordered) {
             ordered.remove(JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA)
         }
+        if (JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE in ordered && JORNADA_TRABALHO !in ordered) {
+            ordered.remove(JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE)
+        }
         if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
             ordered.add(ordered.indexOf(DANO_MORAL_AUSENCIA_ANOTACAO_CTPS) + 1, RETENCAO_CTPS_DANO_MORAL)
@@ -365,6 +373,20 @@ class RtTemplateService(
                     contentType = "image/png",
                     nomeOriginal = TRABALHO_DIAS_DESCANSO_IMAGE_NAME,
                     afterParagraph = 5
+                )
+            )
+            JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE -> listOf(
+                RtPreviewInlineImageResponse(
+                    url = JORNADA_EXTENUANTE_IMAGE_1_URL,
+                    contentType = "image/png",
+                    nomeOriginal = JORNADA_EXTENUANTE_IMAGE_1_NAME,
+                    afterParagraph = 18
+                ),
+                RtPreviewInlineImageResponse(
+                    url = JORNADA_EXTENUANTE_IMAGE_2_URL,
+                    contentType = "image/png",
+                    nomeOriginal = JORNADA_EXTENUANTE_IMAGE_2_NAME,
+                    afterParagraph = 21
                 )
             )
             DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(
@@ -955,6 +977,12 @@ class RtTemplateService(
     private fun jornadaTrabalhoInconstitucionalidadeTempoEspera(): String =
         JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA_TEMPLATE
 
+    private fun jornadaTrabalhoDanoMoralJornadaExtenuante(variaveis: Map<String, String?>): String =
+        JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE_TEMPLATE.replace(
+            "{mediaHorasJornadaDiaria}",
+            variaveis["mediaHorasJornadaDiaria"].orPlaceholder()
+        )
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1294,6 +1322,14 @@ class RtTemplateService(
         const val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA = "jornada_trabalho_intervalo_intrajornada"
         const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA =
             "jornada_trabalho_inconstitucionalidade_tempo_espera"
+        const val JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE =
+            "jornada_trabalho_dano_moral_jornada_extenuante"
+        const val JORNADA_EXTENUANTE_IMAGE_1_NAME = "l_jornada_extenuante1.png"
+        const val JORNADA_EXTENUANTE_IMAGE_2_NAME = "l_jornada_extenuante2.png"
+        const val JORNADA_EXTENUANTE_IMAGE_1_PATH = "/assets/$JORNADA_EXTENUANTE_IMAGE_1_NAME"
+        const val JORNADA_EXTENUANTE_IMAGE_2_PATH = "/assets/$JORNADA_EXTENUANTE_IMAGE_2_NAME"
+        const val JORNADA_EXTENUANTE_IMAGE_1_URL = "/rt/assets/l-jornada-extenuante-1"
+        const val JORNADA_EXTENUANTE_IMAGE_2_URL = "/rt/assets/l-jornada-extenuante-2"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_NAME = "e_Trabalho_em_dias_de_descanso.png"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_PATH = "/assets/$TRABALHO_DIAS_DESCANSO_IMAGE_NAME"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_URL = "/rt/assets/e-trabalho-dias-descanso"
@@ -1343,6 +1379,70 @@ class RtTemplateService(
             MOTORISTA_PARAGRAFO_13,
             MOTORISTA_PARAGRAFO_14
         ).joinToString("\n\n")
+        private val JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS
+            get() = JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS_1 +
+                JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS_2 +
+                JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS_3
+        private val JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS_1 = listOf(
+            """Ou seja, o TST entende que a prática de jornada excessiva de trabalho muito além dos limites constitucionais afronta o art. 6º da Constituição Federal (*São* ***direitos sociais**** a educação, a saúde, a alimentação, o trabalho, a moradia, o transporte,* ***o lazer****, a segurança, a previdência social, a proteção à maternidade e à infância, a assistência aos desamparados, na forma desta Constituição*.).""",
+            JORNADA_EXTENUANTE_INTRO_TRT9,
+            """**3ª Turma do Tribunal Regional do Trabalho da 9ª Região**""",
+            JORNADA_EXTENUANTE_PRECEDENTE_TRT9,
+            """O TRT da 9ª Região assim noticiou esse julgado ([https://www.trt9.jus.br/portal/noticias.xhtml?id=8871850](https://www.trt9.jus.br/portal/noticias.xhtml?id=8871850)):"""
+        )
+        private val JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS_2 = listOf(
+            """Sobre esse tema, é importante destacar que o Supremo Tribunal Federal considera **inconstitucional** a prática de jornada ordinária de doze horas de trabalho.""",
+            JORNADA_EXTENUANTE_ADI_5322,
+            """Veja-se o trecho do acórdão do STF sobre esse fundamento, com grifo nosso ([https://portal.stf.jus.br/processos/detalhe.asp?incidente=4778925](https://portal.stf.jus.br/processos/detalhe.asp?incidente=4778925)):"""
+        )
+        private val JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS_3
+            get() = listOf(
+            JORNADA_EXTENUANTE_CONCLUSAO_STF,
+            JORNADA_EXTENUANTE_PEDIDO_DANOS_MORAIS,
+            JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA
+        )
+        private const val JORNADA_EXTENUANTE_CONCLUSAO_STF =
+            """Portanto, em consonância com o que decidiu o Supremo Tribunal Federal, jornadas ordinárias de doze horas de trabalho diárias são inconstitucionais, na medida em que afrontam o **art. 7º, XIII, da Constituição Federal**, que assegura a *duração do trabalho normal não superior a oito horas diárias e quarenta e quatro semanais, facultada a compensação de horários e a redução da jornada, mediante acordo ou convenção coletiva de trabalho*."""
+        private const val JORNADA_EXTENUANTE_PEDIDO_DANOS_MORAIS =
+            """Pelo exposto, com fundamento no **art. 7º, XXII, da Constituição Federal** (*XXII - redução dos riscos inerentes ao trabalho, por meio de normas de saúde, higiene e segurança*) e nos **arts. 186 e 927 do Código Civil**, **REQUER-SE** a condenação da ré ao pagamento de danos morais."""
+        private val JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA
+            get() = JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_1 +
+                JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_2 +
+                JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_3 +
+                JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_4 +
+                JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_5 +
+                JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_6
+        private const val JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_1 =
+            """Para fins de produção de prova a respeito desse pedido, **REQUER-SE** a aplicação do § 1º do art. 818 da CLT: *Nos casos previstos em lei ou diante de peculiaridades da causa relacionadas à impossibilidade ou à* """
+        private const val JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_2 =
+            "***excessiva dificuldade de cumprir o encargo**** nos termos deste artigo ou à* "
+        private const val JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_3 =
+            "***maior facilidade de obtenção da prova do fato contrário****, poderá o juízo* "
+        private const val JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_4 =
+            "***atribuir o ônus da prova de modo diverso****, desde que o faça por decisão "
+        private const val JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_5 =
+            "fundamentada, caso em que deverá dar à parte a oportunidade de se desincumbir "
+        private const val JORNADA_EXTENUANTE_PEDIDO_ONUS_PROVA_6 = "do ônus que lhe foi atribuído.*"
+        private val JORNADA_EXTENUANTE_PRECEDENTE_TST_3
+            get() = JORNADA_EXTENUANTE_PRECEDENTE_TST_3_1 +
+                JORNADA_EXTENUANTE_PRECEDENTE_TST_3_2 +
+                JORNADA_EXTENUANTE_PRECEDENTE_TST_3_3
+        private const val JORNADA_EXTENUANTE_PRECEDENTE_TST_3_1 =
+            """[...] RECURSO DE REVISTA. FALECIMENTO DO TRABALHADOR. AÇÃO AJUIZADA PELA VIÚVA E PELA FILHA. DANO MORAL. QUANTUM INDENIZATÓRIO. Não há na legislação pátria delineamento do quantum a ser fixado a título de dano moral. Caberá ao juiz fixá-lo, equitativamente, sem se afastar da máxima cautela e sopesando todo o conjunto probatório constante dos autos. A lacuna legislativa na seara laboral quanto aos critérios para fixação leva o julgador a lançar mão do princípio da razoabilidade, cujo corolário é o princípio da proporcionalidade, pelo qual se estabelece a relação de equivalência entre a gravidade da lesão e o valor monetário da indenização imposta, de modo que possa propiciar a certeza de que o ato ofensor não fique impune e servir de desestímulo a práticas inadequadas aos parâmetros da lei. """
+        private const val JORNADA_EXTENUANTE_PRECEDENTE_TST_3_2 =
+            """Na fixação desse montante, ademais, cabe sopesar a presença efetiva (ou não) de ato imprudente ou negligente da vítima – culpa concorrente da vítima -, circunstância que, por proporcionalidade, atenua o valor indenizatório. De todo modo, é oportuno registrar que a jurisprudência desta Corte vem se direcionando no sentido de rever o valor fixado nas instâncias ordinárias a título de indenização apenas para reprimir valores estratosféricos ou excessivamente módicos. No presente caso, embora tenha sido reconhecida a culpa concorrente do trabalhador, tem-se que o valor fixado no acórdão a título de dano moral (R$33.368,72) é excessivamente módico e desproporcional ao dano sofrido. """
+        private const val JORNADA_EXTENUANTE_PRECEDENTE_TST_3_3 =
+            """Com efeito,** várias circunstâncias autorizam a majoração do** ***quantum***** indenizatório, porquanto culminaram na morte do trabalhador**, a saber: a Reclamada permitiu que o empregado desenvolvesse suas atividades sem se utilizar dos equipamentos de segurança e proteção contra riscos eventuais, o que demonstra que se omitiu de observar e pôr em prática as normas legais de segurança e medicina do trabalho; **o Reclamante, no dia do acidente, se submeteu a uma jornada excessiva de trabalho, conforme registrado no acórdão, ou seja, não possuía a higidez física e mental necessária ao desenvolvimento normal de suas atividades, ressaltando-se que a sua condição de eletricista de manutenção, por si só, já traduz atividade de risco por excelência.** **Logo, partindo-se de parâmetros razoáveis, como a intensidade do sofrimento, a gravidade do dano, o grau de culpa do ofensor e a sua condição econômica, o não enriquecimento indevido da vítima e o caráter pedagógico da medida, entende-se devida a majoração do valor da indenização por dano moral para R$170.000,00** (cento e setenta mil reais). Recurso de revista conhecido e provido, no aspecto "(RR-6302-55.2006.5.05.0621, 3ª Turma, Relator Ministro Mauricio Godinho Delgado, DEJT 25/05/2012)"""
+        private const val JORNADA_EXTENUANTE_PRECEDENTE_TST_4 =
+            """[...] RECURSO DE REVISTA. INDENIZAÇÃO POR DANO EXISTENCIAL. JORNADA LABORAL EXTENUANTE POR LONGO PERÍODO. Não é qualquer conduta isolada e de curta duração, por parte do empregador, que pode ser considerada como um dano existencial. Para isso, a conduta deve perdurar no tempo, sendo capaz de alterar o objetivo de vida do trabalhador, trazendo-lhe um prejuízo à sua dignidade humana ou à sua personalidade, e no âmbito de suas relações sociais. Verifica-se que, em especial, o trabalho prestado em jornadas que excedem habitualmente o limite legal de duas horas extras diárias, tido como parâmetro tolerável, representa afronta aos direitos fundamentais do trabalhador, por prejudicar o seu desenvolvimento pessoal e as relações sociais. Na hipótese dos autos, o Regional registrou que foi reconhecido em outra ação judicial que o empregado foi submetido, por mais de 5 anos, a uma **jornada extenuante de mais de 13 horas** (das 7h às 21h, com 1 hora de intervalo intrajornada, de segunda-feira a sábado, e das 7h às 16h, também com uma hora de intervalo intrajornada, em três domingos por mês e em metade dos feriados), o que importava em **privações de suas atividades existenciais (na família, instrução, esporte, lazer, etc)**, motivo pelo qual concluiu que houve efetivo dano existencial, pois no período **o Autor tinha a vida limitada a alimentar-se, dormir e trabalhar**. O único aresto transcrito para configurar a divergência jurisprudencial é inespecífico, nos termos da Súmula n.º 296, I, do TST, pois não se identifica com a hipótese fática delineada pelo Regional. Decisão mantida. [...] (RR-78-64.2012.5.04.0251, 4ª Turma, Relatora Ministra Maria de Assis Calsing, DEJT 14/11/2014)"""
+        private const val JORNADA_EXTENUANTE_PRECEDENTE_TST_2 =
+            """[...] II - RECURSO DE REVISTA REGIDO PELA LEI 13.015/2014. INDENIZAÇÃO POR DANOS MORAIS EM DECORRÊNCIA DE DANOS EXISTENCIAIS. JORNADA EXAUSTIVA (12 HORAS). DANO IN RE IPSA. No caso, o Tribunal Regional declarou a invalidade do regime de turnos ininterruptos de revezamento ao qual o reclamante era submetido, uma vez que entendeu que restou demonstrado o extrapolamento habitual da jornada de oito horas prevista em norma coletiva. Conforme se pode extrair do acórdão recorrido, **o autor chegava a trabalhar por mais de 12 horas por dia**. Consoante jurisprudência desta Corte, a submissão à jornada excessiva ocasiona dano existencial, em que a conduta da empresa limita a vida pessoal do empregado, inibindo-o do convívio social e familiar, além de impedir o investimento de seu tempo em reciclagem profissional e estudos. Assim, **uma vez vislumbrada a jornada exaustiva, como no caso destes autos, a reparação do dano não depende de comprovação dos transtornos sofridos pela parte, pois trata-se de dano** ***in re ipsa*****, ou seja, deriva da própria natureza do fato gravoso.** Indenização fixada no valor de R$ 20.000,00 (vinte mil reais), na esteira das decisões proferidas por esta Turma em casos semelhantes. Recurso de revista conhecido e provido. (ARR - 982-82.2014.5.04.0811, Relatora Ministra: Delaíde Miranda Arantes, Data de Julgamento: 10/04/2019, 2ª Turma, Data de Publicação: DEJT 16/04/2019)"""
+        private const val JORNADA_EXTENUANTE_INTRO_TRT9 =
+            """Em acórdão publicado na data de 23/08/2024, a 3ª Turma do Tribunal Regional do Trabalho da 9ª Região entendeu que “*jornadas de trabalho excessivamente extensas durante longos períodos, sem descanso semanal, demonstram, por si só, violação à saúde e à integridade do trabalhador, além de privá-lo do convívio social, ensejando indenização por dano existencial. No caso em exame, considerando que constatado o labor em jornadas diárias que habitualmente superavam 17 horas de trabalho com desrespeito ao descanso semanal, impõe-se a condenação da reclamada ao pagamento de indenização por dano existencial*”, conforme a seguinte ementa desse importante precedente:"""
+        private const val JORNADA_EXTENUANTE_PRECEDENTE_TRT9 =
+            """DANO EXISTENCIAL. OFENSA À DIGNIDADE DO TRABALHADOR. JORNADA EXCESSIVAMENTE EXTENSA. INDENIZAÇÃO DEVIDA. O dano moral se caracteriza pelo ato ilícito do empregador que afronta a direito de personalidade do trabalhador, enquanto o dano existencial pode ser identificado quando o trabalho é realizado fora das condições de segurança para a saúde do trabalhador, impactando seu bem-estar físico e psíquico. A prestação de labor extraordinário encontra-se autorizada na legislação e a sua remuneração expressamente prevista, de modo que a mera prestação de horas extras, via de regra, não possui aptidão para atentar contra os direitos da personalidade do empregado. Contudo, **jornadas de trabalho excessivamente extensas durante longos períodos, sem descanso semanal, demonstram, por si só, violação à saúde e à integridade do trabalhador, além de privá-lo do convívio social, ensejando indenização por dano existencial**. No caso em exame, considerando que **constatado o labor em jornadas diárias que habitualmente superavam 17 horas de trabalho com desrespeito ao descanso semanal, impõe-se a condenação da reclamada ao pagamento de indenização por dano existencial**. Recurso ordinário do reclamante a que se dá provimento. (Tribunal Regional do Trabalho da 9ª Região (3ª Turma). Acórdão: 0000574-78.2021.5.09.0594. Relator(a): EDUARDO MILLEO BARACAT. Data de julgamento: 14/08/2024. Juntado aos autos em 21/08/2024. Disponível em: [https://link.jt.jus.br/s5CFdV](https://link.jt.jus.br/s5CFdV) - grifo nosso)"""
+        private const val JORNADA_EXTENUANTE_ADI_5322 =
+            """Na Ação Direta de Inconstitucionalidade 5.322/DF, decidindo a respeito da constitucionalidade da prorrogação de jornada por até doze horas, o ministro relator, Alexandre de Moraes, em seu voto condutor, entendeu que não é inconstitucional a prorrogação da jornada dos motoristas profissionais por até doze horas, conforme permissão legal do art. 235-C da CLT (*A jornada diária de trabalho do motorista profissional será de 8 (oito) horas, admitindo-se a sua prorrogação por até 2 (duas) horas extraordinárias ou, mediante previsão em convenção ou acordo coletivo, por até 4 (quatro) horas extraordinárias.*), desde que a prorrogação de jornada de até doze horas não seja habitual, ou seja, realmente se trate de uma hipótese excepcional: “*Como visto acima, a profissão de motorista possui regramento especial em razão da própria dinâmica que envolve o transporte rodoviário de pessoas e de cargas, de modo que a novel legislação permitiu que, por intermédio de negociação coletiva, seja autorizada a prestação de trabalho extraordinário por até quatro horas. Com efeito,* ***não se pode interpretar a norma legal partindo do pressuposto de que a jornada de trabalho do motorista profissional seja de doze horas trabalhadas diariamente, o que, de certo, seria inconstitucional****. Como o próprio dispositivo impugnado estabeleceu,* ***a jornada ordinária de trabalho do motorista profissional é de oito horas, podendo se estender por duas horas em regime de trabalho excepcional, ou, até quatro, se houver sido acordado por convenção ou acordo coletivo de trabalho****. No último caso, a norma privilegiou a autonomia da vontade coletiva.*” (grifo nosso)."""
         private val SALARIO_A_LATERE_TEMPLATE = listOf(
             "Durante o contrato de trabalho, a parte autora recebia, {formaRecebimento} \"POR FORA\", em média, **R$ {valorMedioMensal} \"por fora\"**.",
             "Como a parte autora recebia valores que não eram computados como verbas salariais, houve enriquecimento sem justa causa do empregador, à luz do **art. 884 do Código Civil**.",
@@ -1389,7 +1489,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_INTERVALO_INTERJORNADA,
             JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA,
             JORNADA_TRABALHO_INTERVALO_INTRAJORNADA,
-            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA
+            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA,
+            JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1526,6 +1627,23 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
             """(grifo nosso)""",
             """Tendo em vista a declaração de inconstitucionalidade proferida na ADI 5322, **REQUER** seja considerado o tempo de espera como **tempo à disposição do empregador** (art. 4º da CLT), com a consequente condenação da ré ao pagamento de horas extras e RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, adicional noturno e adicional de periculosidade.""",
             """Diante da necessidade de juntada, pela parte ré, dos controles de jornada e holerites da parte autora para fins de atribuição de valor estimado a este pedido, formula-se pedido genérico, com fundamento no art. 324, § 1º, III, do CPC."""
+        ).joinToString("\n\n")
+        private val JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE_TEMPLATE = (
+            listOf(
+                """A jornada da parte autora era, em média, de {mediaHorasJornadaDiaria} horas por dia, pelo que desempenhava habitualmente jornadas extenuantes, sendo evidente que o excesso de jornada agrediu sua vida, com o afastamento de seu **convívio social e familiar**, além de aumentar consideravelmente o risco de sofrer acidentes. Em situações extremas, quando o trabalhador é submetido a jornadas exaustivas e extenuantes, capazes de comprometer sua integridade física, moral e psíquica, há ofensa moral ao empregado, em razão da vulneração desses direitos constitucionais.""",
+                """O direito ao lazer é um direito fundamental, previsto no *caput* do **art. 6º da Constituição Federal**, sendo evidente que, diante da jornada praticada, não havia qualquer possibilidade de usufruir desse direito fundamental de maneira satisfatória.""",
+                """Ainda, é notório que a submissão a jornadas extensas durante longo período de tempo pode ensejar problemas à saúde e à higidez física do trabalhador, além de desgaste emocional que pode resultar em doenças e problemas psíquicos. Não são raros os casos em que a jornada excessiva resulta em acidentes no ambiente laboral ou desencadeiam doenças relacionadas com o trabalho.""",
+                """Nesse sentido, o TST considera **a jornada excessiva como fator de risco de acidente de trabalho e que aumenta o grau de culpa do empregador**:""",
+                """**3ª Turma do TST**""",
+                JORNADA_EXTENUANTE_PRECEDENTE_TST_3,
+                """(grifo nosso)""",
+                """**4ª Turma do TST**""",
+                JORNADA_EXTENUANTE_PRECEDENTE_TST_4,
+                """(grifo nosso)""",
+                """**2ª Turma do TST**""",
+                JORNADA_EXTENUANTE_PRECEDENTE_TST_2,
+                """(grifo nosso)"""
+            ) + JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS
         ).joinToString("\n\n")
         private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
             """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",

@@ -171,6 +171,8 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                 )
             } else if (block.id == RtTemplateService.JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA) {
                 configureWaitingTimeParagraphPagination(document.paragraphs.last(), paragraphNumber)
+            } else if (block.id == RtTemplateService.JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE) {
+                configureExtenuatingJourneyParagraphPagination(document.paragraphs.last(), paragraphNumber)
             }
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             block.anexos
@@ -179,7 +181,11 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
             block.imagensFixas
                 .filter { it.afterParagraph == index + 1 }
                 .forEach { image ->
-                    addInlineImage(document, image)
+                    addInlineImage(
+                        document,
+                        image,
+                        spaced = block.id == RtTemplateService.JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE
+                    )
                     image.caption?.let { createImageCaption(document, it) }
                 }
         }
@@ -207,6 +213,16 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         }
         if (paragraphNumber == 3) {
             properties.addNewKeepLines().`val` = true
+        }
+    }
+
+    private fun configureExtenuatingJourneyParagraphPagination(
+        paragraph: XWPFParagraph,
+        paragraphNumber: Int
+    ) {
+        if (paragraphNumber == 18 || paragraphNumber == 21) {
+            val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+            properties.addNewKeepNext().`val` = true
         }
     }
 
@@ -428,12 +444,22 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         }
     }
 
-    private fun addInlineImage(document: XWPFDocument, image: RtExportInlineImageRequest) {
+    private fun addInlineImage(
+        document: XWPFDocument,
+        image: RtExportInlineImageRequest,
+        spaced: Boolean = false
+    ) {
         val widthEmu = Units.toEMU(BODY_IMAGE_MAX_WIDTH_POINTS)
         val heightEmu = (widthEmu.toLong() * image.originalHeightPx / image.originalWidthPx).toInt()
         image.bytes.inputStream().use { input ->
             document.createParagraph().apply {
                 alignment = ParagraphAlignment.CENTER
+                if (spaced) {
+                    val properties = ctp.pPr ?: ctp.addNewPPr()
+                    val spacing = properties.addNewSpacing()
+                    spacing.before = BigInteger.valueOf(FIXED_IMAGE_VERTICAL_SPACING_TWIPS)
+                    spacing.after = BigInteger.valueOf(FIXED_IMAGE_VERTICAL_SPACING_TWIPS)
+                }
                 createRun().addPicture(
                     input,
                     pictureType(image.contentType),
@@ -459,6 +485,7 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         const val TABLE_CELL_HORIZONTAL_MARGIN_TWIPS = 140L
         const val TABLE_SPACING_BEFORE_TWIPS = 160L
         const val TABLE_SPACING_AFTER_TWIPS = 200L
+        const val FIXED_IMAGE_VERTICAL_SPACING_TWIPS = 160L
         val INTRAJORNADA_KEEP_NEXT_PARAGRAPHS = setOf(19, 23, 27, 31, 36, 40, 45)
     }
 
