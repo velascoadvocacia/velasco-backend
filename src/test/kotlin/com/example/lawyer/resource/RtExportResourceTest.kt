@@ -2706,10 +2706,11 @@ class RtExportResourceTest {
                         "meio_ambiente_trabalho_nocivo_saude"
                     ),
                     dadosVariaveis = mapOf(
-                        "clausulaConvencional" to "15ª",
-                        "cctReferencia" to "2025/2026",
+                        "clausulaCctDiariasViagem" to "15ª",
+                        "identificacaoCctDiariasViagem" to "2025/2026",
                         "textoClausulaDiariasViagem" to "Diária integral de R$ 150,00.",
-                        "mediaViagensMensais" to "18"
+                        "mediaViagensMensais" to "18",
+                        "criterioProvaDiariasViagem" to "CONTROLES_JORNADA"
                     )
                 )
             )
@@ -2722,7 +2723,7 @@ class RtExportResourceTest {
             .extract().response()
 
         val paragraphs = response.jsonPath().getString("blocos[2].texto").split("\n\n")
-        assertEquals(6, paragraphs.size)
+        assertEquals(5, paragraphs.size)
         assertEquals(
             "A ré não pagou a integralidade das diárias de viagem devidas à parte autora, nos termos da cláusula 15ª da CCT 2025/2026:",
             paragraphs[0]
@@ -2730,36 +2731,74 @@ class RtExportResourceTest {
         assertEquals("Diária integral de R$ 150,00.", paragraphs[1])
         assertTrue(paragraphs[2].endsWith("conforme previsto na cláusula 15ª da CCT 2025/2026."))
         assertTrue(paragraphs[3].endsWith("o número de 18 viagens."))
-        assertEquals("OU", paragraphs[4])
-        assertTrue(paragraphs[5].endsWith("nos valores previstos nas CCTs)."))
+        assertTrue(paragraphs[4].startsWith("Para fins de produção de prova a respeito desse pedido"))
+        assertTrue(paragraphs[4].endsWith("quanto à regularidade do pagamento de tal verba."))
+        assertTrue(paragraphs[4].contains("* ***excessiva dificuldade de cumprir o encargo****"))
+        assertTrue(paragraphs[4].contains("* ***atribuir o ônus da prova de modo diverso****"))
+        assertEquals(1, paragraphs.count { it.startsWith("Para fins de produção de prova") })
+
+        val prestacoesText = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("diarias_viagem"),
+                    dadosVariaveis = mapOf(
+                        "clausulaCctDiariasViagem" to "15ª",
+                        "identificacaoCctDiariasViagem" to "2025/2026",
+                        "textoClausulaDiariasViagem" to "Diária integral de R$ 150,00.",
+                        "criterioProvaDiariasViagem" to "PRESTACOES_CONTAS"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .extract().jsonPath().getString("blocos[0].texto")
+        val prestacoesParagraphs = prestacoesText.split("\n\n")
+        assertEquals(5, prestacoesParagraphs.size)
+        assertTrue(prestacoesParagraphs[3].endsWith("nos valores previstos nas CCTs)."))
+        assertFalse(prestacoesText.contains("controles de jornada"))
+        assertEquals(1, prestacoesParagraphs.count { it.startsWith("Para fins de produção de prova") })
     }
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should export travel allowance differences preserving all paragraphs`() {
-        val payload = """{
-            "claimantName":"Teste Diárias",
-            "blocosSelecionados":["diarias_viagem"],
-            "dadosVariaveis":{
-                "clausulaConvencional":"15ª",
-                "cctReferencia":"2025/2026",
-                "textoClausulaDiariasViagem":"Valor integral de R$ 150,00.",
-                "mediaViagensMensais":"18"
+        mapOf(
+            "CONTROLES_JORNADA" to "o número de 18 viagens.",
+            "PRESTACOES_CONTAS" to "nos valores previstos nas CCTs)."
+        ).forEach { (criterio, optionEnding) ->
+            val payload = """{
+                "claimantName":"Teste Diarias",
+                "blocosSelecionados":["diarias_viagem"],
+                "dadosVariaveis":{
+                    "clausulaCctDiariasViagem":"15a",
+                    "identificacaoCctDiariasViagem":"2025/2026",
+                    "textoClausulaDiariasViagem":"Valor integral de R$ 150,00.",
+                    "mediaViagensMensais":"18",
+                    "criterioProvaDiariasViagem":"$criterio"
+                }
+            }""".trimIndent()
+
+            val docx = given()
+                .multiPart("payload", payload, "text/plain")
+                .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+            XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+                val opening = document.paragraphs.indexOfFirst {
+                    it.text.startsWith("A ré não pagou a integralidade das diárias")
+                }
+                assertTrue(opening >= 0)
+                val blockParagraphs = document.paragraphs.drop(opening).take(5)
+                assertEquals(5, blockParagraphs.size)
+                assertEquals("Valor integral de R$ 150,00.", blockParagraphs[1].text)
+                assertTrue(blockParagraphs[2].text.startsWith("Pelo exposto, REQUER-SE"))
+                assertTrue(blockParagraphs[3].text.endsWith(optionEnding))
+                val proof = blockParagraphs[4]
+                assertTrue(proof.text.startsWith("Para fins de produção de prova a respeito desse pedido"))
+                assertTrue(proof.text.endsWith("quanto à regularidade do pagamento de tal verba."))
+                assertEquals(1, blockParagraphs.count { it.text.startsWith("Para fins de produção de prova") })
+                assertTrue(proof.runs.any { it.isBold && it.text() == "REQUER-SE" })
+                assertTrue(proof.runs.any { it.isBold && it.text().contains("excessiva dificuldade") })
+                assertTrue(proof.runs.any { it.isItalic && it.text().contains("Nos casos previstos em lei") })
             }
-        }""".trimIndent()
-
-        val docx = given()
-            .multiPart("payload", payload, "text/plain")
-            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
-
-        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
-            val opening = document.paragraphs.indexOfFirst { it.text.startsWith("A ré não pagou a integralidade das diárias") }
-            assertTrue(opening >= 0)
-            assertEquals("Valor integral de R$ 150,00.", document.paragraphs[opening + 1].text)
-            assertTrue(document.paragraphs[opening + 2].text.startsWith("Pelo exposto, REQUER-SE"))
-            assertTrue(document.paragraphs[opening + 3].text.endsWith("o número de 18 viagens."))
-            assertEquals("OU", document.paragraphs[opening + 4].text)
-            assertTrue(document.paragraphs[opening + 5].text.startsWith("Ainda, para fins de prova"))
         }
     }
 

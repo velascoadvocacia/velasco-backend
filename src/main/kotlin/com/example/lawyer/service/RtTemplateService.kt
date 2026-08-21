@@ -1042,12 +1042,27 @@ class RtTemplateService(
 
     private fun ausenciaDepositosFgts(): String = AUSENCIA_DEPOSITOS_FGTS_TEMPLATE
 
-    private fun diferencasDiariasViagem(variaveis: Map<String, String?>): String =
-        DIFERENCAS_DIARIAS_VIAGEM_TEMPLATE
-            .replace("{clausulaConvencional}", variaveis["clausulaConvencional"].orPlaceholder())
-            .replace("{cctReferencia}", variaveis["cctReferencia"].orPlaceholder())
-            .replace("{textoClausulaDiariasViagem}", variaveis["textoClausulaDiariasViagem"].orPlaceholder())
-            .replace("{mediaViagensMensais}", variaveis["mediaViagensMensais"].orPlaceholder())
+    private fun diferencasDiariasViagem(variaveis: Map<String, String?>): String {
+        val clausula = variaveis["clausulaCctDiariasViagem"].orPlaceholder()
+        val cct = variaveis["identificacaoCctDiariasViagem"].orPlaceholder()
+        val textoClausula = variaveis["textoClausulaDiariasViagem"].orPlaceholder()
+        val criterioProva = when (variaveis["criterioProvaDiariasViagem"]?.trim()?.uppercase()) {
+            "CONTROLES_JORNADA" -> DIARIAS_VIAGEM_CONTROLES_JORNADA.replace(
+                "{mediaViagensMensais}",
+                variaveis["mediaViagensMensais"].orPlaceholder()
+            )
+            "PRESTACOES_CONTAS" -> DIARIAS_VIAGEM_PRESTACOES_CONTAS
+            else -> throw BusinessException("Critério de prova inválido para o bloco Diárias de viagem")
+        }
+
+        return listOf(
+            "A ré não pagou a integralidade das diárias de viagem devidas à parte autora, nos termos da cláusula $clausula da CCT $cct:",
+            textoClausula,
+            "Pelo exposto, REQUER-SE a condenação da ré ao pagamento das diferenças a título de diárias de viagem, conforme previsto na cláusula $clausula da CCT $cct.",
+            criterioProva,
+            DIARIAS_VIAGEM_ONUS_PROVA
+        ).joinToString("\n\n")
+    }
 
 
 
@@ -1755,14 +1770,30 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
             """A ré não realizou integralmente os depósitos de FGTS em favor da parte autora, conforme se observa a partir do extrato do FGTS:""",
             """Pelo exposto, à luz do **art.** **7º, III, da Constituição Federal**, **do art. 15 da Lei n. 8.036/1990** e da **Súmula 461 do Tribunal Superior do Trabalho** (que preceitua ser do empregador o ônus da prova a respeito da regularidade dos depósitos de FGTS), **REQUER** seja a ré condenada ao pagamento dos depósitos de FGTS inadimplidos."""
         ).joinToString("\n\n")
-        private val DIFERENCAS_DIARIAS_VIAGEM_TEMPLATE = listOf(
-            """A ré não pagou a integralidade das diárias de viagem devidas à parte autora, nos termos da cláusula {clausulaConvencional} da CCT {cctReferencia}:""",
-            """{textoClausulaDiariasViagem}""",
-            """Pelo exposto, REQUER-SE a condenação da ré ao pagamento das diferenças a título de diárias de viagem, conforme previsto na cláusula {clausulaConvencional} da CCT {cctReferencia}.""",
-            """Ainda, REQUER seja determinado à ré que junte os controles de jornada da parte autora, para que seja verificada a quantidade de viagens realizadas a cada mês; caso a ré não junte tais documentos, REQUER seja considerada como média de quantidade de viagens realizadas por mês o número de {mediaViagensMensais} viagens.""",
-            """OU""",
-            """Ainda, para fins de prova sobre as viagens feitas e os valores de diárias pagos à parte autora, REQUER-SE a intimação da ré para que junte aos autos os documentos de prestações de contas da parte autora. Na hipótese de ausência de apresentação das prestações de contas, REQUER-SE a adoção, como critério de cálculo, de 26 dias por mês, no valor integral por dia (café da manhã, almoço, jantar e pernoite, nos valores previstos nas CCTs)."""
-        ).joinToString("\n\n")
+        private const val DIARIAS_VIAGEM_CONTROLES_JORNADA =
+            "Ainda, REQUER seja determinado à ré que junte os controles de jornada da parte autora, " +
+                "para que seja verificada a quantidade de viagens realizadas a cada mês; caso a ré não " +
+                "junte tais documentos, REQUER seja considerada como média de quantidade de viagens " +
+                "realizadas por mês o número de {mediaViagensMensais} viagens."
+        private const val DIARIAS_VIAGEM_PRESTACOES_CONTAS =
+            "Ainda, para fins de prova sobre as viagens feitas e os valores de diárias pagos à parte " +
+                "autora, REQUER-SE a intimação da ré para que junte aos autos os documentos de prestações " +
+                "de contas da parte autora. Na hipótese de ausência de apresentação das prestações de " +
+                "contas, REQUER-SE a adoção, como critério de cálculo, de 26 dias por mês, no valor " +
+                "integral por dia (café da manhã, almoço, jantar e pernoite, nos valores previstos nas CCTs)."
+        private val DIARIAS_VIAGEM_ONUS_PROVA
+            get() = "Para fins de produção de prova a respeito desse pedido, **REQUER-SE** a aplicação " +
+                "do § 1º do art. 818 da CLT (" + MEIO_AMBIENTE_ONUS_PROVA
+                .replace(" à **excessiva", " à* ***excessiva")
+                .replace("encargo** nos", "encargo**** nos")
+                .replace(" à **maior", " à* ***maior")
+                .replace("contrário**, poderá", "contrário****, poderá")
+                .replace("juízo **atribuir", "juízo* ***atribuir")
+                .replace("diverso**, desde", "diverso****, desde")
+                .removeSuffix(".*") +
+                "*), considerando que a parte ré possui melhores condições de produção de prova, uma " +
+                "vez que possui os documentos pertinentes à comprovação quanto à regularidade do " +
+                "pagamento de tal verba."
         private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
             """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",
             """Como não há cláusula em instrumento coletivo que disponha de maneira diversa, mantém-se a previsão de intervalo intrajornada de **até 2 horas**, mas a parte autora, notadamente, chegava a praticar intervalos superiores a esse tempo, de modo que, havendo ultrapassagem do limite legal para intervalo intrajornada, esse tempo excedente é considerado, nos termos do **art. 4º da CLT**, como **tempo à disposição do empregador** (*Considera-se como de serviço efetivo o período em que o empregado esteja à disposição do empregador, aguardando ou executando ordens, salvo disposição especial expressamente consignada.*).""",
