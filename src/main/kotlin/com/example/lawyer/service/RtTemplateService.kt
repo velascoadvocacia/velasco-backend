@@ -266,6 +266,10 @@ class RtTemplateService(
             titulo = { "Seguro de vida" },
             generate = { _, _, variaveis, _ -> seguroVida(variaveis) }
         ),
+        ADICIONAL_INSALUBRIDADE to RtBlockDefinition(
+            titulo = { "Adicional de insalubridade" },
+            generate = { _, _, variaveis, _ -> adicionalInsalubridade(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -404,6 +408,14 @@ class RtTemplateService(
                 ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
                 ?: -1
             ordered.add(predecessorIndex + 1, SEGURO_VIDA)
+        }
+        if (ADICIONAL_INSALUBRIDADE in ordered) {
+            ordered.remove(ADICIONAL_INSALUBRIDADE)
+            val predecessorIndex = ordered.indexOf(CONVENIO_MEDICO).takeIf { it >= 0 }
+                ?: ordered.indexOf(SEGURO_VIDA).takeIf { it >= 0 }
+                ?: ordered.indexOf(VALE_ALIMENTACAO).takeIf { it >= 0 }
+                ?: -1
+            ordered.add(predecessorIndex + 1, ADICIONAL_INSALUBRIDADE)
         }
         return ordered
     }
@@ -1113,6 +1125,16 @@ class RtTemplateService(
         ).joinToString("\n\n")
     }
 
+    private fun adicionalInsalubridade(variaveis: Map<String, String?>): String {
+        val descricao = variaveis["descricaoExposicaoInsalubridade"].orPlaceholder()
+        return listOf(
+            "A parte autora trabalhou exposta a insalubridade, porquanto $descricao.",
+            "Pelo exposto, **REQUER** seja determinada a realização de **perícia técnica**, com a finalidade de apuração da existência de insalubridade, bem como em relação ao grau da referida insalubridade, nos termos do art. 195 da CLT.",
+            "Ainda, **REQUER** seja a reclamada compelida a trazer aos autos o PPRA, PCMSO, LTCAT e LIP dos períodos laborados e dos locais de trabalho e PPPs da parte autora, sob pena de incidência das penalidades do art. 400 do CPC.",
+            "Consequentemente, nos termos do **art. 193, I, § 2º, da CLT** e do **art. 7º, XXIII, da Constituição Federal**, **REQUER** seja a ré condenada ao pagamento de adicional de insalubridade, no patamar de 40%, ou em outro percentual a ser apurado em perícia judicial, com reflexos em RSR, e, com estes, em horas extras, 13º salário, aviso prévio, férias proporcionais acrescidas de 1/3, verbas rescisórias e FGTS com a multa de 40%, adicional noturno."
+        ).joinToString("\n\n")
+    }
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1461,6 +1483,8 @@ class RtTemplateService(
         const val DIARIAS_VIAGEM = "diarias_viagem"
         const val VALE_ALIMENTACAO = "vale_alimentacao"
         const val SEGURO_VIDA = "seguro_vida"
+        const val CONVENIO_MEDICO = "convenio_medico"
+        const val ADICIONAL_INSALUBRIDADE = "adicional_insalubridade"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"

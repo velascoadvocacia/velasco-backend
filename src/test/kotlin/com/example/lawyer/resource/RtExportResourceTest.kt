@@ -3032,6 +3032,102 @@ class RtExportResourceTest {
             .body("blocos[0].texto", containsString("R$ 200,00 por mês"))
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export unhealthy work premium with field order and bold formatting`() {
+        val exposure = "mantinha contato habitual com agentes biologicos sem protecao adequada"
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("adicional_insalubridade", "seguro_vida", "convenio_medico"),
+                    dadosVariaveis = mapOf("descricaoExposicaoInsalubridade" to exposure)
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("seguro_vida"))
+            .body("blocos[1].id", equalTo("adicional_insalubridade"))
+            .body("blocos[1].titulo", equalTo("Adicional de insalubridade"))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val paragraphs = response.jsonPath().getString("blocos[1].texto").split("\n\n")
+        assertEquals(4, paragraphs.size)
+        assertEquals("A parte autora trabalhou exposta a insalubridade, porquanto $exposure.", paragraphs[0])
+        assertTrue(paragraphs[1].contains("**perícia técnica**"))
+        assertTrue(paragraphs[2].contains("**REQUER**"))
+        assertTrue(paragraphs[3].contains("**art. 193, I, § 2º, da CLT**"))
+        assertTrue(paragraphs[3].contains("**art. 7º, XXIII, da Constituição Federal**"))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste Insalubridade",
+                blocosSelecionados = listOf("adicional_insalubridade"),
+                dadosVariaveis = mapOf("descricaoExposicaoInsalubridade" to exposure)
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst {
+                it.text.startsWith("A parte autora trabalhou exposta a insalubridade")
+            }
+            assertTrue(opening >= 0)
+            val blockParagraphs = document.paragraphs.drop(opening).take(4)
+            assertEquals(4, blockParagraphs.size)
+            assertEquals("A parte autora trabalhou exposta a insalubridade, porquanto $exposure.", blockParagraphs[0].text)
+            assertTrue(blockParagraphs[1].runs.any { it.isBold && it.text() == "REQUER" })
+            assertTrue(blockParagraphs[1].runs.any { it.isBold && it.text() == "perícia técnica" })
+            assertTrue(blockParagraphs[2].runs.any { it.isBold && it.text() == "REQUER" })
+            assertTrue(blockParagraphs[3].runs.any { it.isBold && it.text() == "art. 193, I, § 2º, da CLT" })
+            assertTrue(blockParagraphs[3].runs.any { it.isBold && it.text() == "art. 7º, XXIII, da Constituição Federal" })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should persist and restore unhealthy work exposure description`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(pessoaRequest(suffix, validCpfFromSuffix(suffix, 7), null, null))
+        val reclamada = pessoaService.create(pessoaRequest("re-$suffix", validCpfFromSuffix(suffix, 8), null, null))
+        val pessoaAdvogado = pessoaService.create(pessoaRequest("adv-$suffix", validCpfFromSuffix(suffix, 9), null, null))
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.insalubridade.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "88.888"
+            )
+        )
+        val variables = mapOf(
+            "descricaoExposicaoInsalubridade" to "mantinha contato habitual com agentes químicos\nsem proteção adequada"
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "INSALUBRIDADE-$suffix",
+                descricao = "Persistência do adicional de insalubridade",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf("adicional_insalubridade"),
+                dadosVariaveis = mapOf("adicional_insalubridade" to variables)
+            )
+        )
+
+        assertEquals(variables, processoService.getById(processo.id).dadosVariaveis["adicional_insalubridade"])
+        given().contentType("application/json")
+            .body(RtPreviewRequest(processoId = processo.id, blocosSelecionados = listOf("adicional_insalubridade")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("mantinha contato habitual com agentes químicos\nsem proteção adequada"))
+            .body("blocos[0].texto", containsString("**perícia técnica**"))
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
