@@ -284,6 +284,10 @@ class RtTemplateService(
             generate = { _, _, _, _ -> danoMoralCobrancaAbusivaMetas() },
             paragrafosRecuados = (3..14).toSet()
         ),
+        DANO_MORAL_ASSEDIO_MORAL to RtBlockDefinition(
+            titulo = { "Dano moral por assédio moral" },
+            generate = { _, _, _, _ -> danoMoralAssedioMoral() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -452,6 +456,13 @@ class RtTemplateService(
                 ?: ordered.indexOf(ADICIONAL_PERICULOSIDADE).takeIf { it >= 0 }
                 ?: -1
             ordered.add(predecessorIndex + 1, DANO_MORAL_COBRANCA_ABUSIVA_METAS)
+        }
+        if (DANO_MORAL_ASSEDIO_MORAL in ordered) {
+            ordered.remove(DANO_MORAL_ASSEDIO_MORAL)
+            val predecessorIndex = ordered.indexOf(DANO_MORAL_COBRANCA_ABUSIVA_METAS).takeIf { it >= 0 }
+                ?: ordered.indexOf(PERICULOSIDADE_TANQUE_SUPLEMENTAR).takeIf { it >= 0 }
+                ?: -1
+            ordered.add(predecessorIndex + 1, DANO_MORAL_ASSEDIO_MORAL)
         }
         return ordered
     }
@@ -1220,6 +1231,11 @@ class RtTemplateService(
         "Pelo exposto, com fundamento nos arts. 1º, 5º, V e X, e 7º, XXVIII, da Constituição Federal e dos arts. 186, 927 e 932, III, do Código Civil, **REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais."
     ).joinToString("\n\n")
 
+    private fun danoMoralAssedioMoral(): String = listOf(
+        "Assim, deve o empregador ser condenado a indenizar a parte autora pelos danos morais decorrentes da conduta arbitrária e discriminatória à qual a sujeitou.",
+        "**Pelo exposto, REQUER-SE, nos termos dos arts. 1º, 5º, V e X, e 7º, XXVIII, da Constituição Federal e dos arts. 186, 927 e 932, III, do Código Civil, a condenação da parte ré ao pagamento de indenização por danos morais.**"
+    ).joinToString("\n\n")
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1573,6 +1589,7 @@ class RtTemplateService(
         const val ADICIONAL_PERICULOSIDADE = "adicional_periculosidade"
         const val PERICULOSIDADE_TANQUE_SUPLEMENTAR = "periculosidade_tanque_suplementar"
         const val DANO_MORAL_COBRANCA_ABUSIVA_METAS = "dano_moral_cobranca_abusiva_metas"
+        const val DANO_MORAL_ASSEDIO_MORAL = "dano_moral_assedio_moral"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"

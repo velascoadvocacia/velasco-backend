@@ -3416,6 +3416,55 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export moral harassment damages with exactly two paragraphs and fully bold request`() {
+        val firstParagraph =
+            "Assim, deve o empregador ser condenado a indenizar a parte autora pelos danos morais decorrentes da conduta arbitrária e discriminatória à qual a sujeitou."
+        val secondParagraph =
+            "Pelo exposto, REQUER-SE, nos termos dos arts. 1º, 5º, V e X, e 7º, XXVIII, da Constituição Federal e dos arts. 186, 927 e 932, III, do Código Civil, a condenação da parte ré ao pagamento de indenização por danos morais."
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "dano_moral_assedio_moral",
+                        "dano_moral_cobranca_abusiva_metas"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("dano_moral_cobranca_abusiva_metas"))
+            .body("blocos[1].id", equalTo("dano_moral_assedio_moral"))
+            .body("blocos[1].titulo", equalTo("Dano moral por assédio moral"))
+            .body("blocos[1].texto", equalTo("$firstParagraph\n\n**$secondParagraph**"))
+            .body("blocos[1].paragrafosRecuados.size()", equalTo(0))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        assertEquals(2, response.jsonPath().getString("blocos[1].texto").split("\n\n").size)
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste Assédio Moral",
+                blocosSelecionados = listOf("dano_moral_assedio_moral")
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst { it.text == firstParagraph }
+            assertTrue(opening >= 0)
+            val body = document.paragraphs.drop(opening).take(2)
+            assertEquals(2, body.size)
+            assertEquals(firstParagraph, body[0].text)
+            assertEquals(secondParagraph, body[1].text)
+            assertTrue(body[0].runs.filter { it.text().isNotEmpty() }.none { it.isBold })
+            assertTrue(body[1].runs.filter { it.text().isNotEmpty() }.all { it.isBold })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
