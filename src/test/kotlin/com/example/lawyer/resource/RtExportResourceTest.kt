@@ -18,6 +18,7 @@ import com.example.lawyer.service.PessoaService
 import com.example.lawyer.service.ProcessoService
 import com.example.lawyer.service.RtTemplateService
 import com.example.lawyer.service.UsuarioService
+import com.example.lawyer.repository.ProcessoAnexoRepository
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
@@ -59,6 +60,9 @@ class RtExportResourceTest {
 
     @Inject
     lateinit var processoService: ProcessoService
+
+    @Inject
+    lateinit var processoAnexoRepository: ProcessoAnexoRepository
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
@@ -2615,6 +2619,81 @@ class RtExportResourceTest {
         saveGeneratedDocument("rt-meio-ambiente-trabalho-nocivo-recuos.docx", docx)
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview missing fgts deposits as independent fixed block after harmful environment`() {
+        val blockId = "ausencia_depositos_fgts"
+        val attachmentsBefore = processoAnexoRepository.count()
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(blockId, "meio_ambiente_trabalho_nocivo_saude"),
+                    dadosVariaveis = mapOf("campoIgnorado" to "não deve aparecer")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("meio_ambiente_trabalho_nocivo_saude"))
+            .body("blocos[1].id", equalTo(blockId))
+            .body("blocos[1].titulo", equalTo(MISSING_FGTS_DEPOSITS_TITLE))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val text = response.jsonPath().getString("blocos[1].texto")
+        assertEquals(2, text.split("\n\n").size)
+        assertFalse(text.contains("INSERIR_PROVAS_EXTRATO_FGTS"))
+        assertFalse(text.contains("campoIgnorado"))
+        assertTrue(text.endsWith("ao pagamento dos depósitos de FGTS inadimplidos."))
+        assertEquals(MISSING_FGTS_DEPOSITS_TEXT_SHA256, sha256(text))
+        assertEquals(attachmentsBefore, processoAnexoRepository.count())
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export ordered fgts proof metadata without early persistence`() {
+        val blockId = "ausencia_depositos_fgts"
+        val attachmentsBefore = processoAnexoRepository.count()
+        val payload = """{
+            "claimantName":"Teste FGTS",
+            "blocosSelecionados":["$blockId"]
+        }""".trimIndent()
+
+        val docx = given()
+            .multiPart("payload", payload, "text/plain")
+            .multiPart("anexo_${blockId}_provasExtratoFgts_0", "extrato-janeiro.png", TEST_IMAGE_1, "image/png")
+            .multiPart("anexo_${blockId}_provasExtratoFgts_1", "extrato-fevereiro.png", TEST_IMAGE_2, "image/png")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        assertEquals(attachmentsBefore, processoAnexoRepository.count())
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst { it.text.startsWith("A r") && it.text.contains("FGTS") }
+            val firstImageParagraph = document.paragraphs[opening + 1]
+            val secondImageParagraph = document.paragraphs[opening + 2]
+            val requestParagraph = document.paragraphs[opening + 3]
+            assertTrue(requestParagraph.text.startsWith("Pelo exposto"))
+            assertEquals(160, firstImageParagraph.spacingBefore)
+            assertEquals(160, firstImageParagraph.spacingAfter)
+            assertEquals(160, secondImageParagraph.spacingBefore)
+            assertEquals(160, secondImageParagraph.spacingAfter)
+            val pictures = listOf(firstImageParagraph, secondImageParagraph).map {
+                it.runs.single().embeddedPictures.single()
+            }
+            assertTrue(TEST_IMAGE_1.contentEquals(pictures[0].pictureData.data))
+            assertTrue(TEST_IMAGE_2.contentEquals(pictures[1].pictureData.data))
+            assertEquals(listOf("extrato-janeiro.png", "extrato-fevereiro.png"), pictures.map { it.description })
+            assertEquals(listOf("image/png", "image/png"), pictures.map { it.pictureData.packagePart.contentType })
+            assertEquals(listOf(TEST_IMAGE_1.size, TEST_IMAGE_2.size), pictures.map { it.pictureData.data.size })
+            pictures.forEach { picture ->
+                assertEquals(org.apache.poi.util.Units.toEMU(450.0).toLong(), picture.ctPicture.spPr.xfrm.ext.cx)
+                assertEquals(org.apache.poi.util.Units.toEMU(600.0).toLong(), picture.ctPicture.spPr.xfrm.ext.cy)
+            }
+            assertTrue(requestParagraph.runs.any { it.isBold && it.text() == "REQUER" })
+        }
+        assertEquals(attachmentsBefore, processoAnexoRepository.count())
+        saveGeneratedDocument("rt-ausencia-depositos-fgts-multiplas-provas.docx", docx)
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
@@ -4117,6 +4196,9 @@ class RtExportResourceTest {
         const val HARMFUL_WORK_ENVIRONMENT_TITLE = "Meio ambiente de trabalho nocivo à saúde"
         const val HARMFUL_WORK_ENVIRONMENT_TEXT_SHA256 =
             "5f71522290255a38c4260c2ba47f7dec2942c19cce71eb91ea72af2585407a54"
+        const val MISSING_FGTS_DEPOSITS_TITLE = "Ausência de depósitos de FGTS"
+        const val MISSING_FGTS_DEPOSITS_TEXT_SHA256 =
+            "8aa43ff63adaec7ad42d3f47dbc9a51f834c30590c813e697bc7f430cf49999b"
         const val INTRAJORNADA_TITLE =
             "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)"
         const val INTRAJORNADA_INTRODUCTION =

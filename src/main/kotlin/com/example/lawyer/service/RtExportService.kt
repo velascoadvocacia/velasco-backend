@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URL
 import java.math.BigInteger
+import javax.imageio.ImageIO
 import org.jboss.logging.Logger
 
 @ApplicationScoped
@@ -179,7 +180,13 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             block.anexos
                 .filter { it.afterParagraph == index + 1 }
-                .forEach { image -> addBodyImage(document, image) }
+                .forEach { image ->
+                    addBodyImage(
+                        document,
+                        image,
+                        preserveAspectRatio = block.id == RtTemplateService.AUSENCIA_DEPOSITOS_FGTS
+                    )
+                }
             block.imagensFixas
                 .filter { it.afterParagraph == index + 1 }
                 .forEach { image ->
@@ -434,20 +441,41 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         val style: TextStyle
     )
 
-    private fun addBodyImage(document: XWPFDocument, image: RtExportImageRequest) {
+    private fun addBodyImage(
+        document: XWPFDocument,
+        image: RtExportImageRequest,
+        preserveAspectRatio: Boolean = false
+    ) {
         val name = image.nomeOriginal
         logger.infof("DOCX imagem '%s': bytes=%d, url=%s", name, image.bytes?.size ?: 0, image.url ?: "<bytes>")
         try {
             val input = image.bytes?.inputStream() ?: URL(image.url ?: error("Imagem sem bytes e sem URL")).openStream()
             input.use {
+                val bytes = it.readBytes()
+                val dimensions = if (preserveAspectRatio) {
+                    val source = ImageIO.read(bytes.inputStream()) ?: error("Imagem inválida: $name")
+                    val scale = minOf(
+                        BODY_IMAGE_MAX_WIDTH_POINTS / source.width,
+                        BODY_IMAGE_MAX_HEIGHT_POINTS / source.height
+                    )
+                    source.width * scale to source.height * scale
+                } else {
+                    BODY_IMAGE_MAX_WIDTH_POINTS to 300.0
+                }
                 val paragraph = document.createParagraph()
                 paragraph.alignment = ParagraphAlignment.CENTER
+                if (preserveAspectRatio) {
+                    val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+                    val spacing = properties.addNewSpacing()
+                    spacing.before = BigInteger.valueOf(FIXED_IMAGE_VERTICAL_SPACING_TWIPS)
+                    spacing.after = BigInteger.valueOf(FIXED_IMAGE_VERTICAL_SPACING_TWIPS)
+                }
                 paragraph.createRun().addPicture(
-                    it,
+                    bytes.inputStream(),
                     pictureType(image.contentType),
                     name,
-                    Units.toEMU(450.0),
-                    Units.toEMU(300.0)
+                    Units.toEMU(dimensions.first),
+                    Units.toEMU(dimensions.second)
                 )
                 logger.infof("DOCX imagem '%s': addPicture concluído; mediaCount=%d", name, document.allPictures.size)
             }
@@ -491,6 +519,7 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
 
     private companion object {
         const val BODY_IMAGE_MAX_WIDTH_POINTS = 450.0
+        const val BODY_IMAGE_MAX_HEIGHT_POINTS = 600.0
         const val JURISPRUDENCE_LEFT_INDENT_TWIPS = 1440
         const val JURISPRUDENCE_RIGHT_INDENT_TWIPS = 720
         const val USEFUL_PAGE_WIDTH_TWIPS = 9213

@@ -95,10 +95,10 @@ class ProcessoAnexoService(
     }
 
     private fun validateGrupo(blocoId: String, grupo: String) {
-        val allowed = if (blocoId == DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA) {
-            setOf(GRUPO_CBO, GRUPO_PROVAS)
-        } else {
-            setOf(GRUPO_GERAL)
+        val allowed = when (blocoId) {
+            DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA -> setOf(GRUPO_CBO, GRUPO_PROVAS)
+            AUSENCIA_DEPOSITOS_FGTS -> setOf(GRUPO_PROVAS_EXTRATO_FGTS)
+            else -> setOf(GRUPO_GERAL)
         }
         if (grupo !in allowed) throw BusinessException("Grupo de anexo inválido para o bloco: $grupo")
     }
@@ -112,6 +112,7 @@ class ProcessoAnexoService(
             ordem = anexo.ordem,
             afterParagraph = when (anexo.grupo) {
                 GRUPO_PROVAS -> 2
+                GRUPO_PROVAS_EXTRATO_FGTS -> 1
                 else -> 1
             },
             nomeOriginal = anexo.nomeOriginal,
@@ -144,9 +145,11 @@ class ProcessoAnexoService(
         const val DANO_MORAL_ATRASO_SALARIAL = "dano_moral_atraso_salarial"
         const val VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA =
             "verbas_rescisorias_media_horas_extras_nao_paga"
+        const val AUSENCIA_DEPOSITOS_FGTS = "ausencia_depositos_fgts"
         const val GRUPO_GERAL = "geral"
         const val GRUPO_CBO = "cbo"
         const val GRUPO_PROVAS = "provas"
+        const val GRUPO_PROVAS_EXTRATO_FGTS = "provasExtratoFgts"
         private val BLOCOS_COM_ANEXOS = setOf(
             BAIXA_CTPS_TUTELA,
             RESPONSABILIDADE_SOLIDARIA_GRUPO_ECONOMICO,
@@ -156,7 +159,8 @@ class ProcessoAnexoService(
             DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA,
             INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL,
             DANO_MORAL_ATRASO_SALARIAL,
-            VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA
+            VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA,
+            AUSENCIA_DEPOSITOS_FGTS
         )
         private val ALLOWED_TYPES = setOf("image/jpeg", "image/png")
     }

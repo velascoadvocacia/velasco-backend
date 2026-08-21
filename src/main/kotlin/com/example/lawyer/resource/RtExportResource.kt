@@ -360,6 +360,16 @@ class RtExportResource(
     }
 
     private fun attachmentTarget(value: String): AttachmentTarget? {
+        val fgtsProof = Regex(
+            "^anexo_(ausencia_depositos_fgts)_(provasExtratoFgts)_\\d+(?:\\.[^.]+)?$"
+        ).matchEntire(value)
+        if (fgtsProof != null) {
+            return AttachmentTarget(
+                fgtsProof.groupValues[1],
+                fgtsProof.groupValues[2],
+                1
+            )
+        }
         val positional = Regex(
             "^anexo_(desvio_funcao_atividade_efetivamente_exercida)_(cbo|provas)_\\d+(?:\\.[^.]+)?$"
         ).matchEntire(value)

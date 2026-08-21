@@ -250,6 +250,10 @@ class RtTemplateService(
             generate = { _, _, variaveis, _ -> meioAmbienteTrabalhoNocivoSaude(variaveis) },
             paragrafosRecuados = (3..9).toSet() + (13..18).toSet()
         ),
+        AUSENCIA_DEPOSITOS_FGTS to RtBlockDefinition(
+            titulo = { "Ausência de depósitos de FGTS" },
+            generate = { _, _, _, _ -> ausenciaDepositosFgts() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -354,6 +358,13 @@ class RtTemplateService(
             ordered.remove(MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE)
             val lastJourneyIndex = JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull() ?: -1
             ordered.add(lastJourneyIndex + 1, MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE)
+        }
+        if (AUSENCIA_DEPOSITOS_FGTS in ordered) {
+            ordered.remove(AUSENCIA_DEPOSITOS_FGTS)
+            val predecessorIndex = ordered.indexOf(MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE).takeIf { it >= 0 }
+                ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
+                ?: -1
+            ordered.add(predecessorIndex + 1, AUSENCIA_DEPOSITOS_FGTS)
         }
         return ordered
     }
@@ -1017,6 +1028,8 @@ class RtTemplateService(
             variaveis["descricaoAmbienteTrabalhoNocivo"].orPlaceholder()
         )
 
+    private fun ausenciaDepositosFgts(): String = AUSENCIA_DEPOSITOS_FGTS_TEMPLATE
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1361,6 +1374,7 @@ class RtTemplateService(
         const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H =
             "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
         const val MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE = "meio_ambiente_trabalho_nocivo_saude"
+        const val AUSENCIA_DEPOSITOS_FGTS = "ausencia_depositos_fgts"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
@@ -1400,7 +1414,8 @@ class RtTemplateService(
             DESVIO_FUNCAO_ATIVIDADE_EFETIVAMENTE_EXERCIDA,
             INTEGRACAO_ALUGUEL_VEICULO_PARTICULAR_NATUREZA_SALARIAL,
             DANO_MORAL_ATRASO_SALARIAL,
-            VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA
+            VERBAS_RESCISORIAS_MEDIA_HORAS_EXTRAS_NAO_PAGA,
+            AUSENCIA_DEPOSITOS_FGTS
         )
         private const val PLACEHOLDER = "___"
         private val MOTORISTA_CARRETEIRO_CARREGADOR_TEMPLATE = listOf(
@@ -1715,6 +1730,10 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
             """Pelo exposto, com fundamento nos **arts. 186 e 927 do Código Civil**, no **art. 225 da Constituição Federal** e no **art. 16 da Convenção 155 da OIT**, **REQUER-SE** a condenação da parte ré ao pagamento de indenização por danos morais.""",
             """Ainda, para fins de produção de prova a respeito desse pedido, **REQUER-SE** a aplicação do § 1º do art. 818 da CLT:""",
             MEIO_AMBIENTE_ONUS_PROVA
+        ).joinToString("\n\n")
+        private val AUSENCIA_DEPOSITOS_FGTS_TEMPLATE = listOf(
+            """A ré não realizou integralmente os depósitos de FGTS em favor da parte autora, conforme se observa a partir do extrato do FGTS:""",
+            """Pelo exposto, à luz do **art.** **7º, III, da Constituição Federal**, **do art. 15 da Lei n. 8.036/1990** e da **Súmula 461 do Tribunal Superior do Trabalho** (que preceitua ser do empregador o ônus da prova a respeito da regularidade dos depósitos de FGTS), **REQUER** seja a ré condenada ao pagamento dos depósitos de FGTS inadimplidos."""
         ).joinToString("\n\n")
         private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
             """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",
