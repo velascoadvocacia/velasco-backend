@@ -231,6 +231,11 @@ class RtTemplateService(
             generate = { _, _, variaveis, _ -> jornadaTrabalhoIntervaloIntrajornada(variaveis) },
             paragrafosRecuados = (2..16).toSet() + (19..43).toSet() + (45..59).toSet()
         ),
+        JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA to RtBlockDefinition(
+            titulo = { "k. Inconstitucionalidade do tempo de espera" },
+            generate = { _, _, _, _ -> jornadaTrabalhoInconstitucionalidadeTempoEspera() },
+            paragrafosRecuados = setOf(2, 3)
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -304,6 +309,9 @@ class RtTemplateService(
         }
         if (JORNADA_TRABALHO_INTERVALO_INTRAJORNADA in ordered && JORNADA_TRABALHO !in ordered) {
             ordered.remove(JORNADA_TRABALHO_INTERVALO_INTRAJORNADA)
+        }
+        if (JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA in ordered && JORNADA_TRABALHO !in ordered) {
+            ordered.remove(JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA)
         }
         if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
@@ -944,6 +952,9 @@ class RtTemplateService(
             variaveis["horasDiariasIntervaloIntrajornada"].orPlaceholder()
         )
 
+    private fun jornadaTrabalhoInconstitucionalidadeTempoEspera(): String =
+        JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA_TEMPLATE
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1281,6 +1292,8 @@ class RtTemplateService(
         const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA =
             "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
         const val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA = "jornada_trabalho_intervalo_intrajornada"
+        const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA =
+            "jornada_trabalho_inconstitucionalidade_tempo_espera"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_NAME = "e_Trabalho_em_dias_de_descanso.png"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_PATH = "/assets/$TRABALHO_DIAS_DESCANSO_IMAGE_NAME"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_URL = "/rt/assets/e-trabalho-dias-descanso"
@@ -1375,7 +1388,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_SOBREAVISO,
             JORNADA_TRABALHO_INTERVALO_INTERJORNADA,
             JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA,
-            JORNADA_TRABALHO_INTERVALO_INTRAJORNADA
+            JORNADA_TRABALHO_INTERVALO_INTRAJORNADA,
+            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1505,6 +1519,13 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
             INTRAJORNADA_REDACAO_ALTERADA,
             INTRAJORNADA_FUNDAMENTACAO,
             INTRAJORNADA_PEDIDO
+        ).joinToString("\n\n")
+        private val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA_TEMPLATE = listOf(
+            """Quanto ao tempo de espera, previsto no art. 235-C, §§ 8º a 12, da Lei n.º 13.103/2015, este deve ser reputado inconstitucional, conforme decisão proferida pelo STF na ADI 5322, em 05/07/2023:""",
+            """Decisão: O Tribunal conheceu parcialmente da ação direta e, nessa extensão, julgou parcialmente procedente o pedido, **declarando inconstitucionais**: [...] (b) por maioria, **a expressão “não sendo computadas como jornada de trabalho e nem como horas extraordinárias”, prevista na parte final do § 8º do art. 235-C**, vencido o Ministro Nunes Marques, que julgava inconstitucional a totalidade do § 8º; (c) por unanimidade, **a expressão “e o tempo de espera”**, disposta na parte final do § 1º do art. 235-C, por arrastamento; (d) por unanimidade, **o § 9º do art. 235-C da CLT**, sem efeito repristinatório; (e) por maioria, a expressão “as quais não serão consideradas como parte da jornada de trabalho, ficando garantido, porém, o gozo do descanso de 8 (oito) horas ininterruptas aludido no § 3º” do § 12 do art. 235-C, vencido o Ministro Nunes Marques, que julgava inconstitucional a totalidade do § 12; [...]""",
+            """(grifo nosso)""",
+            """Tendo em vista a declaração de inconstitucionalidade proferida na ADI 5322, **REQUER** seja considerado o tempo de espera como **tempo à disposição do empregador** (art. 4º da CLT), com a consequente condenação da ré ao pagamento de horas extras e RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, adicional noturno e adicional de periculosidade.""",
+            """Diante da necessidade de juntada, pela parte ré, dos controles de jornada e holerites da parte autora para fins de atribuição de valor estimado a este pedido, formula-se pedido genérico, com fundamento no art. 324, § 1º, III, do CPC."""
         ).joinToString("\n\n")
         private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
             """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",

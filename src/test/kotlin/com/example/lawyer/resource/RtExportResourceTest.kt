@@ -2291,6 +2291,89 @@ class RtExportResourceTest {
         saveGeneratedDocument("rt-intervalo-intrajornada-bloco-extenso.docx", docx)
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview waiting time constitutionality only with parent after intrajornada interval`() {
+        val blockId = "jornada_trabalho_inconstitucionalidade_tempo_espera"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(0))
+
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_intervalo_intrajornada",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_intervalo_intrajornada"))
+            .body("blocos[2].id", equalTo(blockId))
+            .body("blocos[2].titulo", equalTo(WAITING_TIME_TITLE))
+            .body("blocos[2].anexos.size()", equalTo(0))
+            .body("blocos[2].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val text = response.jsonPath().getString("blocos[2].texto")
+        assertEquals(5, text.split("\n\n").size)
+        assertTrue(text.startsWith("Quanto ao tempo de espera, previsto no art. 235-C"))
+        assertTrue(text.contains("**a expressão “e o tempo de espera”**"))
+        assertTrue(text.endsWith("com fundamento no art. 324, § 1º, III, do CPC."))
+        assertEquals(WAITING_TIME_TEXT_SHA256, sha256(text))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export waiting time decision indented bold and protected from orphan breaks`() {
+        val blockId = "jornada_trabalho_inconstitucionalidade_tempo_espera"
+        val preview = given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho", blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200).extract().response()
+        val blockText = preview.jsonPath().getString("blocos[1].texto")
+        val filler = (1..10).joinToString("\n\n") { index ->
+            "Parágrafo de preenchimento $index para posicionar a decisão próxima a uma quebra de página."
+        }
+        val request = RtExportRequest(
+            claimantName = "Teste visual tempo de espera",
+            blocks = listOf(
+                RtExportBlockRequest(title = "Preenchimento visual", content = filler),
+                RtExportBlockRequest(id = blockId, title = WAITING_TIME_TITLE, content = blockText)
+            )
+        )
+        val docx = given().multiPart("payload", objectMapper.writeValueAsString(request), "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val start = document.paragraphs.indexOfFirst { it.text.startsWith("Quanto ao tempo de espera") }
+            val paragraphs = document.paragraphs.drop(start).take(5)
+            assertEquals(5, paragraphs.size)
+            assertTrue(paragraphs[0].indentationLeft <= 0)
+            assertTrue(paragraphs[1].indentationLeft > 0 && paragraphs[1].indentationRight > 0)
+            assertTrue(paragraphs[2].indentationLeft > 0 && paragraphs[2].indentationRight > 0)
+            assertTrue(paragraphs[3].indentationLeft <= 0)
+            assertTrue(paragraphs[4].indentationLeft <= 0)
+            assertTrue(paragraphs[0].ctp.pPr.isSetKeepNext)
+            assertTrue(paragraphs[1].ctp.pPr.isSetKeepNext)
+            assertTrue(paragraphs[2].ctp.pPr.isSetKeepLines)
+            assertTrue(paragraphs[1].runs.any { it.isBold && it.text() == "declarando inconstitucionais" })
+            assertTrue(paragraphs[1].runs.any {
+                it.isBold && it.text()!!.contains("9") && it.text()!!.contains("art. 235-C da CLT")
+            })
+            assertTrue(paragraphs[3].runs.any { it.isBold && it.text() == "REQUER" })
+            assertTrue(paragraphs[3].runs.any {
+                it.isBold && it.text()!!.startsWith("tempo") && it.text()!!.endsWith("do empregador")
+            })
+        }
+        saveGeneratedDocument("rt-inconstitucionalidade-tempo-espera-quebra-pagina.docx", docx)
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
@@ -3781,6 +3864,9 @@ class RtExportResourceTest {
             "j. Intervalo intrajornada (nulidade dos intervalos superiores a 2h e fracionados – Tempo à disposição)"
         const val INTRAJORNADA_INTERVAL_TEXT_SHA256 =
             "523ce8ef5b5228f7c44cfb4ea1d3cf5a8ac5ed19d054998ddb273b7ba5194fbb"
+        const val WAITING_TIME_TITLE = "k. Inconstitucionalidade do tempo de espera"
+        const val WAITING_TIME_TEXT_SHA256 =
+            "156510c41a57468de39eed3cd4f6915df6001e1ad20698291d354cb66ef4d8b7"
         const val INTRAJORNADA_TITLE =
             "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)"
         const val INTRAJORNADA_INTRODUCTION =

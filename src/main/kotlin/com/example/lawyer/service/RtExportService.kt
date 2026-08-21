@@ -169,6 +169,8 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                     paragraphNumber,
                     paragraphTexts
                 )
+            } else if (block.id == RtTemplateService.JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA) {
+                configureWaitingTimeParagraphPagination(document.paragraphs.last(), paragraphNumber)
             }
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             block.anexos
@@ -194,6 +196,16 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
             properties.addNewKeepNext().`val` = true
         }
         if (paragraph.text == "(grifo nosso)") {
+            properties.addNewKeepLines().`val` = true
+        }
+    }
+
+    private fun configureWaitingTimeParagraphPagination(paragraph: XWPFParagraph, paragraphNumber: Int) {
+        val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+        if (paragraphNumber == 1 || paragraphNumber == 2) {
+            properties.addNewKeepNext().`val` = true
+        }
+        if (paragraphNumber == 3) {
             properties.addNewKeepLines().`val` = true
         }
     }
