@@ -2048,6 +2048,96 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview intrajornada constitutionality only with parent in family order and integral text`() {
+        val blockId = "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(0))
+
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_intervalo_interjornada",
+                        "jornada_trabalho"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_intervalo_interjornada"))
+            .body("blocos[2].id", equalTo(blockId))
+            .body("blocos[2].titulo", equalTo(INTRAJORNADA_TITLE))
+            .body("blocos[2].anexos.size()", equalTo(0))
+            .body("blocos[2].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        assertEquals(INTRAJORNADA_TEXT, response.jsonPath().getString("blocos[2].texto"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export intrajornada comparison as real table with exact structure and bold text`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho","jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"]
+        }""".trimIndent()
+
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            assertEquals(1, document.tables.size)
+            val table = document.tables.single()
+            assertEquals(2, table.rows.size)
+            assertTrue(table.rows.all { it.tableCells.size == 2 })
+            assertEquals("Redação original", table.getRow(0).getCell(0).text)
+            assertEquals("Redação alterada", table.getRow(0).getCell(1).text)
+            assertEquals(INTRAJORNADA_ORIGINAL.replace("**", ""), table.getRow(1).getCell(0).text)
+            assertEquals(INTRAJORNADA_ALTERADA.replace("**", ""), table.getRow(1).getCell(1).text)
+            assertTrue(table.rows.flatMap { it.tableCells }.all { it.paragraphs.size == 1 })
+            assertTrue(table.getRow(0).tableCells.all { cell ->
+                cell.paragraphs.single().alignment == org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER &&
+                    cell.paragraphs.single().runs.all { it.isBold }
+            })
+            assertTrue(table.getRow(1).tableCells.all { cell ->
+                cell.paragraphs.single().alignment == org.apache.poi.xwpf.usermodel.ParagraphAlignment.BOTH &&
+                    cell.verticalAlignment == org.apache.poi.xwpf.usermodel.XWPFTableCell.XWPFVertAlign.TOP
+            })
+            assertTrue(table.getRow(1).getCell(0).paragraphs.single().runs.any {
+                it.isBold && it.text() == "remunerar o período correspondente"
+            })
+            assertTrue(table.getRow(1).getCell(1).paragraphs.single().runs.any {
+                it.isBold && it.text() == "implica o pagamento, de natureza indenizatória"
+            })
+            assertEquals(4606, table.getRow(0).getCell(0).width)
+            assertEquals(table.getRow(0).getCell(0).width, table.getRow(0).getCell(1).width)
+            assertEquals(table.getRow(1).getCell(0).width, table.getRow(1).getCell(1).width)
+            val borders = table.ctTbl.tblPr.tblBorders
+            assertTrue((borders.top.color as ByteArray).contentEquals(byteArrayOf(0, 0, 0)))
+            assertEquals("single", borders.top.`val`.toString())
+            assertEquals("single", borders.insideV.`val`.toString())
+
+            val body = document.paragraphs
+            assertEquals(1, body.count { it.text == INTRAJORNADA_INTRODUCTION })
+            val foundation = body.single { it.text.startsWith("Ao alterar a natureza jurídica") }
+            val request = body.single { it.text.startsWith("Pelo exposto, REQUER-SE") }
+            assertEquals(INTRAJORNADA_FOUNDATION.replace("**", ""), foundation.text)
+            assertEquals(INTRAJORNADA_REQUEST.replace("**", ""), request.text)
+            assertTrue(foundation.runs.any {
+                it.isBold && it.text() == "negou o pagamento de remuneração para quem presta trabalho durante o tempo de intervalo intrajornada"
+            })
+            assertTrue(request.runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(request.runs.any { it.isBold && it.text() == "natureza salarial" })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
@@ -3534,6 +3624,36 @@ class RtExportResourceTest {
     )
 
     private companion object {
+        const val INTRAJORNADA_TITLE =
+            "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)"
+        const val INTRAJORNADA_INTRODUCTION =
+            "A Lei n.º 13.467/2017 alterou a redação do § 4º do art. 71 da CLT:"
+        const val INTRAJORNADA_ORIGINAL_A =
+            "§ 4º - Quando o intervalo para repouso e alimentação, previsto neste artigo, não for concedido pelo empregador, este ficará obrigado a **remunerar o período correspondente** "
+        const val INTRAJORNADA_ORIGINAL_B =
+            "com um acréscimo de no mínimo 50% (cinqüenta por cento) sobre o valor da remuneração da hora normal de trabalho. (Incluído pela Lei nº 8.923, de 27.7.1994)"
+        const val INTRAJORNADA_ORIGINAL = INTRAJORNADA_ORIGINAL_A + INTRAJORNADA_ORIGINAL_B
+        const val INTRAJORNADA_ALTERADA_A =
+            "§ 4º A não concessão ou a concessão parcial do intervalo intrajornada mínimo, para repouso e alimentação, a empregados urbanos e rurais, "
+        const val INTRAJORNADA_ALTERADA_B =
+            "**implica o pagamento, de natureza indenizatória**, apenas do período suprimido, com acréscimo de 50% (cinquenta por cento) "
+        const val INTRAJORNADA_ALTERADA_C =
+            "sobre o valor da remuneração da hora normal de trabalho. (Redação dada pela Lei nº 13.467, de 2017)"
+        const val INTRAJORNADA_ALTERADA =
+            INTRAJORNADA_ALTERADA_A + INTRAJORNADA_ALTERADA_B + INTRAJORNADA_ALTERADA_C
+        const val INTRAJORNADA_FOUNDATION_A =
+            "Ao alterar a natureza jurídica do tempo suprimido do intervalo intrajornada, a Lei n.º 13.467/2017 afrontou o art. 7º, incisos IV, V, VI, VII e X, da Constituição Federal, que tratam da proteção constitucional ao salário, "
+        const val INTRAJORNADA_FOUNDATION_B =
+            "porquanto a referida alteração legislativa **negou o pagamento de remuneração para quem presta trabalho durante o tempo de intervalo intrajornada**, transformando sua natureza jurídica (de salarial para indenizatória), como se esse tempo de trabalho não devesse ser remunerado (mas, sim, indenizado), isto é, como se não fosse trabalho efetivamente prestado."
+        const val INTRAJORNADA_FOUNDATION = INTRAJORNADA_FOUNDATION_A + INTRAJORNADA_FOUNDATION_B
+        const val INTRAJORNADA_REQUEST_A =
+            "Pelo exposto, **REQUER-SE** a declaração incidental de inconstitucionalidade do art. 71, § 4º, da CLT, com a redação dada pela Lei n.º 13.467/2017, no tocante à natureza jurídica do intervalo intrajornada, "
+        const val INTRAJORNADA_REQUEST_B =
+            "para que seja fixada sua **natureza salarial**, o que atrai a condenação da ré ao pagamento dos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+        const val INTRAJORNADA_REQUEST = INTRAJORNADA_REQUEST_A + INTRAJORNADA_REQUEST_B
+        const val INTRAJORNADA_TEXT =
+            INTRAJORNADA_INTRODUCTION + "\n\n" + INTRAJORNADA_ORIGINAL + "\n\n" +
+                INTRAJORNADA_ALTERADA + "\n\n" + INTRAJORNADA_FOUNDATION + "\n\n" + INTRAJORNADA_REQUEST
         val TEST_IMAGE_1: ByteArray = realisticScreenshot(1234)
         val TEST_IMAGE_2: ByteArray = realisticScreenshot(5678)
 

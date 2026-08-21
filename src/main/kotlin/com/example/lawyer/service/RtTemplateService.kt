@@ -216,6 +216,13 @@ class RtTemplateService(
             titulo = { "h. Intervalo interjornada" },
             generate = { _, _, variaveis, _ -> jornadaTrabalhoIntervaloInterjornada(variaveis) }
         ),
+        JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA to RtBlockDefinition(
+            titulo = {
+                "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela " +
+                    "Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)"
+            },
+            generate = { _, _, _, _ -> jornadaTrabalhoInconstitucionalidadeIntervaloIntrajornada() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -283,6 +290,9 @@ class RtTemplateService(
         val ordered = selected.map(String::trim).filter(String::isNotEmpty).distinct().toMutableList()
         if (JORNADA_TRABALHO_INTERVALO_INTERJORNADA in ordered && JORNADA_TRABALHO !in ordered) {
             ordered.remove(JORNADA_TRABALHO_INTERVALO_INTERJORNADA)
+        }
+        if (JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA in ordered && JORNADA_TRABALHO !in ordered) {
+            ordered.remove(JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA)
         }
         if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
@@ -914,6 +924,9 @@ class RtTemplateService(
             variaveis["descricaoSupressaoIntervaloInterjornada"].orPlaceholder()
         )
 
+    private fun jornadaTrabalhoInconstitucionalidadeIntervaloIntrajornada(): String =
+        JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA_TEMPLATE
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1248,6 +1261,8 @@ class RtTemplateService(
         const val JORNADA_TRABALHO_ADICIONAL_NOTURNO = "jornada_trabalho_adicional_noturno"
         const val JORNADA_TRABALHO_SOBREAVISO = "jornada_trabalho_sobreaviso"
         const val JORNADA_TRABALHO_INTERVALO_INTERJORNADA = "jornada_trabalho_intervalo_interjornada"
+        const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA =
+            "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_NAME = "e_Trabalho_em_dias_de_descanso.png"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_PATH = "/assets/$TRABALHO_DIAS_DESCANSO_IMAGE_NAME"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_URL = "/rt/assets/e-trabalho-dias-descanso"
@@ -1340,7 +1355,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_DIAS_DESCANSO,
             JORNADA_TRABALHO_ADICIONAL_NOTURNO,
             JORNADA_TRABALHO_SOBREAVISO,
-         JORNADA_TRABALHO_INTERVALO_INTERJORNADA
+         JORNADA_TRABALHO_INTERVALO_INTERJORNADA,
+            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1435,6 +1451,41 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
         private val JORNADA_TRABALHO_INTERVALO_INTERJORNADA_TEMPLATE = listOf(
             "Considerando a supressão do intervalo interjornada, porquanto {descricaoSupressaoIntervaloInterjornada}, com fundamento no art. 66 da CLT, **REQUER-SE** a condenação da ré ao pagamento dos intervalos interjornada suprimidos, com um acréscimo de 50%, sem prejuízo das horas extras deferidas, considerando que se trata de fatos geradores diversos, bem como os devidos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade.",
             "Ainda, **REQUER-SE** a integração à jornada, como tempo à disposição do empregador (art. 4º da CLT), do tempo suprimido dos intervalos interjornada, com a consequente condenação da ré ao pagamento das horas extras, **com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem refletir em 13º salários (Súmula 45/TST), férias (Súmula 151/TST) com 1/3 e FGTS (8%) (Súmula 63/TST) + multa de 40%.**"
+        ).joinToString("\n\n")
+        private const val INTRAJORNADA_INTRODUCAO =
+            "A Lei n.º 13.467/2017 alterou a redação do § 4º do art. 71 da CLT:"
+        private const val INTRAJORNADA_REDACAO_ORIGINAL_A =
+            "§ 4º - Quando o intervalo para repouso e alimentação, previsto neste artigo, não for concedido pelo empregador, este ficará obrigado a **remunerar o período correspondente** com um acréscimo de no mínimo 50% (cinqüenta por cento) "
+        private const val INTRAJORNADA_REDACAO_ORIGINAL_B =
+            "sobre o valor da remuneração da hora normal de trabalho. (Incluído pela Lei nº 8.923, de 27.7.1994)"
+        private const val INTRAJORNADA_REDACAO_ALTERADA_A =
+            "§ 4º A não concessão ou a concessão parcial do intervalo intrajornada mínimo, para repouso e alimentação, a empregados urbanos e rurais, "
+        private const val INTRAJORNADA_REDACAO_ALTERADA_B =
+            "**implica o pagamento, de natureza indenizatória**, apenas do período suprimido, com acréscimo de 50% (cinquenta por cento) "
+        private const val INTRAJORNADA_REDACAO_ALTERADA_C =
+            "sobre o valor da remuneração da hora normal de trabalho. (Redação dada pela Lei nº 13.467, de 2017)"
+        private const val INTRAJORNADA_FUNDAMENTACAO_A =
+            "Ao alterar a natureza jurídica do tempo suprimido do intervalo intrajornada, a Lei n.º 13.467/2017 afrontou o art. 7º, incisos IV, V, VI, VII e X, da Constituição Federal, que tratam da proteção constitucional ao salário, "
+        private const val INTRAJORNADA_FUNDAMENTACAO_B =
+            "porquanto a referida alteração legislativa **negou o pagamento de remuneração para quem presta trabalho durante o tempo de intervalo intrajornada**, transformando sua natureza jurídica (de salarial para indenizatória), como se esse tempo de trabalho não devesse ser remunerado (mas, sim, indenizado), isto é, como se não fosse trabalho efetivamente prestado."
+        private const val INTRAJORNADA_PEDIDO_A =
+            "Pelo exposto, **REQUER-SE** a declaração incidental de inconstitucionalidade do art. 71, § 4º, da CLT, com a redação dada pela Lei n.º 13.467/2017, no tocante à natureza jurídica do intervalo intrajornada, "
+        private const val INTRAJORNADA_PEDIDO_B =
+            "para que seja fixada sua **natureza salarial**, o que atrai a condenação da ré ao pagamento dos reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+        private const val INTRAJORNADA_REDACAO_ORIGINAL =
+            INTRAJORNADA_REDACAO_ORIGINAL_A + INTRAJORNADA_REDACAO_ORIGINAL_B
+        private const val INTRAJORNADA_REDACAO_ALTERADA =
+            INTRAJORNADA_REDACAO_ALTERADA_A + INTRAJORNADA_REDACAO_ALTERADA_B +
+                INTRAJORNADA_REDACAO_ALTERADA_C
+        private const val INTRAJORNADA_FUNDAMENTACAO =
+            INTRAJORNADA_FUNDAMENTACAO_A + INTRAJORNADA_FUNDAMENTACAO_B
+        private const val INTRAJORNADA_PEDIDO = INTRAJORNADA_PEDIDO_A + INTRAJORNADA_PEDIDO_B
+        private val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
+            INTRAJORNADA_INTRODUCAO,
+            INTRAJORNADA_REDACAO_ORIGINAL,
+            INTRAJORNADA_REDACAO_ALTERADA,
+            INTRAJORNADA_FUNDAMENTACAO,
+            INTRAJORNADA_PEDIDO
         ).joinToString("\n\n")
         private const val SEMANA_INGLESA_JURISPRUDENCIA_5_TURMA = """**5ª Turma do TST**
 [...] II - AGRAVO EM RECURSO DE REVISTA. ACÓRDÃO REGIONAL PUBLICADO ANTES DA VIGÊNCIA DA LEI Nº 13.467/2017. ACORDO DE COMPENSAÇÃO. INAPLICABILIDADE DO ITEM IV DA SÚMULA 85 DO TST. TRABALHO EM DIA DESTINADO À COMPENSAÇÃO. **Extrai-se do acórdão regional não apenas a invalidade formal do acordo, mas também a irregularidade material com trabalho aos sábados, dia destinado à compensação semanal, o que torna evidente que a empresa não cumpriu e descaracterizou o ajuste. A jurisprudência do TST consolidou-se no sentido de não admitir a aplicação do item IV da Súmula 85 nas hipóteses de completo desvirtuamento do acordo de compensação semanal, em razão do labor extraordinário habitual nos dias destinados à compensação ou em extrapolação do limite diário de dez horas de labor previsto no art. 59, § 2º, da CLT. Precedentes. Logo, é devido o pagamento integral, como horas extras, do labor acima dos limites legais de jornada.** Mantém-se a decisão recorrida. Agravo conhecido e desprovido" (Ag-ARR-1451-96.2013.5.09.0594, 5ª Turma, Relatora Ministra Morgana de Almeida Richa, DEJT 05/04/2024. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/9ce91469cdcca901331be11f4fc6e81f)

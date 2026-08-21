@@ -11,6 +11,8 @@ import org.apache.poi.xwpf.usermodel.ParagraphAlignment
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
 import org.apache.poi.xwpf.usermodel.XWPFRun
+import org.apache.poi.xwpf.usermodel.XWPFTable
+import org.apache.poi.xwpf.usermodel.XWPFTableCell
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder
@@ -141,6 +143,10 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
 
     // Corpo de texto — Garamond 12pt, justificado
     private fun createBodyContent(document: XWPFDocument, block: RtExportBlockRequest) {
+        if (block.id == RtTemplateService.JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA) {
+            createIntrajornadaConstitutionalityContent(document, block)
+            return
+        }
         logger.infof("DOCX bloco '%s': anexos.size=%d; iniciando criação de parágrafos", block.title, block.anexos.size)
         block.content.split("\n\n").forEachIndexed { index, paragraphText ->
             val paragraphNumber = index + 1
@@ -165,6 +171,55 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                     addInlineImage(document, image)
                     image.caption?.let { createImageCaption(document, it) }
                 }
+        }
+    }
+
+    private fun createIntrajornadaConstitutionalityContent(
+        document: XWPFDocument,
+        block: RtExportBlockRequest
+    ) {
+        val paragraphs = block.content.split("\n\n")
+        require(paragraphs.size == 5) { "Conteúdo inválido para o bloco de inconstitucionalidade intrajornada" }
+        createBodyParagraph(document, paragraphs[0])
+        createIntrajornadaComparisonTable(document, paragraphs[1], paragraphs[2])
+        createBodyParagraph(document, paragraphs[3])
+        createBodyParagraph(document, paragraphs[4])
+    }
+
+    private fun createIntrajornadaComparisonTable(document: XWPFDocument, original: String, altered: String) {
+        val table = document.createTable(2, 2)
+        table.setWidth(USEFUL_PAGE_WIDTH_TWIPS.toString())
+        configureBlackBorders(table)
+        listOf("Redação original", "Redação alterada").forEachIndexed { index, header ->
+            configureComparisonCell(table.getRow(0).getCell(index), header, header = true)
+        }
+        configureComparisonCell(table.getRow(1).getCell(0), original, header = false)
+        configureComparisonCell(table.getRow(1).getCell(1), altered, header = false)
+    }
+
+    private fun configureComparisonCell(cell: XWPFTableCell, text: String, header: Boolean) {
+        cell.setWidth(TABLE_COLUMN_WIDTH_TWIPS.toString())
+        cell.verticalAlignment = XWPFTableCell.XWPFVertAlign.TOP
+        val paragraph = cell.paragraphs.single()
+        paragraph.alignment = if (header) ParagraphAlignment.CENTER else ParagraphAlignment.BOTH
+        if (header) {
+            addFormattedRun(paragraph, text, bold = true)
+        } else {
+            addFormattedText(paragraph, text)
+        }
+    }
+
+    private fun configureBlackBorders(table: XWPFTable) {
+        val tableProperties = table.ctTbl.tblPr
+        if (tableProperties.isSetTblBorders) tableProperties.unsetTblBorders()
+        val borders = tableProperties.addNewTblBorders()
+        listOf(
+            borders.addNewTop(), borders.addNewLeft(), borders.addNewBottom(),
+            borders.addNewRight(), borders.addNewInsideH(), borders.addNewInsideV()
+        ).forEach { border ->
+            border.`val` = STBorder.SINGLE
+            border.sz = BigInteger.valueOf(4)
+            border.color = "000000"
         }
     }
 
@@ -342,6 +397,8 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         const val BODY_IMAGE_MAX_WIDTH_POINTS = 450.0
         const val JURISPRUDENCE_LEFT_INDENT_TWIPS = 1440
         const val JURISPRUDENCE_RIGHT_INDENT_TWIPS = 720
+        const val USEFUL_PAGE_WIDTH_TWIPS = 9213
+        const val TABLE_COLUMN_WIDTH_TWIPS = 4606
     }
 
     // Parágrafo vazio
