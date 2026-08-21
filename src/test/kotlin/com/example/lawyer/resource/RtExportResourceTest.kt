@@ -2923,6 +2923,115 @@ class RtExportResourceTest {
             .body("blocos[0].texto", containsString("Conteúdo integral da cláusula de vale-alimentação."))
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export life insurance with fields order and formatting`() {
+        val variables = mapOf(
+            "clausulaCctSeguroVida" to "32ª",
+            "identificacaoCctSeguroVida" to "2025/2026"
+        )
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("seguro_vida", "vale_alimentacao"),
+                    dadosVariaveis = variables + mapOf(
+                        "clausulaCctValeAlimentacao" to "21ª",
+                        "identificacaoCctValeAlimentacao" to "2025/2026",
+                        "textoClausulaValeAlimentacao" to "Cláusula do vale-alimentação."
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("vale_alimentacao"))
+            .body("blocos[1].id", equalTo("seguro_vida"))
+            .body("blocos[1].titulo", equalTo("Seguro de vida"))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val paragraphs = response.jsonPath().getString("blocos[1].texto").split("\n\n")
+        assertEquals(4, paragraphs.size)
+        assertEquals(
+            "A ré não mantinha seguro de vida para a parte autora, descumprindo a cláusula 32ª da CCT 2025/2026:",
+            paragraphs[0]
+        )
+        assertTrue(paragraphs[1].contains("**arts. 186 e 927 do Código Civil**"))
+        assertTrue(paragraphs[2].contains("**art. 884 do Código Civil** (*Aquele que"))
+        assertTrue(paragraphs[2].contains("atualização dos valores monetários*)"))
+        assertTrue(paragraphs[3].contains("**REQUER-SE**"))
+        assertTrue(paragraphs[3].contains("R$ 200,00 por mês"))
+        assertFalse(response.jsonPath().getString("blocos[1].texto").contains("textoClausulaSeguroVida"))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste Seguro Vida",
+                blocosSelecionados = listOf("seguro_vida"),
+                dadosVariaveis = mapOf(
+                    "clausulaCctSeguroVida" to "32a",
+                    "identificacaoCctSeguroVida" to "2025/2026"
+                )
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst { it.text.startsWith("A ré não mantinha seguro de vida") }
+            assertTrue(opening >= 0)
+            val blockParagraphs = document.paragraphs.drop(opening).take(4)
+            assertEquals(4, blockParagraphs.size)
+            assertTrue(blockParagraphs[1].runs.any { it.isBold && it.text().contains("arts. 186 e 927") })
+            assertTrue(blockParagraphs[2].runs.any { it.isBold && it.text().contains("art. 884") })
+            assertTrue(blockParagraphs[2].runs.any { it.isItalic && it.text().startsWith("Aquele que") })
+            assertTrue(blockParagraphs[3].runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(blockParagraphs[3].text.contains("R$ 200,00 por mês"))
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should persist and restore life insurance variables`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(pessoaRequest(suffix, validCpfFromSuffix(suffix, 4), null, null))
+        val reclamada = pessoaService.create(pessoaRequest("re-$suffix", validCpfFromSuffix(suffix, 5), null, null))
+        val pessoaAdvogado = pessoaService.create(pessoaRequest("adv-$suffix", validCpfFromSuffix(suffix, 6), null, null))
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.seguro.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "77.777"
+            )
+        )
+        val variables = mapOf(
+            "clausulaCctSeguroVida" to "32ª",
+            "identificacaoCctSeguroVida" to "CCT 2025/2026"
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "SEGURO-$suffix",
+                descricao = "Persistência do seguro de vida",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf("seguro_vida"),
+                dadosVariaveis = mapOf("seguro_vida" to variables)
+            )
+        )
+
+        assertEquals(variables, processoService.getById(processo.id).dadosVariaveis["seguro_vida"])
+        given().contentType("application/json")
+            .body(RtPreviewRequest(processoId = processo.id, blocosSelecionados = listOf("seguro_vida")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("cláusula 32ª da CCT CCT 2025/2026"))
+            .body("blocos[0].texto", containsString("R$ 200,00 por mês"))
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

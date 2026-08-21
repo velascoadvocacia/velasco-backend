@@ -262,6 +262,10 @@ class RtTemplateService(
             titulo = { "Vale-alimentação" },
             generate = { _, _, variaveis, _ -> valeAlimentacao(variaveis) }
         ),
+        SEGURO_VIDA to RtBlockDefinition(
+            titulo = { "Seguro de vida" },
+            generate = { _, _, variaveis, _ -> seguroVida(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -390,6 +394,16 @@ class RtTemplateService(
                 ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
                 ?: -1
             ordered.add(predecessorIndex + 1, VALE_ALIMENTACAO)
+        }
+        if (SEGURO_VIDA in ordered) {
+            ordered.remove(SEGURO_VIDA)
+            val predecessorIndex = ordered.indexOf(VALE_ALIMENTACAO).takeIf { it >= 0 }
+                ?: ordered.indexOf(DIARIAS_VIAGEM).takeIf { it >= 0 }
+                ?: ordered.indexOf(AUSENCIA_DEPOSITOS_FGTS).takeIf { it >= 0 }
+                ?: ordered.indexOf(MEIO_AMBIENTE_TRABALHO_NOCIVO_SAUDE).takeIf { it >= 0 }
+                ?: JORNADA_TRABALHO_BLOCK_ORDER.map(ordered::indexOf).maxOrNull()
+                ?: -1
+            ordered.add(predecessorIndex + 1, SEGURO_VIDA)
         }
         return ordered
     }
@@ -1088,6 +1102,17 @@ class RtTemplateService(
         ).joinToString("\n\n")
     }
 
+    private fun seguroVida(variaveis: Map<String, String?>): String {
+        val clausula = variaveis["clausulaCctSeguroVida"].orPlaceholder()
+        val cct = variaveis["identificacaoCctSeguroVida"].orPlaceholder()
+        return listOf(
+            "A ré não mantinha seguro de vida para a parte autora, descumprindo a cláusula $clausula da CCT $cct:",
+            "A parte autora deixou de receber o que lhe era de direito, de modo que a ausência do fornecimento do benefício de seguro de vida configura ato ilícito, nos termos dos **arts. 186 e 927 do Código Civil**, tendo em vista o prejuízo que causou à parte autora.",
+            "É evidente a situação de enriquecimento sem justa causa do empregador, à luz do **art. 884 do Código Civil** (*Aquele que, sem justa causa, se enriquecer à custa de outrem, será obrigado a restituir o indevidamente auferido, feita a atualização dos valores monetários*), haja vista que deixou de despender com o fornecimento do seguro de vida, direito convencional da parte autora.",
+            "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento de indenização substitutiva, no valor de R$ 200,00 por mês correspondente a todo o contrato de trabalho, a título de dano material, considerando o não fornecimento do seguro de vida à parte autora, nos termos da CCT anexa."
+        ).joinToString("\n\n")
+    }
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1435,6 +1460,7 @@ class RtTemplateService(
         const val AUSENCIA_DEPOSITOS_FGTS = "ausencia_depositos_fgts"
         const val DIARIAS_VIAGEM = "diarias_viagem"
         const val VALE_ALIMENTACAO = "vale_alimentacao"
+        const val SEGURO_VIDA = "seguro_vida"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
