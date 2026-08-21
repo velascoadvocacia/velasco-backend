@@ -3577,6 +3577,230 @@ class RtExportResourceTest {
             .body("blocos[0].texto", containsString("***in re ipsa*****"))
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should require health event type and suppress children without parent`() {
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("doenca_profissional_acidente_trabalho")))
+            .`when`().post("/rt/preview").then().statusCode(400)
+
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "doenca_acidente_responsabilidade_objetiva",
+                        "doenca_acidente_danos_morais"
+                    ),
+                    dadosVariaveis = mapOf("tipoEventoSaudeTrabalho" to "DOENCA_PROFISSIONAL")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(0))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview disease family exclusively in parent child order with dynamic title and indented theme 932`() {
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "doenca_acidente_danos_morais",
+                        "doenca_acidente_responsabilidade_objetiva",
+                        "doenca_profissional_acidente_trabalho",
+                        "dano_moral_limitacao_banheiro"
+                    ),
+                    dadosVariaveis = mapOf(
+                        "tipoEventoSaudeTrabalho" to "DOENCA_PROFISSIONAL",
+                        "descricaoDoencaProfissional" to "desenvolveu lesão por esforço repetitivo",
+                        "descricaoAcidenteTrabalho" to "caiu de uma plataforma",
+                        "fundamentacaoResponsabilidadeObjetiva" to "a atividade expunha habitualmente a risco especial"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(4))
+            .body("blocos[0].id", equalTo("dano_moral_limitacao_banheiro"))
+            .body("blocos[1].id", equalTo("doenca_profissional_acidente_trabalho"))
+            .body("blocos[2].id", equalTo("doenca_acidente_responsabilidade_objetiva"))
+            .body("blocos[3].id", equalTo("doenca_acidente_danos_morais"))
+            .body("blocos[1].titulo", equalTo("Doença profissional ou acidente de trabalho"))
+            .body("blocos[2].titulo", equalTo("a. Doença profissional. Responsabilidade objetiva"))
+            .body("blocos[3].titulo", equalTo("b. Indenização por danos morais"))
+            .body("blocos[2].paragrafosRecuados", equalTo((2..9).toList()))
+            .extract().response()
+
+        val parentText = response.jsonPath().getString("blocos[1].texto")
+        assertEquals(3, parentText.split("\n\n").size)
+        assertTrue(parentText.startsWith("**Doença profissional**"))
+        assertTrue(parentText.contains("desenvolveu lesão por esforço repetitivo"))
+        assertFalse(parentText.contains("**Acidente de trabalho**"))
+        assertFalse(parentText.contains("caiu de uma plataforma"))
+
+        val responsibility = response.jsonPath().getString("blocos[2].texto")
+        assertEquals(12, responsibility.split("\n\n").size)
+        assertTrue(responsibility.contains("**Tese firmada:**"))
+        assertTrue(responsibility.contains("**3. Plena compatibilidade"))
+        assertTrue(responsibility.contains("Nesse sentido, a atividade expunha habitualmente a risco especial,"))
+        assertTrue(responsibility.contains("***lhe diminua a capacidade de trabalho****"))
+        assertFalse(responsibility.contains("\nOU\n"))
+
+        val damages = response.jsonPath().getString("blocos[3].texto")
+        assertEquals(2, damages.split("\n\n").size)
+        assertTrue(damages.contains("doença profissional que sofreu"))
+        assertTrue(damages.contains("doença ocupacional desenvolvida"))
+        assertFalse(damages.contains("acidente de trabalho que sofreu"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview accident family exclusively and export both variants with formatting`() {
+        val variants = listOf(
+            Triple("DOENCA_PROFISSIONAL", "adoeceu devido à exposição contínua", "Doença profissional"),
+            Triple("ACIDENTE_TRABALHO", "foi atingida por uma carga", "Acidente de trabalho")
+        )
+        variants.forEach { (type, description, heading) ->
+            val variables = if (type == "DOENCA_PROFISSIONAL") {
+                mapOf(
+                    "tipoEventoSaudeTrabalho" to type,
+                    "descricaoDoencaProfissional" to description,
+                    "descricaoAcidenteTrabalho" to "descrição oculta",
+                    "fundamentacaoResponsabilidadeObjetiva" to "a atividade era de risco"
+                )
+            } else {
+                mapOf(
+                    "tipoEventoSaudeTrabalho" to type,
+                    "descricaoDoencaProfissional" to "descrição oculta",
+                    "descricaoAcidenteTrabalho" to description,
+                    "fundamentacaoResponsabilidadeObjetiva" to "a atividade era de risco"
+                )
+            }
+            val preview = given().contentType("application/json")
+                .body(
+                    RtPreviewRequest(
+                        blocosSelecionados = listOf(
+                            "doenca_profissional_acidente_trabalho",
+                            "doenca_acidente_responsabilidade_objetiva",
+                            "doenca_acidente_danos_morais"
+                        ),
+                        dadosVariaveis = variables
+                    )
+                )
+                .`when`().post("/rt/preview").then().statusCode(200).extract().response()
+            val parentText = preview.jsonPath().getString("blocos[0].texto")
+            assertTrue(parentText.startsWith("**$heading**"))
+            assertTrue(parentText.contains(description))
+            assertFalse(parentText.contains("descrição oculta"))
+            val expectedTitle = if (type == "DOENCA_PROFISSIONAL") {
+                "a. Doença profissional. Responsabilidade objetiva"
+            } else {
+                "a. Acidente do trabalho. Responsabilidade objetiva"
+            }
+            assertEquals(expectedTitle, preview.jsonPath().getString("blocos[1].titulo"))
+            val damages = preview.jsonPath().getString("blocos[2].texto")
+            if (type == "DOENCA_PROFISSIONAL") {
+                assertFalse(damages.contains("acidente de trabalho que sofreu"))
+            } else {
+                assertTrue(damages.contains("acidente de trabalho que sofreu"))
+                assertTrue(damages.contains("acidente de trabalho sofrido"))
+                assertFalse(damages.contains("doença profissional que sofreu"))
+            }
+
+            val payload = objectMapper.writeValueAsString(
+                RtExportRequest(
+                    claimantName = "Teste Saúde Trabalho",
+                    blocosSelecionados = listOf(
+                        "doenca_profissional_acidente_trabalho",
+                        "doenca_acidente_responsabilidade_objetiva",
+                        "doenca_acidente_danos_morais"
+                    ),
+                    dadosVariaveis = variables
+                )
+            )
+            val docx = given().multiPart("payload", payload, "text/plain")
+                .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+            XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+                val headingParagraph = document.paragraphs.first { it.text == heading }
+                assertTrue(headingParagraph.runs.filter { it.text().isNotEmpty() }.all { it.isBold })
+                val theme = document.paragraphs.first { it.text.startsWith("Tese firmada:") }
+                val grifo = document.paragraphs.first { paragraph ->
+                    paragraph.text == "(grifo nosso)" && document.paragraphs.indexOf(paragraph) > document.paragraphs.indexOf(theme)
+                }
+                assertTrue(theme.indentationLeft > 0 && theme.indentationRight > 0)
+                assertTrue(grifo.indentationLeft > 0 && grifo.indentationRight > 0)
+                assertTrue(theme.runs.any { it.isBold && it.text() == "Tese firmada:" })
+                assertTrue(document.paragraphs.any { paragraph ->
+                    paragraph.runs.any { it.isBold && it.text() == "REQUER" }
+                })
+            }
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should persist and restore shared health event data across parent and children`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(pessoaRequest(suffix, validCpfFromSuffix(suffix, 1), null, null))
+        val reclamada = pessoaService.create(pessoaRequest("re-$suffix", validCpfFromSuffix(suffix, 2), null, null))
+        val pessoaAdvogado = pessoaService.create(pessoaRequest("adv-$suffix", validCpfFromSuffix(suffix, 3), null, null))
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.saude.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "44.444"
+            )
+        )
+        val parentVariables = mapOf(
+            "tipoEventoSaudeTrabalho" to "ACIDENTE_TRABALHO",
+            "descricaoDoencaProfissional" to "valor oculto preservado",
+            "descricaoAcidenteTrabalho" to "uma peça desprendeu-se da máquina"
+        )
+        val childVariables = mapOf(
+            "fundamentacaoResponsabilidadeObjetiva" to "a operação industrial apresentava risco especial"
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "SAUDE-$suffix",
+                descricao = "Persistência de doença ou acidente",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf(
+                    "doenca_profissional_acidente_trabalho",
+                    "doenca_acidente_responsabilidade_objetiva",
+                    "doenca_acidente_danos_morais"
+                ),
+                dadosVariaveis = mapOf(
+                    "doenca_profissional_acidente_trabalho" to parentVariables,
+                    "doenca_acidente_responsabilidade_objetiva" to childVariables
+                )
+            )
+        )
+
+        val restored = processoService.getById(processo.id)
+        assertEquals(parentVariables, restored.dadosVariaveis["doenca_profissional_acidente_trabalho"])
+        assertEquals(childVariables, restored.dadosVariaveis["doenca_acidente_responsabilidade_objetiva"])
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    processoId = processo.id,
+                    blocosSelecionados = restored.blocosSelecionados
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("uma peça desprendeu-se da máquina"))
+            .body("blocos[0].texto", not(containsString("valor oculto preservado")))
+            .body("blocos[1].titulo", equalTo("a. Acidente do trabalho. Responsabilidade objetiva"))
+            .body("blocos[1].texto", containsString("a operação industrial apresentava risco especial"))
+            .body("blocos[2].texto", containsString("acidente de trabalho sofrido"))
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

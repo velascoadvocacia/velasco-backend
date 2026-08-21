@@ -293,6 +293,19 @@ class RtTemplateService(
             generate = { _, _, variaveis, _ -> danoMoralLimitacaoBanheiro(variaveis) },
             paragrafosRecuados = (2..12).toSet()
         ),
+        DOENCA_PROFISSIONAL_ACIDENTE_TRABALHO to RtBlockDefinition(
+            titulo = { "Doença profissional ou acidente de trabalho" },
+            generate = { _, _, variaveis, _ -> doencaProfissionalAcidenteTrabalho(variaveis) }
+        ),
+        DOENCA_ACIDENTE_RESPONSABILIDADE_OBJETIVA to RtBlockDefinition(
+            titulo = { variaveis -> tituloResponsabilidadeObjetiva(variaveis) },
+            generate = { _, _, variaveis, _ -> doencaAcidenteResponsabilidadeObjetiva(variaveis) },
+            paragrafosRecuados = (2..9).toSet()
+        ),
+        DOENCA_ACIDENTE_DANOS_MORAIS to RtBlockDefinition(
+            titulo = { "b. Indenização por danos morais" },
+            generate = { _, _, variaveis, _ -> doencaAcidenteDanosMorais(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -337,7 +350,7 @@ class RtTemplateService(
             .mapNotNull { blockId ->
                 blockDefinitions[blockId]?.let { definition ->
                     val variaveis = variaveisAutomaticas(processo) +
-                        variaveisDoBloco(processo, blockId) +
+                        variaveisPersistidasDoBloco(processo, blockId) +
                         normalizeVariables(request.dadosVariaveis)
                     RtPreviewBlockResponse(
                         id = blockId,
@@ -375,6 +388,10 @@ class RtTemplateService(
         }
         if (JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H in ordered && JORNADA_TRABALHO !in ordered) {
             ordered.remove(JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H)
+        }
+        if (DOENCA_PROFISSIONAL_ACIDENTE_TRABALHO !in ordered) {
+            ordered.remove(DOENCA_ACIDENTE_RESPONSABILIDADE_OBJETIVA)
+            ordered.remove(DOENCA_ACIDENTE_DANOS_MORAIS)
         }
         if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
@@ -476,6 +493,14 @@ class RtTemplateService(
                 ?: -1
             ordered.add(predecessorIndex + 1, DANO_MORAL_LIMITACAO_BANHEIRO)
         }
+        val selectedHealthFamily = DOENCA_ACIDENTE_BLOCK_ORDER.filter(ordered::contains)
+        if (selectedHealthFamily.isNotEmpty()) {
+            ordered.removeAll(selectedHealthFamily.toSet())
+            val predecessorIndex = ordered.indexOf(DANO_MORAL_LIMITACAO_BANHEIRO).takeIf { it >= 0 }
+                ?: ordered.indexOf(DANO_MORAL_ASSEDIO_MORAL).takeIf { it >= 0 }
+                ?: -1
+            ordered.addAll(predecessorIndex + 1, selectedHealthFamily)
+        }
         return ordered
     }
 
@@ -565,6 +590,14 @@ class RtTemplateService(
             .asSequence()
             .filter { it.blocoId == blocoId }
             .associate { it.campo to it.valor }
+
+    private fun variaveisPersistidasDoBloco(processo: Processo, blocoId: String): Map<String, String?> =
+        if (blocoId in DOENCA_ACIDENTE_BLOCK_ORDER) {
+            variaveisDoBloco(processo, DOENCA_PROFISSIONAL_ACIDENTE_TRABALHO) +
+                variaveisDoBloco(processo, blocoId)
+        } else {
+            variaveisDoBloco(processo, blocoId)
+        }
 
     private fun variaveisAutomaticas(processo: Processo): Map<String, String?> = mapOf(
         "funcaoContrato" to processo.contratoTrabalho?.funcaoExercida,
@@ -1267,6 +1300,70 @@ class RtTemplateService(
         ).joinToString("\n\n")
     }
 
+    private fun doencaProfissionalAcidenteTrabalho(variaveis: Map<String, String?>): String {
+        val descricaoDoenca = variaveis["descricaoDoencaProfissional"].orPlaceholder()
+        val descricaoAcidente = variaveis["descricaoAcidenteTrabalho"].orPlaceholder()
+        return when (tipoEventoSaudeTrabalho(variaveis)) {
+            TIPO_EVENTO_DOENCA_PROFISSIONAL -> listOf(
+                "**Doença profissional**",
+                "O trabalho desenvolvido na ré acarretou à parte autora doença profissional, porquanto $descricaoDoenca.",
+                "Isso posto, veja-se as consequências jurídicas incidentes."
+            )
+            TIPO_EVENTO_ACIDENTE_TRABALHO -> listOf(
+                "**Acidente de trabalho**",
+                "A parte autora sofreu acidente de trabalho, quando $descricaoAcidente.",
+                "Isso posto, veja-se as consequências jurídicas incidentes."
+            )
+            else -> error("Tipo de evento de saúde do trabalho não suportado")
+        }.joinToString("\n\n")
+    }
+
+    private fun tituloResponsabilidadeObjetiva(variaveis: Map<String, String?>): String =
+        when (tipoEventoSaudeTrabalho(variaveis)) {
+            TIPO_EVENTO_DOENCA_PROFISSIONAL -> "a. Doença profissional. Responsabilidade objetiva"
+            TIPO_EVENTO_ACIDENTE_TRABALHO -> "a. Acidente do trabalho. Responsabilidade objetiva"
+            else -> error("Tipo de evento de saúde do trabalho não suportado")
+        }
+
+    private fun doencaAcidenteResponsabilidadeObjetiva(variaveis: Map<String, String?>): String {
+        val fundamentacao = variaveis["fundamentacaoResponsabilidadeObjetiva"].orPlaceholder()
+        return listOf(
+        "O Supremo Tribunal Federal, no Tema 932, em que foi reconhecida repercussão geral, fixou a possibilidade de atribuição de responsabilidade objetiva para empresas que exerçam atividades de risco, como é o caso da ré:",
+        "**Tese firmada:** O artigo 927, parágrafo único, do Código Civil é compatível com o artigo 7º, XXVIII, da Constituição Federal, sendo constitucional a responsabilização objetiva do empregador por danos decorrentes de acidentes de trabalho, nos casos especificados em lei, ou **quando a atividade normalmente desenvolvida, por sua natureza, apresentar exposição habitual a risco especial**, com potencialidade lesiva e implicar ao trabalhador ônus maior do que aos demais membros da coletividade.",
+        "Veja-se a ementa do julgado da Suprema Corte:",
+        "Ementa: EMENTA: DIREITO CONSTITUCIONAL. DIREITO DO TRABALHO. RECURSO EXTRAORDINÁRIO. REPERCUSSÃO GERAL RECONHECIDA. TEMA 932. EFETIVA PROTEÇÃO AOS DIREITOS SOCIAIS. POSSIBILIDADE DE RESPONSABILIZAÇÃO OBJETIVA DO EMPREGADOR POR DANOS DECORRENTES DE ACIDENTES DE TRABALHO. COMPATIBILIDADE DO ART. 7, XXVIII DA CONSTITUIÇÃO FEDERAL COM O ART. 927, PARÁGRAFO ÚNICO, DO CÓDIGO CIVIL. APLICABILIDADE PELA JUSTIÇA DO TRABALHO.",
+        "1. A responsabilidade civil subjetiva é a regra no Direito brasileiro, exigindo-se a comprovação de dolo ou culpa. Possibilidade, entretanto, de previsões excepcionais de responsabilidade objetiva pelo legislador ordinário em face da necessidade de justiça plena de se indenizar as vítimas em situações perigosas e de risco como acidentes nucleares e desastres ambientais.",
+        "2. O legislador constituinte estabeleceu um mínimo protetivo ao trabalhador no art. 7º, XXVIII, do texto constitucional, que não impede sua ampliação razoável por meio de legislação ordinária. Rol exemplificativo de direitos sociais nos artigos 6º e 7º da Constituição Federal.",
+        "**3. Plena compatibilidade do art. 927, parágrafo único, do Código Civil com o art. 7º, XXVIII, da Constituição Federal, ao permitir hipótese excepcional de responsabilização objetiva do empregador por danos decorrentes de acidentes de trabalho, nos casos especificados em lei ou quando a atividade normalmente desenvolvida pelo autor implicar, por sua natureza, outros riscos, extraordinários e especiais. Possibilidade de aplicação pela Justiça do Trabalho.**",
+        "4. Recurso Extraordinário desprovido. TEMA 932. Tese de repercussão geral: \"O artigo 927, parágrafo único, do Código Civil é compatível com o artigo 7º, XXVIII, da Constituição Federal, sendo constitucional a responsabilização objetiva do empregador por danos decorrentes de acidentes de trabalho, nos casos especificados em lei, ou quando a atividade normalmente desenvolvida, por sua natureza, apresentar exposição habitual a risco especial, com potencialidade lesiva e implicar ao trabalhador ônus maior do que aos demais membros da coletividade\".",
+        "(grifo nosso)",
+        "Nesse sentido, $fundamentacao, pelo que a ré deve ser condenada ao pagamento de indenização, em razão da redução de capacidade laborativa, nos termos do **art. 950, caput e parágrafo único, do Código Civil** (*art. 950. Se da ofensa resultar defeito pelo qual o ofendido não possa exercer o seu ofício ou profissão, ou se* ***lhe diminua a capacidade de trabalho****, *a indenização, além das despesas do tratamento e lucros cessantes até ao fim da convalescença, incluirá pensão correspondente à importância do trabalho para que se inabilitou, ou da depreciação que ele sofreu. Parágrafo único. O prejudicado, se preferir, poderá exigir que a* ***indenização**** *seja arbitrada e paga de uma só vez*.).",
+        "Pelo exposto, **REQUER** seja realizada perícia médica, a fim de constatar a incapacidade laborativa da parte autora.",
+        "Por fim, **REQUER** seja a parte ré condenada ao pagamento de indenização a título de pensão mensal, em razão da incapacidade laborativa da parte autora, ou, sucessivamente, em pensão a ser paga em uma só vez, em valor a ser arbitrado por este Juízo, considerando o grau de incapacidade a ser apurado em perícia técnica."
+        ).joinToString("\n\n")
+    }
+
+    private fun doencaAcidenteDanosMorais(variaveis: Map<String, String?>): String =
+        when (tipoEventoSaudeTrabalho(variaveis)) {
+            TIPO_EVENTO_DOENCA_PROFISSIONAL -> listOf(
+                "É evidente que a doença profissional que sofreu a parte autora causou-lhe sofrimento de natureza extrapatrimonial, o que atrai o direito à correspondente indenização.",
+                "Pelo exposto, com fundamento no art. 5º, V e X, da Constituição Federal, no art. 223-G da CLT e nos arts. 186 e 927 do Código Civil, **REQUER** seja a ré condenada ao pagamento de indenização por danos morais, em razão da doença ocupacional desenvolvida."
+            )
+            TIPO_EVENTO_ACIDENTE_TRABALHO -> listOf(
+                "É evidente que o acidente de trabalho que sofreu a parte autora causou-lhe sofrimento de natureza extrapatrimonial, o que atrai o direito à correspondente indenização.",
+                "Pelo exposto, com fundamento no art. 5º, V e X, da Constituição Federal, no art. 223-G da CLT e nos arts. 186 e 927 do Código Civil, **REQUER** seja a ré condenada ao pagamento de indenização por danos morais, em razão do acidente de trabalho sofrido."
+            )
+            else -> error("Tipo de evento de saúde do trabalho não suportado")
+        }.joinToString("\n\n")
+
+    private fun tipoEventoSaudeTrabalho(variaveis: Map<String, String?>): String =
+        when (val tipo = variaveis["tipoEventoSaudeTrabalho"]?.trim()?.uppercase()) {
+            TIPO_EVENTO_DOENCA_PROFISSIONAL, TIPO_EVENTO_ACIDENTE_TRABALHO -> tipo
+            else -> throw BusinessException(
+                "O tipoEventoSaudeTrabalho é obrigatório e deve ser DOENCA_PROFISSIONAL ou ACIDENTE_TRABALHO"
+            )
+        }
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1622,6 +1719,9 @@ class RtTemplateService(
         const val DANO_MORAL_COBRANCA_ABUSIVA_METAS = "dano_moral_cobranca_abusiva_metas"
         const val DANO_MORAL_ASSEDIO_MORAL = "dano_moral_assedio_moral"
         const val DANO_MORAL_LIMITACAO_BANHEIRO = "dano_moral_limitacao_banheiro"
+        const val DOENCA_PROFISSIONAL_ACIDENTE_TRABALHO = "doenca_profissional_acidente_trabalho"
+        const val DOENCA_ACIDENTE_RESPONSABILIDADE_OBJETIVA = "doenca_acidente_responsabilidade_objetiva"
+        const val DOENCA_ACIDENTE_DANOS_MORAIS = "doenca_acidente_danos_morais"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
@@ -1795,6 +1895,13 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE,
             JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H
         )
+        private val DOENCA_ACIDENTE_BLOCK_ORDER = listOf(
+            DOENCA_PROFISSIONAL_ACIDENTE_TRABALHO,
+            DOENCA_ACIDENTE_RESPONSABILIDADE_OBJETIVA,
+            DOENCA_ACIDENTE_DANOS_MORAIS
+        )
+        private const val TIPO_EVENTO_DOENCA_PROFISSIONAL = "DOENCA_PROFISSIONAL"
+        private const val TIPO_EVENTO_ACIDENTE_TRABALHO = "ACIDENTE_TRABALHO"
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
             "O **art. 2º, I, b, da Lei 13.103/2015** dispõe que o controle fidedigno da jornada é direito do empregado motorista profissional (*Art. 2º São direitos dos motoristas profissionais de que trata esta Lei, sem prejuízo de outros previstos em leis específicas: V - se empregados: b)* ***ter jornada de trabalho controlada e registrada de maneira fidedigna*** *mediante anotação em diário de bordo, papeleta ou ficha de trabalho externo, ou sistema e meios eletrônicos instalados nos veículos, a critério do empregador;*), o que não foi observado pela ré, porquanto {descricaoAusenciaControleJornada}.",
