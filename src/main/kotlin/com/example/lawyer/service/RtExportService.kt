@@ -19,6 +19,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STJc
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STLineSpacingRule
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STPageOrientation
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URL
@@ -181,8 +182,10 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         val paragraphs = block.content.split("\n\n")
         require(paragraphs.size == 5) { "Conteúdo inválido para o bloco de inconstitucionalidade intrajornada" }
         createBodyParagraph(document, paragraphs[0])
+        document.paragraphs.last().ctp.pPr.spacing.after = BigInteger.valueOf(TABLE_SPACING_BEFORE_TWIPS)
         createIntrajornadaComparisonTable(document, paragraphs[1], paragraphs[2])
         createBodyParagraph(document, paragraphs[3])
+        document.paragraphs.last().ctp.pPr.spacing.before = BigInteger.valueOf(TABLE_SPACING_AFTER_TWIPS)
         createBodyParagraph(document, paragraphs[4])
     }
 
@@ -190,6 +193,10 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         val table = document.createTable(2, 2)
         table.setWidth(USEFUL_PAGE_WIDTH_TWIPS.toString())
         configureBlackBorders(table)
+        table.rows.forEach { row ->
+            val rowProperties = if (row.ctRow.isSetTrPr) row.ctRow.trPr else row.ctRow.addNewTrPr()
+            rowProperties.addNewCantSplit().`val` = true
+        }
         listOf("Redação original", "Redação alterada").forEachIndexed { index, header ->
             configureComparisonCell(table.getRow(0).getCell(index), header, header = true)
         }
@@ -200,12 +207,27 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
     private fun configureComparisonCell(cell: XWPFTableCell, text: String, header: Boolean) {
         cell.setWidth(TABLE_COLUMN_WIDTH_TWIPS.toString())
         cell.verticalAlignment = XWPFTableCell.XWPFVertAlign.TOP
+        configureCellMargins(cell)
         val paragraph = cell.paragraphs.single()
         paragraph.alignment = if (header) ParagraphAlignment.CENTER else ParagraphAlignment.BOTH
+        val paragraphProperties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+        val spacing = if (paragraphProperties.isSetSpacing) paragraphProperties.spacing else paragraphProperties.addNewSpacing()
+        spacing.before = BigInteger.ZERO
+        spacing.after = BigInteger.ZERO
+        if (header) paragraphProperties.addNewKeepNext().`val` = true
         if (header) {
             addFormattedRun(paragraph, text, bold = true)
         } else {
             addFormattedText(paragraph, text)
+        }
+    }
+
+    private fun configureCellMargins(cell: XWPFTableCell) {
+        val cellProperties = cell.ctTc.tcPr ?: cell.ctTc.addNewTcPr()
+        val margins = if (cellProperties.isSetTcMar) cellProperties.tcMar else cellProperties.addNewTcMar()
+        listOf(margins.addNewLeft(), margins.addNewRight()).forEach { margin ->
+            margin.w = BigInteger.valueOf(TABLE_CELL_HORIZONTAL_MARGIN_TWIPS)
+            margin.type = STTblWidth.DXA
         }
     }
 
@@ -399,6 +421,9 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         const val JURISPRUDENCE_RIGHT_INDENT_TWIPS = 720
         const val USEFUL_PAGE_WIDTH_TWIPS = 9213
         const val TABLE_COLUMN_WIDTH_TWIPS = 4606
+        const val TABLE_CELL_HORIZONTAL_MARGIN_TWIPS = 140L
+        const val TABLE_SPACING_BEFORE_TWIPS = 160L
+        const val TABLE_SPACING_AFTER_TWIPS = 200L
     }
 
     // Parágrafo vazio

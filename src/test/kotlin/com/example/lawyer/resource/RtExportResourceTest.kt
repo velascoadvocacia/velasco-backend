@@ -11,6 +11,8 @@ import com.example.lawyer.dto.request.EstrategiaProcessualRequest
 import com.example.lawyer.dto.request.PessoaRequestDTO
 import com.example.lawyer.dto.request.ProcessoCreateRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
+import com.example.lawyer.dto.request.RtExportBlockRequest
+import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.UsuarioCreateRequest
 import com.example.lawyer.service.PessoaService
 import com.example.lawyer.service.ProcessoService
@@ -2119,6 +2121,24 @@ class RtExportResourceTest {
             assertEquals(4606, table.getRow(0).getCell(0).width)
             assertEquals(table.getRow(0).getCell(0).width, table.getRow(0).getCell(1).width)
             assertEquals(table.getRow(1).getCell(0).width, table.getRow(1).getCell(1).width)
+            assertTrue(table.rows.all { row ->
+                row.ctRow.trPr.sizeOfCantSplitArray() == 1 &&
+                    row.ctRow.trPr.getCantSplitArray(0).`val` == true
+            })
+            assertTrue(table.getRow(0).tableCells.all { cell ->
+                val properties = cell.paragraphs.single().ctp.pPr
+                properties.isSetKeepNext && properties.keepNext.`val` == true
+            })
+            assertTrue(table.rows.flatMap { it.tableCells }.all { cell ->
+                val margins = cell.ctTc.tcPr.tcMar
+                margins.left.w == java.math.BigInteger.valueOf(140) &&
+                    margins.right.w == java.math.BigInteger.valueOf(140) &&
+                    margins.left.type.toString() == "dxa" && margins.right.type.toString() == "dxa"
+            })
+            assertTrue(table.rows.flatMap { it.tableCells }.all { cell ->
+                val spacing = cell.paragraphs.single().ctp.pPr.spacing
+                spacing.before == java.math.BigInteger.ZERO && spacing.after == java.math.BigInteger.ZERO
+            })
             val borders = table.ctTbl.tblPr.tblBorders
             assertTrue((borders.top.color as ByteArray).contentEquals(byteArrayOf(0, 0, 0)))
             assertEquals("single", borders.top.`val`.toString())
@@ -2128,6 +2148,9 @@ class RtExportResourceTest {
             assertEquals(1, body.count { it.text == INTRAJORNADA_INTRODUCTION })
             val foundation = body.single { it.text.startsWith("Ao alterar a natureza jurídica") }
             val request = body.single { it.text.startsWith("Pelo exposto, REQUER-SE") }
+            val introduction = body.single { it.text == INTRAJORNADA_INTRODUCTION }
+            assertEquals(java.math.BigInteger.valueOf(160), introduction.ctp.pPr.spacing.after)
+            assertEquals(java.math.BigInteger.valueOf(200), foundation.ctp.pPr.spacing.before)
             assertEquals(INTRAJORNADA_FOUNDATION.replace("**", ""), foundation.text)
             assertEquals(INTRAJORNADA_REQUEST.replace("**", ""), request.text)
             assertTrue(foundation.runs.any {
@@ -2136,6 +2159,35 @@ class RtExportResourceTest {
             assertTrue(request.runs.any { it.isBold && it.text() == "REQUER-SE" })
             assertTrue(request.runs.any { it.isBold && it.text() == "natureza salarial" })
         }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should keep intrajornada table rows together when positioned near page end`() {
+        val filler = (1..9).joinToString("\n\n") { index ->
+            "Parágrafo de preenchimento $index para posicionar a tabela próxima ao final da página e validar sua paginação. " +
+                "Este conteúdo existe somente no documento de teste visual e não integra o bloco jurídico."
+        }
+        val request = RtExportRequest(
+            claimantName = "Teste visual intrajornada",
+            blocks = listOf(
+                RtExportBlockRequest(title = "Preenchimento visual", content = filler),
+                RtExportBlockRequest(
+                    id = "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada",
+                    title = INTRAJORNADA_TITLE,
+                    content = INTRAJORNADA_TEXT
+                )
+            )
+        )
+        val docx = given().multiPart("payload", objectMapper.writeValueAsString(request), "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val table = document.tables.single()
+            assertTrue(table.rows.all { row -> row.ctRow.trPr.sizeOfCantSplitArray() == 1 })
+            assertTrue(table.getRow(0).tableCells.all { it.paragraphs.single().ctp.pPr.isSetKeepNext })
+        }
+        saveGeneratedDocument("rt-intrajornada-tabela-proxima-fim-pagina.docx", docx)
     }
 
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
