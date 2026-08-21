@@ -149,7 +149,8 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
             return
         }
         logger.infof("DOCX bloco '%s': anexos.size=%d; iniciando criação de parágrafos", block.title, block.anexos.size)
-        block.content.split("\n\n").forEachIndexed { index, paragraphText ->
+        val paragraphTexts = block.content.split("\n\n")
+        paragraphTexts.forEachIndexed { index, paragraphText ->
             val paragraphNumber = index + 1
             val alignment = if (paragraphNumber in block.paragrafosAlinhadosDireita) {
                 ParagraphAlignment.RIGHT
@@ -162,6 +163,13 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                 alignment,
                 paragraphNumber in block.paragrafosRecuados
             )
+            if (block.id == RtTemplateService.JORNADA_TRABALHO_INTERVALO_INTRAJORNADA) {
+                configureIntrajornadaParagraphPagination(
+                    document.paragraphs.last(),
+                    paragraphNumber,
+                    paragraphTexts
+                )
+            }
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             block.anexos
                 .filter { it.afterParagraph == index + 1 }
@@ -172,6 +180,21 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                     addInlineImage(document, image)
                     image.caption?.let { createImageCaption(document, it) }
                 }
+        }
+    }
+
+    private fun configureIntrajornadaParagraphPagination(
+        paragraph: XWPFParagraph,
+        paragraphNumber: Int,
+        paragraphTexts: List<String>
+    ) {
+        val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+        val followedByGrifo = paragraphTexts.getOrNull(paragraphNumber) == "(grifo nosso)"
+        if (paragraphNumber in INTRAJORNADA_KEEP_NEXT_PARAGRAPHS || followedByGrifo) {
+            properties.addNewKeepNext().`val` = true
+        }
+        if (paragraph.text == "(grifo nosso)") {
+            properties.addNewKeepLines().`val` = true
         }
     }
 
@@ -424,6 +447,7 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         const val TABLE_CELL_HORIZONTAL_MARGIN_TWIPS = 140L
         const val TABLE_SPACING_BEFORE_TWIPS = 160L
         const val TABLE_SPACING_AFTER_TWIPS = 200L
+        val INTRAJORNADA_KEEP_NEXT_PARAGRAPHS = setOf(19, 23, 27, 31, 36, 40, 45)
     }
 
     // Parágrafo vazio

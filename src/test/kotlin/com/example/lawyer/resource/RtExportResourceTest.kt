@@ -332,6 +332,11 @@ class RtExportResourceTest {
         Files.write(directory.resolve(filename), bytes)
     }
 
+    private fun sha256(value: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> (byte.toInt() and 0xff).toString(16).padStart(2, '0') }
+
     private fun validCpfFromSuffix(suffix: String, discriminator: Int): String {
         val base = (suffix.filter(Char::isDigit).takeLast(8) + discriminator).padStart(9, '1').takeLast(9)
         fun digit(value: String, weight: Int): Int {
@@ -2190,6 +2195,102 @@ class RtExportResourceTest {
         saveGeneratedDocument("rt-intrajornada-tabela-proxima-fim-pagina.docx", docx)
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview intrajornada interval child only with parent in order and fixed integral text`() {
+        val blockId = "jornada_trabalho_intervalo_intrajornada"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(0))
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho", blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[1].texto", containsString("A parte autora executava, no total, ___ horas diárias"))
+
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        blockId,
+                        "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada",
+                        "jornada_trabalho"
+                    ),
+                    dadosVariaveis = mapOf("horasDiariasIntervaloIntrajornada" to "4 horas e 30 minutos")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"))
+            .body("blocos[2].id", equalTo(blockId))
+            .body("blocos[2].titulo", equalTo(INTRAJORNADA_INTERVAL_TITLE))
+            .body("blocos[2].anexos.size()", equalTo(0))
+            .body("blocos[2].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val text = response.jsonPath().getString("blocos[2].texto")
+        assertEquals(62, text.split("\n\n").size)
+        assertTrue(text.startsWith("A parte autora executava, no total, 4 horas e 30 minutos horas diárias"))
+        assertTrue(text.contains("**NULIDADE DE CLÁUSULA DE ACT/CCT QUE NÃO ESTIPULA O LIMITE PARA PRORROGAÇÃO**"))
+        assertTrue(text.contains("0000147-67.2023.5.09.0091"))
+        assertTrue(text.contains("0000126-62.2021.5.09.0091"))
+        assertTrue(text.endsWith("FGTS (8%) (Súmula 63/TST) + multa de 40%."))
+        assertEquals(INTRAJORNADA_INTERVAL_TEXT_SHA256, sha256(text))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export intrajornada interval with three indent ranges bold italic and pagination rules`() {
+        val payload = """{
+          "claimantName":"Maria Silva",
+          "blocosSelecionados":["jornada_trabalho","jornada_trabalho_intervalo_intrajornada"],
+          "dadosVariaveis":{"horasDiariasIntervaloIntrajornada":"quatro"}
+        }""".trimIndent()
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val start = document.paragraphs.indexOfFirst {
+                it.text.startsWith("A parte autora executava, no total, quatro horas diárias")
+            }
+            assertTrue(start >= 0)
+            val paragraphs = document.paragraphs.drop(start).take(62)
+            assertEquals(62, paragraphs.size)
+            assertTrue(paragraphs.last().text.startsWith("Sucessivamente, REQUER-SE"))
+
+            val expectedIndented = (2..16).toSet() + (19..43).toSet() + (45..59).toSet()
+            paragraphs.forEachIndexed { index, paragraph ->
+                val number = index + 1
+                if (number in expectedIndented) {
+                    assertTrue(paragraph.indentationLeft > 0, "Parágrafo $number deveria estar recuado")
+                    assertTrue(paragraph.indentationRight > 0, "Parágrafo $number deveria ter largura reduzida")
+                } else {
+                    assertTrue(paragraph.indentationLeft <= 0, "Parágrafo $number não deveria estar recuado")
+                }
+            }
+            setOf(19, 23, 27, 31, 36, 40, 45).forEach { number ->
+                assertTrue(paragraphs[number - 1].ctp.pPr.isSetKeepNext, "Título $number sem keepNext")
+            }
+            paragraphs.forEachIndexed { index, paragraph ->
+                if (paragraph.text == "(grifo nosso)") {
+                    assertTrue(paragraph.ctp.pPr.isSetKeepLines)
+                    assertTrue(paragraphs[index - 1].ctp.pPr.isSetKeepNext)
+                }
+            }
+            assertTrue(paragraphs[0].runs.any { it.isItalic && it.text()!!.startsWith("Em qualquer trabalho") })
+            assertTrue(paragraphs[0].runs.any {
+                it.isBold && it.isItalic && it.text()!!.startsWith("salvo acordo escrito")
+            })
+            assertTrue(paragraphs[1].runs.any { it.isBold && it.text() == "tempo à disposição do empregador" })
+            assertTrue(paragraphs[60].runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(paragraphs[61].runs.any { it.isBold && it.text() == "REQUER-SE" })
+        }
+        saveGeneratedDocument("rt-intervalo-intrajornada-bloco-extenso.docx", docx)
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
@@ -3676,6 +3777,10 @@ class RtExportResourceTest {
     )
 
     private companion object {
+        const val INTRAJORNADA_INTERVAL_TITLE =
+            "j. Intervalo intrajornada (nulidade dos intervalos superiores a 2h e fracionados – Tempo à disposição)"
+        const val INTRAJORNADA_INTERVAL_TEXT_SHA256 =
+            "523ce8ef5b5228f7c44cfb4ea1d3cf5a8ac5ed19d054998ddb273b7ba5194fbb"
         const val INTRAJORNADA_TITLE =
             "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)"
         const val INTRAJORNADA_INTRODUCTION =

@@ -223,6 +223,14 @@ class RtTemplateService(
             },
             generate = { _, _, _, _ -> jornadaTrabalhoInconstitucionalidadeIntervaloIntrajornada() }
         ),
+        JORNADA_TRABALHO_INTERVALO_INTRAJORNADA to RtBlockDefinition(
+            titulo = {
+                "j. Intervalo intrajornada (nulidade dos intervalos superiores a 2h e " +
+                    "fracionados – Tempo à disposição)"
+            },
+            generate = { _, _, variaveis, _ -> jornadaTrabalhoIntervaloIntrajornada(variaveis) },
+            paragrafosRecuados = (2..16).toSet() + (19..43).toSet() + (45..59).toSet()
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -293,6 +301,9 @@ class RtTemplateService(
         }
         if (JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA in ordered && JORNADA_TRABALHO !in ordered) {
             ordered.remove(JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA)
+        }
+        if (JORNADA_TRABALHO_INTERVALO_INTRAJORNADA in ordered && JORNADA_TRABALHO !in ordered) {
+            ordered.remove(JORNADA_TRABALHO_INTERVALO_INTRAJORNADA)
         }
         if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
@@ -927,6 +938,12 @@ class RtTemplateService(
     private fun jornadaTrabalhoInconstitucionalidadeIntervaloIntrajornada(): String =
         JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA_TEMPLATE
 
+    private fun jornadaTrabalhoIntervaloIntrajornada(variaveis: Map<String, String?>): String =
+        JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE.replace(
+            "{horasDiariasIntervaloIntrajornada}",
+            variaveis["horasDiariasIntervaloIntrajornada"].orPlaceholder()
+        )
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1263,6 +1280,7 @@ class RtTemplateService(
         const val JORNADA_TRABALHO_INTERVALO_INTERJORNADA = "jornada_trabalho_intervalo_interjornada"
         const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA =
             "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
+        const val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA = "jornada_trabalho_intervalo_intrajornada"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_NAME = "e_Trabalho_em_dias_de_descanso.png"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_PATH = "/assets/$TRABALHO_DIAS_DESCANSO_IMAGE_NAME"
         const val TRABALHO_DIAS_DESCANSO_IMAGE_URL = "/rt/assets/e-trabalho-dias-descanso"
@@ -1355,8 +1373,9 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_DIAS_DESCANSO,
             JORNADA_TRABALHO_ADICIONAL_NOTURNO,
             JORNADA_TRABALHO_SOBREAVISO,
-         JORNADA_TRABALHO_INTERVALO_INTERJORNADA,
-            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA
+            JORNADA_TRABALHO_INTERVALO_INTERJORNADA,
+            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA,
+            JORNADA_TRABALHO_INTERVALO_INTRAJORNADA
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1486,6 +1505,70 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
             INTRAJORNADA_REDACAO_ALTERADA,
             INTRAJORNADA_FUNDAMENTACAO,
             INTRAJORNADA_PEDIDO
+        ).joinToString("\n\n")
+        private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
+            """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",
+            """Como não há cláusula em instrumento coletivo que disponha de maneira diversa, mantém-se a previsão de intervalo intrajornada de **até 2 horas**, mas a parte autora, notadamente, chegava a praticar intervalos superiores a esse tempo, de modo que, havendo ultrapassagem do limite legal para intervalo intrajornada, esse tempo excedente é considerado, nos termos do **art. 4º da CLT**, como **tempo à disposição do empregador** (*Considera-se como de serviço efetivo o período em que o empregado esteja à disposição do empregador, aguardando ou executando ordens, salvo disposição especial expressamente consignada.*).""",
+            """Tal entendimento pode ser observado na decisão proferida pela 2ª Turma do TRT da 9ª Região nos autos do processo n.º 0000126-62.2021.5.09.0091:""",
+            """Quanto ao intervalo superior ao mínimo legal, o entendimento que prevalece nesta 2ª Turma é de que **a ampliação do intervalo intrajornada para mais de duas horas é possível, desde que haja previsão em norma coletiva, que os horários sejam previamente determinados e que o intervalo seja usufruído de forma contínua, ou seja, não fracionada, o que não ocorria na situação em apreço.**""",
+            """Conforme bem pontuou a r. decisão monocrática,* in casu*, os acordos individuais contém previsão genérica de elastecimento do intervalo intrajornada "podendo exceder por mais de quatro horas o intervalo para repouso e alimentação", "a critério das necessidades da empresa", deixando o trabalhador à mercê da vontade do empregador, o que não pode ser validado.""",
+            """Neste sentido o entendimento do c. TST de ser devida a limitação do tempo da duração: [...]""",
+            """(grifo nosso)""",
+            """Ademais, em relação à questão aqui tratada, indica-se os seguintes julgados do TST, envolvendo situação idêntica:""",
+            """RECURSO DE REVISTA. **1. INTERVALO INTRAJORNADA SUPERIOR AO LIMITE DE DUAS HORAS. Não obstante esta Corte se posicione no sentido da possibilidade de ampliação do intervalo intrajornada por meio de avença coletiva, entende ser primordial para sua validade que haja definição do período, sob pena de se retirar do período de descanso a sua função social. Recurso de revista não conhecido.** 2. HONORÁRIOS ADVOCATÍCIOS. REQUISITOS. No direito processual trabalhista, prevalece o princípio de que a condenação ao pagamento dos honorários advocatícios se dá, unicamente, nos casos previstos na Lei nº 5.584/70. Inteligência do entendimento jurisprudencial consubstanciado nas Súmulas nºs 219 e 329 do Tribunal Superior do Trabalho. In casu, o deferimento dos honorários advocatícios, com base apenas no pressuposto da hipossuficiência econômica, não se coaduna com a jurisprudência desta Corte. Recurso de revista conhecido e provido. [...] Recurso de Revista n° TST-RR-184200-70.2007.5.09.0019, em que são Recorrentes VIAÇÃO OURO BRANCO S.A. e OUTRA e é Recorrido MAURÍCIO WANDERLEY RODRIGUES ALVES.""",
+            """(grifo nosso)""",
+            """EMBARGOS. INTERVALO INTRAJORNADA SUPERIOR A DUAS HORAS DIÁRIAS. A jurisprudência desta Corte admite acordo coletivo que prevê jornada superior a duas horas diárias. **No entanto, é de se destacar a função social do intervalo intrajornada, que determina medida de higiene e segurança do trabalho, não podendo ser reconhecida validade da norma coletiva quando não há delimitação do tempo disponível para descanso do empregado, sob pena de se deixar ao arbítrio do empregador o período em que o empregado ficará em descanso, mas sem alcançar o objetivo do período de descanso a que se refere o art. 71 da CLT.** Embargos conhecidos e desprovidos. (E-ED-RR-163400-66.2006.5.09.0662, Rel. Min. Aloysio Corrêa da Veiga, Subseção I Especializada em Dissídios Individuais, DEJT 01/10/2010).""",
+            """(grifo nosso)""",
+            """INTERVALO INTRAJORNADA SUPERIOR A DUAS HORAS. O art. 71, -caput-, da CLT deve ser interpretado de forma sistemática, de modo a resguardar o seu objetivo legal e os princípios que regem as relações trabalhistas.** Na espécie sob exame, quanto à duração da pausa, necessário se faz observar que não pode o reclamante ficar ao livre arbítrio da empregadora em estipular o tempo para o intervalo intrajornada. A manutenção da função social da norma é medida que se impõe.** Precedente. (Ag-AIRR - 182840-14.2007.5.09.0662,  Rel. Min. Alberto Luiz Bresciani de Fontan Pereira, 3ª Turma, DEJT 19/11/2010).""",
+            """(grifo nosso)""",
+            """RECURSO DE REVISTA - HORAS EXTRAS - COMPENSAÇÃO DE JORNADA Incidência da Súmula nº 126 do TST. INTERVALO INTRAJORNADA SUPERIOR A DUAS HORAS **A autorização para que o intervalo intrajornada seja prorrogado ao alvedrio do empregador, sem contrapartida, desvirtuaria a natureza do instituto, na medida em que, verdadeiramente, criaria duas jornadas de trabalho dentro de um mesmo dia, em prejuízo ao empregado, que ficaria impedido de dispor sobre o seu próprio tempo fora do emprego.** (RR-583100-89.2008.5.09.0662, Rel. Min. Maria Cristina Irigoyen Peduzzi, 8ª Turma, DEJT 27/08/2010).""",
+            """(grifo nosso)""",
+            """**NULIDADE DE CLÁUSULA DE ACT/CCT QUE NÃO ESTIPULA O LIMITE PARA PRORROGAÇÃO**""",
+            """Nesse sentido, a jurisprudência do TST é absolutamente pacífica quanto à necessidade de previsão de limite de prorrogação, sob pena de nulidade da cláusula do instrumento coletivo. Nesse sentido, indica-se os seguintes julgados do TST, envolvendo situação idêntica:""",
+            """**2ª Turma do TST**""",
+            """"AGRAVO. AGRAVO DE INSTRUMENTO. RECURSO DE REVISTA. INTERVALO INTRAJORNADA SUPERIOR A DUAS HORAS. NORMA COLETIVA. AUSÊNCIA DE DELIMITAÇÃO DO PERÍODO ELASTECIDO. A jurisprudência deste Tribunal entende que é válido o intervalo intrajornada superior a duas horas diárias quando previsto em norma coletiva, conforme autoriza o art. 71, caput , da CLT. Entretanto, **esta Corte afirma a invalidade do acordo que apenas autoriza o elastecimento do intervalo, sem especificar o tempo máximo e/ou as escalas de trabalho, de modo a permitir que o empregado tenha ciência exata do tempo destinado a repouso e alimentação e garantir a finalidade da norma de saúde, higiene e segurança do trabalho**. Não merece reparos a decisão. Agravo não provido." """,
+            """(Ag-AIRR-566-43.2016.5.09.0670, 2ª Turma, Relatora Ministra Maria Helena Mallmann, DEJT 18/08/2023)""",
+            """(grifo nosso)""",
+            """**3ª Turma do TST**""",
+            """"PROCESSO ANTERIOR À LEI 13.467/2017. AGRAVO DE INSTRUMENTO. RECURSO DE REVISTA. INTERVALO INTRAJORNADA. ELASTECIMENTO POR NORMA COLETIVA. AUSÊNCIA DE DELIMITAÇÃO DO TEMPO ELASTECIDO. INVALIDADE. Depreende-se do artigo 71 da CLT que é possível o elastecimento do intervalo intrajornada superior a duas horas desde que previsto em norma coletiva. O Tribunal Regional noticia a existência de norma coletiva prevendo a dilação do intervalo intrajornada. Todavia, **a jurisprudência desta Corte já se posicionou no sentido de que é inválida cláusula coletiva que autoriza o elastecimento do intervalo intrajornada, para além de duas horas, firmada em termos genéricos, sem a delimitação expressa do tempo destinado para repouso e alimentação**, como bem asseverou o acórdão recorrido: " o horário da concessão e a duração dos intervalos ficavam ao arbítrio da empregadora, sem que o empregado soubesse com antecedência o horário e a duração do seu intervalo ". No caso dos autos, o autor ficava à disposição do empregador em intervalo superior a 2 horas, sem que soubesse em qual período efetivamente gozaria o intervalo. O processamento do recurso de revista encontra óbice no disposto na Súmula 333 do TST. Precedentes. Agravo de instrumento conhecido e desprovido". """,
+            """(AIRR-1349-42.2014.5.09.0658, 3ª Turma, Relator Ministro Alexandre de Souza Agra Belmonte, DEJT 07/12/2018)""",
+            """(grifo nosso)""",
+            """**5ª Turma do TST**""",
+            """"AGRAVO. RECURSO DE REVISTA. ACÓRDÃO PUBLICADO NA VIGÊNCIA DA LEI Nº 13.467/2017. INTERVALO INTRAJORNADA. ELASTECIMENTO POR PERÍODO SUPERIOR A DUAS HORAS DIÁRIAS. NORMA COLETIVA. AUSÊNCIA DE DELIMITAÇÃO. AUSÊNCIA DE TRANSCENDÊNCIA. A decisão regional está em perfeita harmonia com a jurisprudência desta Corte, segundo a qual **é possível a ampliação do intervalo intrajornada para além de duas horas, por meio de negociação coletiva, desde que seja fixado, efetivamente, o seu tempo de duração, não se admitindo, pois, previsão genérica que autorize ampliação aleatória a ser fixada ao arbítrio do empregador**. Estando a decisão regional em consonância com a jurisprudência pacífica desta Corte, incide a Súmula nº 333 do TST como obstáculo à extraordinária intervenção deste Tribunal Superior no feito. A existência de obstáculo processual apto a inviabilizar o exame da matéria de fundo veiculada, como no caso , acaba por evidenciar, em última análise, a própria ausência de transcendência do recurso de revista, em qualquer das suas modalidades. Ante a improcedência do recurso, aplica-se à parte agravante a multa prevista no art. 1.021, § 4º, do CPC. Considerando ser irrecorrível a decisão colegiada quanto à não transcendência do recurso de revista (art. 896-A, § 4º, da CLT), bem como que não cabe recurso extraordinário ao STF em matéria de pressupostos de admissibilidade de recursos de competência de outro Tribunal, por ausência de repercussão geral, determina-se a baixa imediata dos autos. Agravo não provido, com imposição de multa e determinação de baixa dos autos à origem" """,
+            """(Ag-RR-1835-67.2015.5.09.0892, 5ª Turma, Relator Ministro Breno Medeiros, DEJT 14/06/2019)""",
+            """(grifo nosso)""",
+            """**7ª Turma do TST**""",
+            """“[...] RECURSO DE REVISTA DO AUTOR . LEI Nº 13.467/2017. INTERVALO INTRAJORNADA SUPERIOR A DUAS HORAS. PREVISÃO EM NORMA COLETIVA. AUSÊNCIA DE DELIMITAÇÃO ESPECÍFICA DO HORÁRIO E DURAÇÃO DO INTERVALO PARA REFEIÇÃO E DESCANSO. TRANSCENDÊNCIAJURÍDICA RECONHECIDA. O artigo 71 , caput , da CLT possibilita que, por meio de acordo escrito, o intervalo intrajornada possa ser estendido além do limite máximo deduashoras. **Referido acordo, porém, deve especificar expressamente o horário e a duração do intervalo para alimentação, o que, inclusive, refletirá no término do expediente, sob pena de resultar em abuso de direito e gerar insegurança ao empregado, com consequente prejuízo na vida pessoal e social**. Portanto, consoante jurisprudência desta Corte, **deve haver a delimitação prévia do tempo destinado à refeição e ao descanso, não se admitindo cláusula genérica que autorize a ampliação aleatória a ser fixada ao arbítrio da empresa**. Precedentes . Assim, merece reforma a decisão que considera válido o ajustecoletivo que prevê o elastecimento dointervalointrajornada para mais de duas horas, por inexistir discriminação dos horários e da frequência em que ocorreria a fruição. Recurso de revista conhecido e provido" """,
+            """(RRAg-101297-39.2019.5.01.0064, 7ª Turma, Relator Ministro Claudio Mascarenhas Brandao, DEJT 12/04/2024)""",
+            """(grifo nosso)""",
+            """No mesmo sentido é a jurisprudência do TRT da 9ª Região:""",
+            """**3ª Turma do TRT9**""",
+            """INTERVALO INTRAJORNADA SUPERIOR A DUAS HORAS. MOTORISTA DE ÔNIBUS. **PREVISÃO GENÉRICA EM ACORDO COLETIVO DE TRABALHO. DEFINIÇÃO DO INTERVALO CONFORME ARBÍTRIO DO EMPREGADOR. NULIDADE DA NORMA COLETIVA.** Considerando que a norma coletiva previa genericamente a ampliação do intervalo intrajornada, sem especificar horários e estabelecendo apenas uma extensão máxima, o horário da concessão e a duração dos intervalos intrajornava ficavam ao exclusivo arbítrio da empregadora, sem que o empregado soubesse com antecedência o horário e a duração do seu intervalo, o que é vedado pelo artigo 122 do CC. As alterações de jornada pela empresa, a seu exclusivo critério, desconsideram o direito do trabalhador à desconexão do trabalho, uma vez que a soma da carga de labor diária ao intervalo intrajornada de 6 horas ou mais preenchem grande parte do dia e quase a totalidade do tempo útil ao reclamante, considerando as horas em que ele dormia**. É devido o pagamento das horas extras decorrentes da incorporação à jornada do tempo intervalar superior a duas horas.** Recurso Ordinário do reclamante a que se nega provimento.""",
+            """(Tribunal Regional do Trabalho da 9ª Região (3ª Turma). Acórdão: 0001146-15.2017.5.09.0872. Relator(a): THEREZA CRISTINA GOSDAL. Data de julgamento: 28/11/2018. Juntado aos autos em 03/12/2018. Disponível em: [https://link.jt.jus.br/MEtElS](https://link.jt.jus.br/MEtElS))""",
+            """(grifo nosso)""",
+            """**4ª Turma do TRT9**""",
+            """INTERVALO INTRAJORNADA SUPERIOR A DUAS HORAS. PREVISÃO GENÉRICA EM NORMA COLETIVA. AUSÊNCIA DE DELIMITAÇÃO DO TEMPO DE DESCANSO. INVALIDADE. As normas coletivas que possibilitam o intervalo intrajornada superior a duas horas são, a princípio, válidas por se tratar de permissão contida na própria Constituição Federal (art. 7.º, XXVI) e na CLT (art. 71, "caput"). Contudo, **se as normas coletivas contemplarem ampliação genérica, sem estabelecer delimitação prévia e clara do tempo intervalar ampliado, afasta-se a validade como forma de impedir que a negociação sujeite o empregado ao arbítrio do empregador, a quem caberia dispor livremente sobre a duração do tempo ampliado**. A ausência de critérios objetivos mínimos para o elastecimento pode ensejar abuso de direito e o consequente prejuízo à vida do trabalhador pelo desvirtuamento da finalidade do intervalo. Recurso do autor a que se dá provimento para reconhecer a invalidade da previsão normativa.""",
+            """(Tribunal Regional do Trabalho da 9ª Região (4ª Turma). Acórdão: 0000147-67.2023.5.09.0091. Relator(a): MARLENE TERESINHA FUVERKI SUGUIMATSU. Data de julgamento: 13/03/2024. Juntado aos autos em 15/03/2024. Disponível em: [https://link.jt.jus.br/4zXBSA](https://link.jt.jus.br/4zXBSA))""",
+            """(grifo nosso)""",
+            """Trata-se de matéria já decidida pelo Juízo desta Vara do Trabalho de Jacarezinho, ao julgar o processo n.º 0000126-62.2021.5.09.0091, em que houve semelhança de pedidos e causa de pedir no tocante ao tema. Naquele caso, houve **condenação a ré ao pagamento de horas extras em razão do tempo que o autor permanecia à disposição do empregador**:""",
+            """7.3 Invalidade do intervalo intrajornada superior a duas horas""",
+            """Incontroverso que o autor tinha intervalo superior a duas horas""",
+            """entre os “pegas”.""",
+            """Por sua vez, a parte ré anexou aos autos Acordo para Intervalo Intrajornada (fls. 284, 331 e 334) nos seguintes termos:""",
+            """“.... fica convencionado em conformidade com o Acordo Coletivo de Trabalho ....com data-base da categoria em 1º de junho, cláusula décima sexta...: faculta-se a empresa celebração de acordos individuais, visando à prorrogação além das duas horas diárias, ou seja, podendo exceder por mais de quatro horas o intervalo para repouso e alimentação (INTERVALO INTRAJORNADA), a critério das necessidades da empresa...”""",
+            """Ora, em que pese a ré afirmar nos referidos documentos que há previsão do elastecimento da intrajornada em ACT, não juntou aos autos a referida norma coletiva. Ressalto que as CCT’s anexadas pelo autor não possuem tal previsão.""",
+            """**De todo modo, os acordos individuais indicam previsão genérica da prorrogação do intervalo intrajornada – podendo exceder por mais de quatro horas o intervalo...a critério e necessidade da empresa.”.  desvirtuamento do instituto uma vez que o autor permanecia a disposição da empresa por tempo não precisamente definido**, o que o impossibilitou de programar como poderia usufruir o referido tempo. Há necessidade, para a validade do instituto, que o tempo a ser usufruído deve ser fixado. Evidente a invalidade do referido acordo individual, uma vez que não restou demonstrado seu respaldo em normas coletivas, bem como evidente que a ampliação do tempo de intervalo beneficiaria somente à empresa em detrimento do empregado.""",
+            """[...]""",
+            """**Diante do exposto, condeno a parte ré ao pagamento como hora extraordinária, de intervalo intrajornada superior a 2 horas entre ao “pegas”**, conforme jornada arbitrada e nos termos do artigo 71 da CLT.""",
+            """(grifo nosso)""",
+            """A sentença foi mantida pela **2ª Turma do TRT9**:""",
+            """Quanto ao intervalo superior ao mínimo legal, o entendimento que prevalece nesta 2ª Turma é de que **a ampliação do intervalo intrajornada para mais de duas horas é possível, desde que haja previsão em norma coletiva, que os horários sejam previamente determinados e que o intervalo seja usufruído de forma contínua, ou seja, não fracionada, o que não ocorria na situação em apreço.**""",
+            """Conforme bem pontuou a r. decisão monocrática,* in casu*, os acordos individuais contém previsão genérica de elastecimento do intervalo intrajornada "podendo exceder por mais de quatro horas o intervalo para repouso e alimentação", "a critério das necessidades da empresa", deixando o trabalhador à mercê da vontade do empregador, o que não pode ser validado.""",
+            """(Tribunal Regional do Trabalho da 9ª Região (2ª Turma). Acórdão: 0000126-62.2021.5.09.0091. Relator(a): CLAUDIA CRISTINA PEREIRA. Data de julgamento: 26/04/2022. Juntado aos autos em 29/04/2022. Disponível em: [https://link.jt.jus.br/m73A7O](https://link.jt.jus.br/m73A7O))""",
+            """(grifo nosso)""",
+            """Diante do abuso de direito praticado pela ré, em ofensa ao **art. 187 do Código Civil**, a medida que se impõe é o afastamento daqueles intervalos superiores a 2 horas e concedidos após um primeiro, determinando-se que o período intervalar seja incluído na jornada laboral da parte autora, com o consequente pagamento de horas extraordinárias.""",
+            """Pelo exposto, **REQUER-SE** a declaração de nulidade dos intervalos intrajornada superiores a 2 horas e concedidos após um primeiro intervalo, devendo o tempo correspondente ser integrado à jornada como tempo à disposição do empregador, com a consequente condenação da ré ao pagamento das horas extras,** **com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem refletir em 13º salários (Súmula 45/TST), férias (Súmula 151/TST) com 1/3 e FGTS (8%) (Súmula 63/TST) + multa de 40%.""",
+            """Sucessivamente, **REQUER-SE** a declaração de nulidade dos intervalos intrajornada superiores a 2 horas e concedidos após um primeiro intervalo, devendo o tempo excedente ser integrado à jornada como tempo à disposição do empregador, com a consequente condenação da ré ao pagamento das horas extras,** **com base no salário mensal, a partir da 8ª hora diária e da 44ª semanal, com divisor 220, com os reflexos, por habituais, em RSR (Súmula 172/TST); as horas extras acrescidas do RSR devem refletir em 13º salários (Súmula 45/TST), férias (Súmula 151/TST) com 1/3 e FGTS (8%) (Súmula 63/TST) + multa de 40%."""
         ).joinToString("\n\n")
         private const val SEMANA_INGLESA_JURISPRUDENCIA_5_TURMA = """**5ª Turma do TST**
 [...] II - AGRAVO EM RECURSO DE REVISTA. ACÓRDÃO REGIONAL PUBLICADO ANTES DA VIGÊNCIA DA LEI Nº 13.467/2017. ACORDO DE COMPENSAÇÃO. INAPLICABILIDADE DO ITEM IV DA SÚMULA 85 DO TST. TRABALHO EM DIA DESTINADO À COMPENSAÇÃO. **Extrai-se do acórdão regional não apenas a invalidade formal do acordo, mas também a irregularidade material com trabalho aos sábados, dia destinado à compensação semanal, o que torna evidente que a empresa não cumpriu e descaracterizou o ajuste. A jurisprudência do TST consolidou-se no sentido de não admitir a aplicação do item IV da Súmula 85 nas hipóteses de completo desvirtuamento do acordo de compensação semanal, em razão do labor extraordinário habitual nos dias destinados à compensação ou em extrapolação do limite diário de dez horas de labor previsto no art. 59, § 2º, da CLT. Precedentes. Logo, é devido o pagamento integral, como horas extras, do labor acima dos limites legais de jornada.** Mantém-se a decisão recorrida. Agravo conhecido e desprovido" (Ag-ARR-1451-96.2013.5.09.0594, 5ª Turma, Relatora Ministra Morgana de Almeida Richa, DEJT 05/04/2024. Disponível em: https://jurisprudencia-backend2.tst.jus.br/rest/documentos/9ce91469cdcca901331be11f4fc6e81f)
