@@ -7,6 +7,7 @@ import com.example.lawyer.domain.enums.TratamentoAdvogado
 import com.example.lawyer.domain.enums.Sexo
 import com.example.lawyer.domain.enums.StatusProcesso
 import com.example.lawyer.dto.request.EnderecoRequest
+import com.example.lawyer.dto.request.ContratoTrabalhoRequest
 import com.example.lawyer.dto.request.EstrategiaProcessualRequest
 import com.example.lawyer.dto.request.PessoaRequestDTO
 import com.example.lawyer.dto.request.ProcessoCreateRequest
@@ -3219,6 +3220,200 @@ class RtExportResourceTest {
             .`when`().post("/rt/preview").then().statusCode(200)
             .body("blocos[0].texto", containsString("atuava próximo a inflamáveis\nem área de risco"))
             .body("blocos[0].texto", containsString("**perícia técnica**"))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export supplementary tank hazard block with shared admission and full indentation`() {
+        val variables = mapOf(
+            "capacidadeTotalTanquesDiesel" to "560",
+            "dataAdmissao" to "2020-03-16"
+        )
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf("periculosidade_tanque_suplementar", "adicional_periculosidade"),
+                    dadosVariaveis = variables
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("adicional_periculosidade"))
+            .body("blocos[1].id", equalTo("periculosidade_tanque_suplementar"))
+            .body("blocos[1].titulo", equalTo("Adicional de periculosidade. Tanque suplementar. Lei n.º 14.766/2023"))
+            .body("blocos[1].paragrafosRecuados", equalTo(listOf(3, 4, 5)))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val paragraphs = response.jsonPath().getString("blocos[1].texto").split("\n\n")
+        assertEquals(10, paragraphs.size)
+        assertTrue(paragraphs[0].contains("capacidade total de 560 litros de óleo diesel"))
+        assertEquals("**SBDI-1 DO TST**", paragraphs[2])
+        assertTrue(paragraphs[3].startsWith("AGRAVO. EMBARGOS. ADICIONAL DE PERICULOSIDADE."))
+        assertTrue(paragraphs[3].contains("**A SBDI-I desta Corte uniformizadora"))
+        assertEquals("(grifo nosso)", paragraphs[4])
+        assertTrue(paragraphs[7].contains("período de 16/03/2020"))
+        assertTrue(paragraphs[7].contains("**art. 193, § 5º, da CLT**"))
+        assertTrue(paragraphs[7].contains("***certificados pelo órgão competente****"))
+        assertTrue(paragraphs[8].contains("**perícia técnica**"))
+        assertTrue(paragraphs[9].contains("**REQUER-SE**"))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste Tanque Suplementar",
+                blocosSelecionados = listOf("periculosidade_tanque_suplementar"),
+                dadosVariaveis = variables
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst {
+                it.text.startsWith("A parte autora trabalhava exposta a periculosidade, porquanto conduzia veículos")
+            }
+            assertTrue(opening >= 0)
+            val body = document.paragraphs.drop(opening).take(10)
+            assertEquals(10, body.size)
+            assertTrue((3..5).all { body[it - 1].indentationLeft > 0 && body[it - 1].indentationRight > 0 })
+            assertTrue((listOf(1, 2) + (6..10)).all { body[it - 1].indentationLeft <= 0 })
+            assertTrue(body[2].runs.any { it.isBold && it.text() == "SBDI-1 DO TST" })
+            assertTrue(body[3].runs.any { it.isBold && it.text().contains("A SBDI-I desta Corte") })
+            assertTrue(body[7].runs.any { it.isBold && it.text() == "art. 193, § 5º, da CLT" })
+            assertTrue(body[7].runs.any {
+                it.isBold && it.isItalic && it.text() == "certificados pelo órgão competente"
+            })
+            assertTrue(body[8].runs.any { it.isBold && it.text() == "perícia técnica" })
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should persist supplementary tank capacity and reuse contract admission date`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(pessoaRequest(suffix, validCpfFromSuffix(suffix, 4), null, null))
+        val reclamada = pessoaService.create(pessoaRequest("re-$suffix", validCpfFromSuffix(suffix, 5), null, null))
+        val pessoaAdvogado = pessoaService.create(pessoaRequest("adv-$suffix", validCpfFromSuffix(suffix, 6), null, null))
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.tanque.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "66.666"
+            )
+        )
+        val variables = mapOf("capacidadeTotalTanquesDiesel" to "620")
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "TANQUE-$suffix",
+                descricao = "Persistência de tanque suplementar",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                contratoTrabalho = ContratoTrabalhoRequest(dataAdmissao = LocalDate.of(2019, 7, 8)),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf("periculosidade_tanque_suplementar"),
+                dadosVariaveis = mapOf("periculosidade_tanque_suplementar" to variables)
+            )
+        )
+
+        assertEquals(variables, processoService.getById(processo.id).dadosVariaveis["periculosidade_tanque_suplementar"])
+        assertEquals(LocalDate.of(2019, 7, 8), processoService.getById(processo.id).contratoTrabalho?.dataAdmissao)
+        given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    processoId = processo.id,
+                    blocosSelecionados = listOf("periculosidade_tanque_suplementar"),
+                    dadosVariaveis = mapOf("dataAdmissao" to "2030-01-01")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].texto", containsString("capacidade total de 620 litros"))
+            .body("blocos[0].texto", containsString("período de 08/07/2019"))
+            .body("blocos[0].texto", not(containsString("01/01/2030")))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export abusive targets moral damages with full fixed text formatting and indentation`() {
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "dano_moral_cobranca_abusiva_metas",
+                        "periculosidade_tanque_suplementar"
+                    ),
+                    dadosVariaveis = mapOf(
+                        "capacidadeTotalTanquesDiesel" to "500",
+                        "dataAdmissao" to "2020-01-01"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(2))
+            .body("blocos[0].id", equalTo("periculosidade_tanque_suplementar"))
+            .body("blocos[1].id", equalTo("dano_moral_cobranca_abusiva_metas"))
+            .body("blocos[1].titulo", equalTo("Dano moral pela cobrança abusiva de metas"))
+            .body("blocos[1].paragrafosRecuados", equalTo((3..14).toList()))
+            .body("blocos[1].anexos.size()", equalTo(0))
+            .body("blocos[1].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        val text = response.jsonPath().getString("blocos[1].texto")
+        val paragraphs = text.split("\n\n")
+        assertEquals(15, paragraphs.size)
+        assertEquals(
+            "As metas criadas pela ré, além de inalcançáveis, não eram claras, e as cobranças eram sempre realizadas de forma desrespeitosa, causando humilhação e constrangimento à parte autora.",
+            paragraphs[0]
+        )
+        assertEquals("Nesse sentido, já decidiu o TRT da 9ª Região:", paragraphs[2])
+        assertEquals("**7ª Turma do TRT da 9ª Região**", paragraphs[3])
+        assertTrue(paragraphs[4].contains("Acórdão: 0000258-52.2016.5.09.0073"))
+        assertTrue(paragraphs[4].contains("[https://url.trt9.jus.br/5z5i4](https://url.trt9.jus.br/5z5i4)"))
+        assertEquals("(grifo nosso)", paragraphs[5])
+        assertEquals("O TST também já se pronunciou sobre o *quantum* a ser fixado nessa hipótese:", paragraphs[6])
+        assertEquals("**7ª Turma do TST**", paragraphs[7])
+        assertTrue(paragraphs[8].contains("**indenização por danos morais, em virtude do assédio moral sofrido"))
+        assertTrue(paragraphs[8].endsWith("Relator Ministro Renato de Lacerda Paiva, DEJT 17/09/2021)"))
+        assertEquals("(grifo nosso)", paragraphs[9])
+        assertEquals("No mesmo sentido, já decidiu a SBDI-1 do TST:", paragraphs[10])
+        assertEquals("**SBDI-1 do TST**", paragraphs[11])
+        assertTrue(paragraphs[12].contains("**cobrança de metas \"de forma grosseira, inclusive com uso de palavrões\"**"))
+        assertTrue(paragraphs[12].endsWith("Relator Ministro Hugo Carlos Scheuermann, DEJT 30/08/2019)"))
+        assertEquals("(grifo nosso)", paragraphs[13])
+        assertEquals(
+            "Pelo exposto, com fundamento nos arts. 1º, 5º, V e X, e 7º, XXVIII, da Constituição Federal e dos arts. 186, 927 e 932, III, do Código Civil, **REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais.",
+            paragraphs[14]
+        )
+        assertFalse(text.contains("{"))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste Cobrança de Metas",
+                blocosSelecionados = listOf("dano_moral_cobranca_abusiva_metas")
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val opening = document.paragraphs.indexOfFirst { it.text.startsWith("As metas criadas pela ré") }
+            assertTrue(opening >= 0)
+            val body = document.paragraphs.drop(opening).take(15)
+            assertEquals(15, body.size)
+            assertTrue((3..14).all { body[it - 1].indentationLeft > 0 && body[it - 1].indentationRight > 0 })
+            assertTrue(listOf(1, 2, 15).all { body[it - 1].indentationLeft <= 0 })
+            assertTrue(body[3].runs.any { it.isBold && it.text() == "7ª Turma do TRT da 9ª Região" })
+            assertTrue(body[4].runs.any { it.isBold && it.text().contains("cobranças revestidas") })
+            assertTrue(body[6].runs.any { it.isItalic && it.text() == "quantum" })
+            assertTrue(body[7].runs.any { it.isBold && it.text() == "7ª Turma do TST" })
+            assertTrue(body[11].runs.any { it.isBold && it.text() == "SBDI-1 do TST" })
+            assertTrue(body[12].runs.any { it.isBold && it.text().contains("cobrança de metas") })
+            assertTrue(body[14].runs.any { it.isBold && it.text() == "REQUER-SE" })
+        }
     }
 
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {

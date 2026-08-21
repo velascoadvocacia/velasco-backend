@@ -274,6 +274,16 @@ class RtTemplateService(
             titulo = { "Adicional de periculosidade" },
             generate = { _, _, variaveis, _ -> adicionalPericulosidade(variaveis) }
         ),
+        PERICULOSIDADE_TANQUE_SUPLEMENTAR to RtBlockDefinition(
+            titulo = { "Adicional de periculosidade. Tanque suplementar. Lei n.º 14.766/2023" },
+            generate = { processo, _, variaveis, _ -> periculosidadeTanqueSuplementar(processo, variaveis) },
+            paragrafosRecuados = (3..5).toSet()
+        ),
+        DANO_MORAL_COBRANCA_ABUSIVA_METAS to RtBlockDefinition(
+            titulo = { "Dano moral pela cobrança abusiva de metas" },
+            generate = { _, _, _, _ -> danoMoralCobrancaAbusivaMetas() },
+            paragrafosRecuados = (3..14).toSet()
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -428,6 +438,20 @@ class RtTemplateService(
                 ?: ordered.indexOf(SEGURO_VIDA).takeIf { it >= 0 }
                 ?: -1
             ordered.add(predecessorIndex + 1, ADICIONAL_PERICULOSIDADE)
+        }
+        if (PERICULOSIDADE_TANQUE_SUPLEMENTAR in ordered) {
+            ordered.remove(PERICULOSIDADE_TANQUE_SUPLEMENTAR)
+            val predecessorIndex = ordered.indexOf(ADICIONAL_PERICULOSIDADE).takeIf { it >= 0 }
+                ?: ordered.indexOf(ADICIONAL_INSALUBRIDADE).takeIf { it >= 0 }
+                ?: -1
+            ordered.add(predecessorIndex + 1, PERICULOSIDADE_TANQUE_SUPLEMENTAR)
+        }
+        if (DANO_MORAL_COBRANCA_ABUSIVA_METAS in ordered) {
+            ordered.remove(DANO_MORAL_COBRANCA_ABUSIVA_METAS)
+            val predecessorIndex = ordered.indexOf(PERICULOSIDADE_TANQUE_SUPLEMENTAR).takeIf { it >= 0 }
+                ?: ordered.indexOf(ADICIONAL_PERICULOSIDADE).takeIf { it >= 0 }
+                ?: -1
+            ordered.add(predecessorIndex + 1, DANO_MORAL_COBRANCA_ABUSIVA_METAS)
         }
         return ordered
     }
@@ -1156,6 +1180,46 @@ class RtTemplateService(
         ).joinToString("\n\n")
     }
 
+    private fun periculosidadeTanqueSuplementar(
+        processo: Processo,
+        variaveis: Map<String, String?>
+    ): String {
+        val capacidade = variaveis["capacidadeTotalTanquesDiesel"].orPlaceholder()
+        val dataAdmissao = formatVariableDate(
+            processo.contratoTrabalho?.dataAdmissao?.toString() ?: variaveis["dataAdmissao"]
+        )
+        return listOf(
+            "A parte autora trabalhava exposta a periculosidade, porquanto conduzia veículos equipados com tanques de combustível com capacidade total de $capacidade litros de óleo diesel.",
+            "Sobre essa temática, o TST possui **jurisprudência pacífica**, no sentido de que o tanque de combustível com capacidade superior a 200 litros se equipara ao transporte de inflamáveis:",
+            "**SBDI-1 DO TST**",
+            "AGRAVO. EMBARGOS. ADICIONAL DE PERICULOSIDADE. MOTORISTA DE CAMINHÃO. VEÍCULO EQUIPADO COM TANQUE DE COMBUSTÍVEL SUPLEMENTAR DE CAPACIDADE SUPERIOR A 200 LITROS. JURISPRUDÊNCIA PACÍFICA DA SBDI-1 DO TST. ARTIGO 894, § 2º, DA CONSOLIDAÇÃO DAS LEIS DO TRABALHO. 1. Cinge-se a controvérsia a saber se o motorista de caminhão equipado com tanque de combustível suplementar, com capacidade superior a 200 litros, tem direito ao adicional de periculosidade. 2. **A SBDI-I desta Corte uniformizadora firmou entendimento no sentido de que a utilização de tanque de combustível suplementar com capacidade superior a 200 litros, ainda que destinado ao consumo do próprio veículo, equipara-se a transporte de combustível para fins de caracterização da condição de risco. Precedentes**. 3. Emerge do acórdão prolatado pela Instância da prova, integralmente reproduzido pela Turma do TST, que, nos termos do laudo pericial, \" o veículo com o qual o autor trabalhou é fornecido pelo fabricante equipado com 2 tanques de combustível com capacidade individual de 280 litros \". A partir de tal constatação, a Corte regional, com fundamento nas disposições do item 16.6.1 da Norma Regulamentadora n.º 16 do Ministério do Trabalho e Previdência, concluiu que o obreiro não faz jus à percepção do adicional de periculosidade, tendo em conta que \" os tanques de combustível do caminhão dirigido pelo reclamante são originais do veículo e o combustível neles contidos eram utilizados para o próprio consumo \". 4. Num tal contexto, a tese esposada pela Turma do Tribunal Superior do Trabalho, no sentido de reconhecer ao autor o direito ao adicional de periculosidade, revela-se em harmonia com a iterativa, notória e atual jurisprudência do Tribunal Superior do Trabalho. Resulta evidenciado, daí, o acerto da decisão denegatória de seguimento do Recurso de Embargos empresarial, nos termos do artigo 894, § 2º, da Consolidação das Leis do Trabalho. 5. Agravo de que se conhece e a que se nega provimento (Ag-E-ED-RR-10662-92.2018.5.03.0063, Subseção I Especializada em Dissídios Individuais, Relator Ministro Lelio Bentes Correa, DEJT 26/08/2022)",
+            "(grifo nosso)",
+            "Contudo, a **Lei n.º 14.766/2023**, publicada em 22/12/2023, excluiu a condição de periculosidade referente aos tanques de combustível dos veículos.",
+            "A alteração legislativa deve ser aplicada a todos os contratos de trabalho em curso **a partir da vigência da norma**, não se aplicando ao período anterior à alteração legislativa.",
+            "Portanto, no caso, a parte autora tem direito ao pagamento do adicional de periculosidade em relação ao período de $dataAdmissao (data da admissão da parte autora) até 22/12/2023 (data de publicação da Lei n.º 14.766/2023), ou seja, até a publicação da referida lei era devido o adicional de periculosidade nessas circunstâncias, e, mesmo após a sua publicação, há direito ao adicional de periculosidade por trabalho com inflamável quando o tanque de combustível não possuir certificação por órgão competente, conforme **art. 193, § 5º, da CLT**: *O disposto no inciso I do caput deste artigo não se aplica às quantidades de inflamáveis contidas nos tanques de combustíveis originais de fábrica e suplementares, para consumo próprio de veículos de carga e de transporte coletivo de passageiros, de máquinas e de equipamentos,* ***certificados pelo órgão competente****, *e nos equipamentos de refrigeração de carga.*",
+            "Pelo exposto, **REQUER** seja determinada a realização de **perícia técnica** para apuração da existência de periculosidade, nos termos do art. 195 da CLT.",
+            "Consequentemente, com fundamento no art. 193, I, § 1º, da CLT e no art. 7º, XXIII, da Constituição Federal, **REQUER-SE** a condenação da parte ré ao pagamento de adicional de periculosidade, com reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno."
+        ).joinToString("\n\n")
+    }
+
+    private fun danoMoralCobrancaAbusivaMetas(): String = listOf(
+        "As metas criadas pela ré, além de inalcançáveis, não eram claras, e as cobranças eram sempre realizadas de forma desrespeitosa, causando humilhação e constrangimento à parte autora.",
+        "Dessa forma, a conduta da ré ofende princípios constitucionais, uma vez que o dano moral se caracteriza como a ofensa ou violação a bens de ordem moral de uma pessoa, sejam os que se referem à sua liberdade, à sua honra, à sua saúde (mental ou física) ou à sua imagem, o que poderá ser verificado por meio de prova testemunhal.",
+        "Nesse sentido, já decidiu o TRT da 9ª Região:",
+        "**7ª Turma do TRT da 9ª Região**",
+        "A exigência de metas e resultados não é suficiente para ensejar a condenação da empresa ao pagamento de reparação por danos morais. Entre as prerrogativas inerentes ao poder diretivo do empregador, está a possibilidade de requerer um melhor desempenho produtivo dos empregados. Somente **as cobranças revestidas de forma discriminativa, abusiva ou vexatória poderiam configurar ato ilícito**. No entanto, **a exigência de cumprimento de tarefas/metas superiores às forças do empregado** - além de constituir justa causa patronal, capitulada no art. 483, b, da Consolidação das Leis do Trabalho - **provoca, ao longo do tempo, inúmeros problemas psicológicos, que refletem no plano físico (somatização), gerando dano à personalidade do empregado, e assim autorizando a indenização por dano moral, como no caso em tela**. (Tribunal Regional do Trabalho da 9ª Região (7ª Turma). Acórdão: 0000258-52.2016.5.09.0073. Relator: ROSALIE MICHAELE BACILA BATISTA. Data de julgamento: 30/11/2017. Publicado no DEJT em 15/12/2017. Disponível em: [https://url.trt9.jus.br/5z5i4](https://url.trt9.jus.br/5z5i4))",
+        "(grifo nosso)",
+        "O TST também já se pronunciou sobre o *quantum* a ser fixado nessa hipótese:",
+        "**7ª Turma do TST**",
+        "RESPONSABILIDADE CIVIL DO EMPREGADOR – ASSÉDIO MORAL – COBRANÇA EXCESSIVA DE METAS, DE FORMA AGRESSIVA E VEXATÓRIA – CARACTERIZAÇÃO. (violação aos artigos 5º, X, da Constituição Federal, 818 da Consolidação das Leis do Trabalho, 186 e 927 do Código Civil e 333 do Código de Processo Civil e divergência jurisprudencial). O Tribunal Regional, mediante a análise dos fatos e provas dos autos, de inviável reexame nesta Corte, ante o óbice da Súmula nº 126/TST, condenou a reclamada no pagamento de **indenização por danos morais, em virtude do assédio moral sofrido pelo reclamante (ante a cobrança excessiva de metas, de forma agressiva e vexatória)**, pelo que deu a exata subsunção dos fatos ao conceito contido nos artigos 186 e 927 do Código Civil, segundo os quais \"Aquele que, por ação ou omissão voluntária, negligência ou imprudência, violar direito e causar dano a outrem, ainda que exclusivamente moral, comete ato ilícito\", e \"Aquele que, por ato ilícito (arts. 186 e 187), causar dano a outrem, fica obrigado a repará-lo\". Recurso de revista não conhecido. DANO MORAL – VALOR DA INDENIZAÇÃO. (violação ao artigo 5º, V, da CF/88). O valor fixado pelo Tribunal Regional tem por objetivo compensar a dor da pessoa, requer, por parte do julgador, bom-senso. E mais, a sua fixação deve-se pautar na lógica do razoável, a fim de se evitar valores extremos (ínfimos ou vultosos). O juiz tem liberdade para fixar o quantum. É o que se infere da leitura do artigo 944 do Código Civil. O quantum indenizatório tem um duplo caráter, ou seja, satisfativo-punitivo. Satisfativo, porque visa a compensar o sofrimento da vítima, e punitivo, porque visa a desestimular a prática de atos lesivos à honra, à imagem das pessoas. Dessa forma, **o valor deferido a título de indenização por dano moral, de R$ 60.000,00 (sessenta mil reais), não se afigura desarrazoado, tampouco exorbitante, visto que o Tribunal Regional levou em consideração a extensão do dano, o porte econômico da reclamada e o caráter pedagógico da pena, além de observar os princípios da razoabilidade e da proporcionalidade**. Recurso de revista não conhecido. (RR-1085-50.2012.5.04.0103, 7ª Turma, Relator Ministro Renato de Lacerda Paiva, DEJT 17/09/2021)",
+        "(grifo nosso)",
+        "No mesmo sentido, já decidiu a SBDI-1 do TST:",
+        "**SBDI-1 do TST**",
+        "RECURSO DE EMBARGOS EM RECURSO DE REVISTA. COBRANÇA DE METAS DE FORMA INADEQUADA. CONCLUSÃO TURMÁRIA PELA CARACTERIZAÇÃO DE ASSÉDIO MORAL PAUTADA EM PREMISSAS FÁTICAS RETRATADAS NO ACÓRDÃO REGIONAL. CONTRARIEDADE À SÚMULA 126/TST NÃO DEMONSTRADA. ARESTO INESPECÍFICO (SÚMULA 296/TST). 1. O Tribunal de origem reconheceu que a prova testemunhal produzida é no sentido de que havia **cobrança de metas \"de forma grosseira, inclusive com uso de palavrões\"**, comportamento esse que \"era dispensado a todos\" os empregados. E, por constatar que a cobrança de metas era realizada da mesma forma em relação a toda a equipe, não restando demonstrada situação vexatória ou conduta excessiva ocorrida especificamente em relação ao autor, concluiu não restar caracterizado o dano/assédio moral. 2. A Eg. Quinta Turma, por sua vez, entendeu que **a cobrança de metas de forma inadequada, com o uso de palavras de baixo calão, é suficiente a caracterizar o assédio moral,** sendo desnecessário, para esse fim, que as cobranças abusivas fossem direcionadas ao reclamante. 3. Não há falar, pois, em revolvimento de fatos e provas, pois a Eg. Turma limitou-se a dar novo enquadramento jurídico à hipótese dos autos, considerando as premissas fáticas retratadas pelo Colegiado Regional. Ilesa a Súmula 126/TST. 4. Noutro giro, verifica-se que o único aresto colacionado é inespecífico, pois a conclusão nele contida, pela aplicação da Súmula 126/TST, prende-se à materialidade do caso concreto examinado, em que o exame das alegações veiculadas no recurso de revista exigia o reexame dos fatos e das provas. Aplicação da Súmula 296/TST. Recurso de embargos não conhecido. (E-RR-747-03.2015.5.09.0016, Subseção I Especializada em Dissídios Individuais, Relator Ministro Hugo Carlos Scheuermann, DEJT 30/08/2019)",
+        "(grifo nosso)",
+        "Pelo exposto, com fundamento nos arts. 1º, 5º, V e X, e 7º, XXVIII, da Constituição Federal e dos arts. 186, 927 e 932, III, do Código Civil, **REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais."
+    ).joinToString("\n\n")
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1507,6 +1571,8 @@ class RtTemplateService(
         const val CONVENIO_MEDICO = "convenio_medico"
         const val ADICIONAL_INSALUBRIDADE = "adicional_insalubridade"
         const val ADICIONAL_PERICULOSIDADE = "adicional_periculosidade"
+        const val PERICULOSIDADE_TANQUE_SUPLEMENTAR = "periculosidade_tanque_suplementar"
+        const val DANO_MORAL_COBRANCA_ABUSIVA_METAS = "dano_moral_cobranca_abusiva_metas"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
