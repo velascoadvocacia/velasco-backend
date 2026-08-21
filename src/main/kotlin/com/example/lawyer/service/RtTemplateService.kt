@@ -270,6 +270,10 @@ class RtTemplateService(
             titulo = { "Adicional de insalubridade" },
             generate = { _, _, variaveis, _ -> adicionalInsalubridade(variaveis) }
         ),
+        ADICIONAL_PERICULOSIDADE to RtBlockDefinition(
+            titulo = { "Adicional de periculosidade" },
+            generate = { _, _, variaveis, _ -> adicionalPericulosidade(variaveis) }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -416,6 +420,14 @@ class RtTemplateService(
                 ?: ordered.indexOf(VALE_ALIMENTACAO).takeIf { it >= 0 }
                 ?: -1
             ordered.add(predecessorIndex + 1, ADICIONAL_INSALUBRIDADE)
+        }
+        if (ADICIONAL_PERICULOSIDADE in ordered) {
+            ordered.remove(ADICIONAL_PERICULOSIDADE)
+            val predecessorIndex = ordered.indexOf(ADICIONAL_INSALUBRIDADE).takeIf { it >= 0 }
+                ?: ordered.indexOf(CONVENIO_MEDICO).takeIf { it >= 0 }
+                ?: ordered.indexOf(SEGURO_VIDA).takeIf { it >= 0 }
+                ?: -1
+            ordered.add(predecessorIndex + 1, ADICIONAL_PERICULOSIDADE)
         }
         return ordered
     }
@@ -1135,6 +1147,15 @@ class RtTemplateService(
         ).joinToString("\n\n")
     }
 
+    private fun adicionalPericulosidade(variaveis: Map<String, String?>): String {
+        val descricao = variaveis["descricaoExposicaoPericulosidade"].orPlaceholder()
+        return listOf(
+            "A parte autora trabalhava exposta a periculosidade, porquanto $descricao.",
+            "Pelo exposto, **REQUER** seja determinada a realização de **perícia técnica** para apuração da existência de periculosidade, nos termos do art. 195 da CLT.",
+            "Consequentemente, com fundamento no art. 193, I, § 1º, da CLT e no art. 7º, XXIII, da Constituição Federal, **REQUER-SE** a condenação da ré ao pagamento de adicional de periculosidade, com reflexos em RSR e, com estes, em férias + 1/3, 13º salários, FGTS + multa de 40%, aviso prévio, horas extras, adicional noturno e adicional de periculosidade."
+        ).joinToString("\n\n")
+    }
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1485,6 +1506,7 @@ class RtTemplateService(
         const val SEGURO_VIDA = "seguro_vida"
         const val CONVENIO_MEDICO = "convenio_medico"
         const val ADICIONAL_INSALUBRIDADE = "adicional_insalubridade"
+        const val ADICIONAL_PERICULOSIDADE = "adicional_periculosidade"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
