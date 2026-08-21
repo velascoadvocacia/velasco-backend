@@ -2459,6 +2459,80 @@ class RtExportResourceTest {
         saveGeneratedDocument("rt-dano-moral-jornada-extenuante-imagens.docx", docx)
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview habitual twelve hour journey child with hierarchy order fixed text and image`() {
+        val blockId = "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(0))
+
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(blockId, "jornada_trabalho_dano_moral_jornada_extenuante", "jornada_trabalho"),
+                    dadosVariaveis = mapOf("campoIgnorado" to "não deve aparecer")
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(3))
+            .body("blocos[0].id", equalTo("jornada_trabalho"))
+            .body("blocos[1].id", equalTo("jornada_trabalho_dano_moral_jornada_extenuante"))
+            .body("blocos[2].id", equalTo(blockId))
+            .body("blocos[2].titulo", equalTo(HABITUAL_TWELVE_HOUR_TITLE))
+            .body("blocos[2].anexos.size()", equalTo(0))
+            .body("blocos[2].imagensFixas.size()", equalTo(1))
+            .body("blocos[2].imagensFixas[0].afterParagraph", equalTo(3))
+            .extract().response()
+
+        val text = response.jsonPath().getString("blocos[2].texto")
+        assertEquals(5, text.split("\n\n").size)
+        assertFalse(text.contains("[INSERIR_IMAGEM_FIXA_AQUI]"))
+        assertFalse(text.contains("campoIgnorado"))
+        assertTrue(text.endsWith("(com base do salário-hora do empregado)."))
+        assertEquals(HABITUAL_TWELVE_HOUR_TEXT_SHA256, sha256(text))
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export habitual twelve hour journey with fixed image spacing and keep next`() {
+        val blockId = "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
+        val preview = given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("jornada_trabalho", blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200).extract().response()
+        val text = preview.jsonPath().getString("blocos[1].texto")
+        val filler = (1..8).joinToString("\n\n") { "Preenchimento $it para aproximar a imagem da quebra de página." }
+        val request = RtExportRequest(
+            claimantName = "Teste jornada habitual 12h",
+            blocks = listOf(
+                RtExportBlockRequest(title = "Preenchimento", content = filler),
+                RtExportBlockRequest(id = blockId, title = HABITUAL_TWELVE_HOUR_TITLE, content = text)
+            )
+        )
+        val docx = given().multiPart("payload", objectMapper.writeValueAsString(request), "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val start = document.paragraphs.indexOfFirst { it.text.startsWith("Como j") && it.text.contains("12h") }
+            val textParagraphs = document.paragraphs.drop(start).filter { it.text.isNotBlank() }.take(5)
+            assertEquals(5, textParagraphs.size)
+            assertTrue(textParagraphs.all { it.indentationLeft <= 0 })
+            assertTrue(textParagraphs[2].ctp.pPr.isSetKeepNext)
+            val announcerIndex = document.paragraphs.indexOf(textParagraphs[2])
+            val imageParagraph = document.paragraphs[announcerIndex + 1]
+            assertEquals(ParagraphAlignment.CENTER, imageParagraph.alignment)
+            assertEquals(160, imageParagraph.spacingBefore)
+            assertEquals(160, imageParagraph.spacingAfter)
+            assertEquals(1, imageParagraph.runs.sumOf { it.embeddedPictures.size })
+            assertEquals(1, document.allPictures.size)
+            assertTrue(textParagraphs[0].runs.any { it.isBold && it.text() == "pontual" })
+            assertTrue(textParagraphs[4].runs.any { it.isBold && it.text() == "REQUER-SE" })
+        }
+        saveGeneratedDocument("rt-inconstitucionalidade-jornada-habitual-12h-imagem.docx", docx)
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
@@ -3955,6 +4029,9 @@ class RtExportResourceTest {
         const val EXTENUATING_JOURNEY_TITLE = "l. Dano moral pelo cumprimento de jornada extenuante"
         const val EXTENUATING_JOURNEY_TEXT_SHA256 =
             "f69153199f9e41b73940517b28f793eda835975acd2696b7da78eaddcb8ffada"
+        const val HABITUAL_TWELVE_HOUR_TITLE = "m. Inconstitucionalidade da jornada habitual de 12h diárias"
+        const val HABITUAL_TWELVE_HOUR_TEXT_SHA256 =
+            "607395d23fcf6eca37124a6be71eff87c35660590a51be47b9bae11a9af029c4"
         const val INTRAJORNADA_TITLE =
             "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)"
         const val INTRAJORNADA_INTRODUCTION =

@@ -241,6 +241,10 @@ class RtTemplateService(
             generate = { _, _, variaveis, _ -> jornadaTrabalhoDanoMoralJornadaExtenuante(variaveis) },
             paragrafosRecuados = (5..17).toSet()
         ),
+        JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H to RtBlockDefinition(
+            titulo = { "m. Inconstitucionalidade da jornada habitual de 12h diárias" },
+            generate = { _, _, _, _ -> jornadaTrabalhoInconstitucionalidadeJornadaHabitual12h() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -321,6 +325,9 @@ class RtTemplateService(
         if (JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE in ordered && JORNADA_TRABALHO !in ordered) {
             ordered.remove(JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE)
         }
+        if (JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H in ordered && JORNADA_TRABALHO !in ordered) {
+            ordered.remove(JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H)
+        }
         if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
             ordered.add(ordered.indexOf(DANO_MORAL_AUSENCIA_ANOTACAO_CTPS) + 1, RETENCAO_CTPS_DANO_MORAL)
@@ -387,6 +394,14 @@ class RtTemplateService(
                     contentType = "image/png",
                     nomeOriginal = JORNADA_EXTENUANTE_IMAGE_2_NAME,
                     afterParagraph = 21
+                )
+            )
+            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H -> listOf(
+                RtPreviewInlineImageResponse(
+                    url = JORNADA_HABITUAL_12H_IMAGE_URL,
+                    contentType = "image/png",
+                    nomeOriginal = JORNADA_HABITUAL_12H_IMAGE_NAME,
+                    afterParagraph = 3
                 )
             )
             DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(
@@ -983,6 +998,9 @@ class RtTemplateService(
             variaveis["mediaHorasJornadaDiaria"].orPlaceholder()
         )
 
+    private fun jornadaTrabalhoInconstitucionalidadeJornadaHabitual12h(): String =
+        JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H_TEMPLATE
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1324,6 +1342,11 @@ class RtTemplateService(
             "jornada_trabalho_inconstitucionalidade_tempo_espera"
         const val JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE =
             "jornada_trabalho_dano_moral_jornada_extenuante"
+        const val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H =
+            "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
+        const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
+        const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
+        const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
         const val JORNADA_EXTENUANTE_IMAGE_1_NAME = "l_jornada_extenuante1.png"
         const val JORNADA_EXTENUANTE_IMAGE_2_NAME = "l_jornada_extenuante2.png"
         const val JORNADA_EXTENUANTE_IMAGE_1_PATH = "/assets/$JORNADA_EXTENUANTE_IMAGE_1_NAME"
@@ -1490,7 +1513,8 @@ RECURSO ORDINÁRIO. DISSÍDIO COLETIVO DE GREVE. PROPOSTA DE CONCILIAÇÃO ENTRE
             JORNADA_TRABALHO_INCONSTITUCIONALIDADE_INTERVALO_INTRAJORNADA,
             JORNADA_TRABALHO_INTERVALO_INTRAJORNADA,
             JORNADA_TRABALHO_INCONSTITUCIONALIDADE_TEMPO_ESPERA,
-            JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE
+            JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE,
+            JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H
         )
         private val JORNADA_TRABALHO_TEMPLATE = listOf(
             "A parte autora executava a seguinte jornada média de trabalho: {descricaoJornadaMedia}",
@@ -1644,6 +1668,13 @@ I - O uso de instrumentos telemáticos ou informatizados fornecidos pela empresa
                 JORNADA_EXTENUANTE_PRECEDENTE_TST_2,
                 """(grifo nosso)"""
             ) + JORNADA_EXTENUANTE_PARAGRAFOS_FINAIS
+        ).joinToString("\n\n")
+        private val JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H_TEMPLATE = listOf(
+            """Como já amplamente exposto no presente tópico, o autor realizava, habitualmente, jornadas de trabalho superiores a 12h. Sobre esse tema, conquanto não haja inconstitucionalidade na prática de estender a jornada em até 4h extras de maneira **pontual**, o Supremo Tribunal Federal considera **inconstitucional** a prática de jornada **ordinária** de doze horas de trabalho.""",
+            JORNADA_EXTENUANTE_ADI_5322,
+            """Veja-se o trecho do acórdão do STF sobre esse fundamento, com grifo nosso ([https://portal.stf.jus.br/processos/detalhe.asp?incidente=4778925](https://portal.stf.jus.br/processos/detalhe.asp?incidente=4778925)):""",
+            JORNADA_EXTENUANTE_CONCLUSAO_STF,
+            """Pelo exposto, com fundamento no **art. 7º, XXII, da Constituição Federal** (*XXII - redução dos riscos inerentes ao trabalho, por meio de normas de saúde, higiene e segurança*) e nos **arts. 186 e 927 do Código Civil**, **REQUER-SE** a condenação da ré ao pagamento de indenização por danos patrimoniais, pela prática de jornada inconstitucional (com base do salário-hora do empregado)."""
         ).joinToString("\n\n")
         private val JORNADA_TRABALHO_INTERVALO_INTRAJORNADA_TEMPLATE = listOf(
             """A parte autora executava, no total, {horasDiariasIntervaloIntrajornada} horas diárias de intervalo intrajornada, de modo que sofria ultrapassagem do limite legal de 2h, em contrariedade ao art. 71 da CLT: *Em qualquer trabalho contínuo, cuja duração exceda de 6 (seis) horas, é obrigatória a concessão de um intervalo para repouso ou alimentação, o qual será, no mínimo, de 1 (uma) hora e,* ***salvo acordo escrito ou contrato coletivo em contrário, não poderá exceder de 2 (duas) horas****.*""",

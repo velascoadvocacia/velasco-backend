@@ -173,6 +173,8 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                 configureWaitingTimeParagraphPagination(document.paragraphs.last(), paragraphNumber)
             } else if (block.id == RtTemplateService.JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE) {
                 configureExtenuatingJourneyParagraphPagination(document.paragraphs.last(), paragraphNumber)
+            } else if (block.id == RtTemplateService.JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H) {
+                configureHabitualTwelveHourJourneyPagination(document.paragraphs.last(), paragraphNumber)
             }
             logger.infof("DOCX bloco '%s': parágrafo %d criado; anexos.size=%d", block.title, index + 1, block.anexos.size)
             block.anexos
@@ -184,7 +186,8 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                     addInlineImage(
                         document,
                         image,
-                        spaced = block.id == RtTemplateService.JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE
+                        spaced = block.id == RtTemplateService.JORNADA_TRABALHO_DANO_MORAL_JORNADA_EXTENUANTE ||
+                            block.id == RtTemplateService.JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H
                     )
                     image.caption?.let { createImageCaption(document, it) }
                 }
@@ -221,6 +224,16 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
         paragraphNumber: Int
     ) {
         if (paragraphNumber == 18 || paragraphNumber == 21) {
+            val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+            properties.addNewKeepNext().`val` = true
+        }
+    }
+
+    private fun configureHabitualTwelveHourJourneyPagination(
+        paragraph: XWPFParagraph,
+        paragraphNumber: Int
+    ) {
+        if (paragraphNumber == 3) {
             val properties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
             properties.addNewKeepNext().`val` = true
         }

@@ -112,6 +112,13 @@ class RtExportResource(
     fun jornadaExtenuanteImage2(): Response =
         Response.ok(staticAssetBytes(RtTemplateService.JORNADA_EXTENUANTE_IMAGE_2_PATH), "image/png").build()
 
+    @GET
+    @Path("/assets/m-inconstitucionalidade-jornada-12h")
+    @Produces("image/png")
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun jornadaHabitual12hImage(): Response =
+        Response.ok(staticAssetBytes(RtTemplateService.JORNADA_HABITUAL_12H_IMAGE_PATH), "image/png").build()
+
     @POST
     @Path("/export")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -295,6 +302,16 @@ class RtExportResource(
                     afterParagraph = 21,
                     originalWidthPx = 690,
                     originalHeightPx = 843
+                )
+            )
+            RtTemplateService.JORNADA_TRABALHO_INCONSTITUCIONALIDADE_JORNADA_HABITUAL_12H -> listOf(
+                RtExportInlineImageRequest(
+                    bytes = staticAssetBytes(RtTemplateService.JORNADA_HABITUAL_12H_IMAGE_PATH),
+                    contentType = "image/png",
+                    nomeOriginal = RtTemplateService.JORNADA_HABITUAL_12H_IMAGE_NAME,
+                    afterParagraph = 3,
+                    originalWidthPx = 637,
+                    originalHeightPx = 778
                 )
             )
             RtTemplateService.DIFERENCAS_SALARIAIS_MOTORISTA_CARRETEIRO_CARREGADOR -> listOf(
