@@ -3869,6 +3869,85 @@ class RtExportResourceTest {
         }
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should render presentation of documents as the last fixed block and persist its selection`() {
+        val blockId = "apresentacao_documentos"
+        val expectedText =
+            "Para a devida instrução dos presentes autos, **REQUER-SE** a juntada, pela ré, sob as penas do art. 400 do CPC, dos controles de jornada de trabalho e de tempo de direção da parte autora, incluindo os relatórios dos rastreadores e GPS, conhecimentos rodoviários, relatórios de entrega de carga, bem como recibos de comprovante de pagamento/holerites (devidamente assinados), extrato de FGTS, comprovante de pagamento de diárias de viagem/reembolso de despesas (devidamente assinados), comprovantes de pagamento de vale alimentação e TRCT, sob pena de confissão."
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo(blockId))
+            .body("blocos[0].titulo", equalTo("Apresentação de documentos"))
+            .body("blocos[0].texto", equalTo(expectedText))
+            .body("blocos[0].paragrafosRecuados.size()", equalTo(0))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+
+        val selectedOutOfOrder = listOf(
+            blockId,
+            "baixa_ctps_tutela",
+            "dano_moral_assedio_moral"
+        )
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = selectedOutOfOrder))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[-1].id", equalTo(blockId))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(claimantName = "Teste documentos", blocosSelecionados = selectedOutOfOrder)
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val title = document.paragraphs.first { it.text == "Apresentação de documentos" }
+            val titleIndex = document.paragraphs.indexOf(title)
+            assertTrue(title.runs.filter { it.text().isNotEmpty() }.all { it.isBold })
+            val content = document.paragraphs[titleIndex + 1]
+            assertEquals(expectedText.replace("**", ""), content.text)
+            assertTrue(content.indentationLeft <= 0)
+            assertEquals(listOf("REQUER-SE"), content.runs.filter { it.isBold }.map { it.text() })
+            assertTrue(document.paragraphs.drop(titleIndex + 2).all { it.text.isBlank() })
+        }
+
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(pessoaRequest(suffix, validCpfFromSuffix(suffix, 1), null, null))
+        val reclamada = pessoaService.create(pessoaRequest("re-$suffix", validCpfFromSuffix(suffix, 2), null, null))
+        val pessoaAdvogado = pessoaService.create(pessoaRequest("adv-$suffix", validCpfFromSuffix(suffix, 3), null, null))
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.documentos.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "55.555"
+            )
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "DOCUMENTOS-$suffix",
+                descricao = "Persistência da apresentação de documentos",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = selectedOutOfOrder
+            )
+        )
+        val restored = processoService.getById(processo.id)
+        assertTrue(blockId in restored.blocosSelecionados)
+        given().contentType("application/json")
+            .body(RtPreviewRequest(processoId = processo.id, blocosSelecionados = restored.blocosSelecionados))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[-1].id", equalTo(blockId))
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

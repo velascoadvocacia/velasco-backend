@@ -310,6 +310,10 @@ class RtTemplateService(
             titulo = { "a. Danos morais decorrentes da não emissão da CAT" },
             generate = { _, _, _, _ -> danosMoraisNaoEmissaoCat() }
         ),
+        APRESENTACAO_DOCUMENTOS to RtBlockDefinition(
+            titulo = { "Apresentação de documentos" },
+            generate = { _, _, _, _ -> apresentacaoDocumentos() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -511,6 +515,10 @@ class RtTemplateService(
         if (DANOS_MORAIS_NAO_EMISSAO_CAT in ordered) {
             ordered.remove(DANOS_MORAIS_NAO_EMISSAO_CAT)
             ordered.add(ordered.indexOf(OBRIGATORIEDADE_EMISSAO_CAT) + 1, DANOS_MORAIS_NAO_EMISSAO_CAT)
+        }
+        if (APRESENTACAO_DOCUMENTOS in ordered) {
+            ordered.remove(APRESENTACAO_DOCUMENTOS)
+            ordered.add(APRESENTACAO_DOCUMENTOS)
         }
         return ordered
     }
@@ -1380,6 +1388,9 @@ class RtTemplateService(
         "Pelo exposto, com fundamento no **art. 5º, X, da Constituição Federal** e nos **arts. 186 e 927 do Código Civil**, **REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais."
     ).joinToString("\n\n")
 
+    private fun apresentacaoDocumentos(): String =
+        "Para a devida instrução dos presentes autos, **REQUER-SE** a juntada, pela ré, sob as penas do art. 400 do CPC, dos controles de jornada de trabalho e de tempo de direção da parte autora, incluindo os relatórios dos rastreadores e GPS, conhecimentos rodoviários, relatórios de entrega de carga, bem como recibos de comprovante de pagamento/holerites (devidamente assinados), extrato de FGTS, comprovante de pagamento de diárias de viagem/reembolso de despesas (devidamente assinados), comprovantes de pagamento de vale alimentação e TRCT, sob pena de confissão."
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1740,6 +1751,7 @@ class RtTemplateService(
         const val DOENCA_ACIDENTE_DANOS_MORAIS = "doenca_acidente_danos_morais"
         const val OBRIGATORIEDADE_EMISSAO_CAT = "obrigatoriedade_emissao_cat"
         const val DANOS_MORAIS_NAO_EMISSAO_CAT = "danos_morais_nao_emissao_cat"
+        const val APRESENTACAO_DOCUMENTOS = "apresentacao_documentos"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"
