@@ -306,6 +306,10 @@ class RtTemplateService(
             titulo = { "b. Indenização por danos morais" },
             generate = { _, _, variaveis, _ -> doencaAcidenteDanosMorais(variaveis) }
         ),
+        DANOS_MORAIS_NAO_EMISSAO_CAT to RtBlockDefinition(
+            titulo = { "a. Danos morais decorrentes da não emissão da CAT" },
+            generate = { _, _, _, _ -> danosMoraisNaoEmissaoCat() }
+        ),
         BAIXA_CTPS_TUTELA to RtBlockDefinition(
             titulo = { "3. Baixa na CTPS física. Tutela antecipada" },
             generate = { _, _, variaveis, _ -> baixaCtpsTutela(variaveis) }
@@ -392,6 +396,9 @@ class RtTemplateService(
         if (DOENCA_PROFISSIONAL_ACIDENTE_TRABALHO !in ordered) {
             ordered.remove(DOENCA_ACIDENTE_RESPONSABILIDADE_OBJETIVA)
             ordered.remove(DOENCA_ACIDENTE_DANOS_MORAIS)
+        }
+        if (OBRIGATORIEDADE_EMISSAO_CAT !in ordered) {
+            ordered.remove(DANOS_MORAIS_NAO_EMISSAO_CAT)
         }
         if (DANO_MORAL_AUSENCIA_ANOTACAO_CTPS in ordered && RETENCAO_CTPS_DANO_MORAL in ordered) {
             ordered.remove(RETENCAO_CTPS_DANO_MORAL)
@@ -500,6 +507,10 @@ class RtTemplateService(
                 ?: ordered.indexOf(DANO_MORAL_ASSEDIO_MORAL).takeIf { it >= 0 }
                 ?: -1
             ordered.addAll(predecessorIndex + 1, selectedHealthFamily)
+        }
+        if (DANOS_MORAIS_NAO_EMISSAO_CAT in ordered) {
+            ordered.remove(DANOS_MORAIS_NAO_EMISSAO_CAT)
+            ordered.add(ordered.indexOf(OBRIGATORIEDADE_EMISSAO_CAT) + 1, DANOS_MORAIS_NAO_EMISSAO_CAT)
         }
         return ordered
     }
@@ -1364,6 +1375,11 @@ class RtTemplateService(
             )
         }
 
+    private fun danosMoraisNaoEmissaoCat(): String = listOf(
+        "Como exposto no tópico anterior, a ré violou a legislação vigente quanto à obrigação de emissão da CAT, bem como a norma coletiva vigente à época do acidente da parte autora, de modo que deve ser condenada ao pagamento pelos danos morais sofridos pela parte autora, decorrentes de sua conduta.",
+        "Pelo exposto, com fundamento no **art. 5º, X, da Constituição Federal** e nos **arts. 186 e 927 do Código Civil**, **REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais."
+    ).joinToString("\n\n")
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1722,6 +1738,8 @@ class RtTemplateService(
         const val DOENCA_PROFISSIONAL_ACIDENTE_TRABALHO = "doenca_profissional_acidente_trabalho"
         const val DOENCA_ACIDENTE_RESPONSABILIDADE_OBJETIVA = "doenca_acidente_responsabilidade_objetiva"
         const val DOENCA_ACIDENTE_DANOS_MORAIS = "doenca_acidente_danos_morais"
+        const val OBRIGATORIEDADE_EMISSAO_CAT = "obrigatoriedade_emissao_cat"
+        const val DANOS_MORAIS_NAO_EMISSAO_CAT = "danos_morais_nao_emissao_cat"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"
         const val JORNADA_HABITUAL_12H_IMAGE_URL = "/rt/assets/m-inconstitucionalidade-jornada-12h"

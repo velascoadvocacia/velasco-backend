@@ -3801,6 +3801,74 @@ class RtExportResourceTest {
             .body("blocos[2].texto", containsString("acidente de trabalho sofrido"))
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should render non issuance cat moral damages child only with parent in order and exact formatting`() {
+        val firstParagraph =
+            "Como exposto no tópico anterior, a ré violou a legislação vigente quanto à obrigação de emissão da CAT, bem como a norma coletiva vigente à época do acidente da parte autora, de modo que deve ser condenada ao pagamento pelos danos morais sofridos pela parte autora, decorrentes de sua conduta."
+        val secondParagraph =
+            "Pelo exposto, com fundamento no **art. 5º, X, da Constituição Federal** e nos **arts. 186 e 927 do Código Civil**, **REQUER-SE** a condenação da parte ré ao pagamento de indenização a título de danos morais."
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf("danos_morais_nao_emissao_cat")))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(0))
+
+        val response = given().contentType("application/json")
+            .body(
+                RtPreviewRequest(
+                    blocosSelecionados = listOf(
+                        "danos_morais_nao_emissao_cat",
+                        "obrigatoriedade_emissao_cat"
+                    )
+                )
+            )
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos.size()", equalTo(1))
+            .body("blocos[0].id", equalTo("danos_morais_nao_emissao_cat"))
+            .body("blocos[0].titulo", equalTo("a. Danos morais decorrentes da não emissão da CAT"))
+            .body("blocos[0].texto", equalTo("$firstParagraph\n\n$secondParagraph"))
+            .body("blocos[0].paragrafosRecuados.size()", equalTo(0))
+            .body("blocos[0].anexos.size()", equalTo(0))
+            .body("blocos[0].imagensFixas.size()", equalTo(0))
+            .extract().response()
+
+        assertEquals(2, response.jsonPath().getString("blocos[0].texto").split("\n\n").size)
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste CAT",
+                blocosSelecionados = listOf(
+                    "obrigatoriedade_emissao_cat",
+                    "danos_morais_nao_emissao_cat"
+                )
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val titleIndex = document.paragraphs.indexOfFirst {
+                it.text == "a. Danos morais decorrentes da não emissão da CAT"
+            }
+            assertTrue(titleIndex >= 0)
+            assertTrue(document.paragraphs[titleIndex].runs.filter { it.text().isNotEmpty() }.all { it.isBold })
+            val body = document.paragraphs.drop(titleIndex + 1).take(2)
+            assertEquals(listOf(firstParagraph, secondParagraph.replace("**", "")), body.map { it.text })
+            assertTrue(body.all { it.indentationLeft <= 0 })
+            assertTrue(body[0].runs.filter { it.text().isNotEmpty() }.none { it.isBold })
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "art. 5º, X, da Constituição Federal" })
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "arts. 186 e 927 do Código Civil" })
+            assertTrue(body[1].runs.any { it.isBold && it.text() == "REQUER-SE" })
+            assertTrue(body[1].runs.filter { it.isBold }.all {
+                it.text() in setOf(
+                    "art. 5º, X, da Constituição Federal",
+                    "arts. 186 e 927 do Código Civil",
+                    "REQUER-SE"
+                )
+            })
+        }
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->
