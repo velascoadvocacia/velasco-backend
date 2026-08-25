@@ -281,6 +281,166 @@ class RtExportResourceTest {
 
     @Test
     @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should export interview form with persisted rt data mother name and manual blanks`() {
+        val suffix = System.nanoTime().toString()
+        val reclamante = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Mariana da Silva",
+                cpf = validCpfFromSuffix(suffix, 1),
+                email = "mariana.ficha.$suffix@example.com",
+                telefone = "(45) 99999-0000",
+                estadoCivil = EstadoCivil.CASADO,
+                sexo = Sexo.FEMININO,
+                rg = "123456789",
+                pis = "12345678901",
+                nomeMae = "Ana Pereira da Silva",
+                profissao = "Motorista carreteira",
+                tipoPessoa = TipoPessoa.FISICA,
+                dataNascimento = LocalDate.of(1990, 3, 15),
+                endereco = EnderecoRequest(
+                    rua = "Rua Paraná",
+                    numero = "38",
+                    complemento = "Casa 2",
+                    bairro = "Centro",
+                    cidade = "Cascavel",
+                    estado = "PR",
+                    cep = "85800000"
+                )
+            )
+        )
+        val reclamada = pessoaService.create(
+            PessoaRequestDTO(
+                nome = "Empresa cadastrada $suffix",
+                cnpj = "04252011000110",
+                email = "empresa.ficha.$suffix@example.com",
+                razaoSocial = "Transportadora Exemplo Ltda.",
+                nomeFantasia = "Trans Exemplo",
+                tipoPessoa = TipoPessoa.JURIDICA,
+                endereco = EnderecoRequest(
+                    rua = "Avenida Brasil",
+                    numero = "1000",
+                    bairro = "Centro",
+                    cidade = "Cascavel",
+                    estado = "PR",
+                    cep = "85800000"
+                )
+            )
+        )
+        val pessoaAdvogado = pessoaService.create(
+            pessoaRequest("adv-ficha-$suffix", validCpfFromSuffix(suffix, 2), null, null)
+        )
+        val advogado = usuarioService.create(
+            UsuarioCreateRequest(
+                username = "adv.ficha.$suffix",
+                senha = "senha-segura-123",
+                pessoaId = pessoaAdvogado.id,
+                perfil = PerfilUsuario.ADVOGADO,
+                ufOab = "PR",
+                numeroOab = "77.777"
+            )
+        )
+        val processo = processoService.create(
+            ProcessoCreateRequest(
+                numeroProcesso = "FICHA-$suffix",
+                descricao = "Ficha de entrevista",
+                reclamantesIds = listOf(reclamante.id),
+                advogadosIds = listOf(advogado.id),
+                reclamadasIds = listOf(reclamada.id),
+                dataAbertura = LocalDate.now(),
+                estrategiaProcessual = EstrategiaProcessualRequest(),
+                status = StatusProcesso.ABERTO,
+                blocosSelecionados = listOf("contrato_aspectos_gerais", "periodo_sem_registro_ctps"),
+                dadosVariaveis = mapOf(
+                    "contrato_aspectos_gerais" to mapOf(
+                        "dataContratacao" to "2020-01-10",
+                        "dataExtincao" to "2025-07-15",
+                        "motivoExtincao" to "1",
+                        "remuneracao" to "4500.00"
+                    ),
+                    "periodo_sem_registro_ctps" to mapOf(
+                        "dataInicioPrestacaoServicos" to "2019-12-02",
+                        "dataAnotacaoCtps" to "2020-01-09"
+                    )
+                )
+            )
+        )
+
+        val docx = given().contentType("application/json")
+            .body(
+                mapOf(
+                    "processoId" to processo.id,
+                    "dadosVariaveis" to mapOf(
+                        "contrato_aspectos_gerais" to mapOf("remuneracao" to "4750.50")
+                    )
+                )
+            )
+            .`when`().post("/rt/export-ficha-entrevista").then()
+            .statusCode(200)
+            .header("Content-Type", equalTo("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            .header(
+                "Content-Disposition",
+                equalTo("attachment; filename=\"FICHA DE ENTREVISTA - MARIANA DA SILVA.docx\"")
+            )
+            .extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val text = org.apache.poi.xwpf.extractor.XWPFWordExtractor(document).use { it.text }
+            listOf(
+                "FICHA DE ENTREVISTA",
+                "Data da Prescrição: ____/____/______",
+                "Nome: Mariana da Silva",
+                "Telefone: (45) 99999-0000",
+                "Rua Paraná, 38, Casa 2, Bairro Centro, Cascavel, PR, CEP 85800-000",
+                "RG: 123456789",
+                "PIS: 12345678901",
+                "Data de Nascimento: 15/03/1990",
+                "Estado Civil: Casado(a)",
+                "Nome da Mãe: Ana Pereira da Silva",
+                "Razão Social: Transportadora Exemplo Ltda.",
+                "CNPJ: 04.252.011/0001-10",
+                "Admissão: 10/01/2020",
+                "Demissão: 15/07/2025",
+                "Motivo: Dispensa sem justa causa",
+                "Período sem Registro: 02/12/2019  a  09/01/2020",
+                "Função: Motorista carreteira",
+                "Valor: R$ 4.750,50",
+                "Horário da Jornada: _____:_____  às  _____:_____",
+                "Assinatura do Autor(a)"
+            ).forEach { expected -> assertTrue(text.contains(expected), "Campo ausente: $expected") }
+            assertTrue(document.paragraphs.first { it.text == "FICHA DE ENTREVISTA" }.runs.single().isBold)
+            assertTrue(document.headerList.any { header ->
+                header.paragraphs.any { paragraph -> paragraph.runs.any { it.embeddedPictures.isNotEmpty() } }
+            })
+            assertEquals(2, document.footerList.single().paragraphs.count { paragraph ->
+                paragraph.runs.any { it.embeddedPictures.isNotEmpty() }
+            })
+            assertEquals(6, document.paragraphs.count { it.text.startsWith("________") })
+            assertTrue(document.paragraphs.first { it.text == "Mariana da Silva" }.runs.single().isBold)
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should keep interview fields blank when no process variables or person data exist`() {
+        val docx = given().contentType("application/json")
+            .body(emptyMap<String, Any>())
+            .`when`().post("/rt/export-ficha-entrevista").then().statusCode(200)
+            .extract().asByteArray()
+
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            val text = org.apache.poi.xwpf.extractor.XWPFWordExtractor(document).use { it.text }
+            assertTrue(text.contains("Nome: ____________________________"))
+            assertTrue(text.contains("CTPS: _________________    SÉRIE: _____________-_____"))
+            assertTrue(text.contains("Nome da Mãe: ________________________"))
+            assertTrue(text.contains("Admissão: ____/____/______"))
+            assertTrue(text.contains("Demissão: ____/____/______"))
+            assertTrue(text.contains("Período sem Registro: ____/____/______  a  ____/____/______"))
+            assertTrue(text.contains("Valor: R$ ____________"))
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
     fun `should omit absent fields without placeholders or broken punctuation`() {
         val suffix = System.nanoTime().toString()
         val reclamante = pessoaService.create(

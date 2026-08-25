@@ -8,10 +8,12 @@ import com.example.lawyer.dto.request.RtExportTableCellRequest
 import com.example.lawyer.dto.request.RtExportTableRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.request.ProcuracaoExportRequest
+import com.example.lawyer.dto.request.FichaEntrevistaExportRequest
 import com.example.lawyer.dto.response.RtPreviewResponse
 import com.example.lawyer.service.RtExportService
 import com.example.lawyer.service.ProcessoAnexoService
 import com.example.lawyer.service.ProcuracaoExportService
+import com.example.lawyer.service.FichaEntrevistaExportService
 import com.example.lawyer.service.RtTemplateService
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.security.RolesAllowed
@@ -37,6 +39,7 @@ class RtExportResource(
     private val templateService: RtTemplateService,
     private val processoAnexoService: ProcessoAnexoService,
     private val procuracaoExportService: ProcuracaoExportService,
+    private val fichaEntrevistaExportService: FichaEntrevistaExportService,
     private val objectMapper: ObjectMapper
 ) {
     @POST
@@ -50,6 +53,22 @@ class RtExportResource(
             .header(
                 HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"PROCURAÇÃO AD JUDICIA - ${sanitizeFilename(generated.nomeReclamante).uppercase()}.docx\""
+            )
+            .build()
+    }
+
+    @POST
+    @Path("/export-ficha-entrevista")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(DOCX_MEDIA_TYPE)
+    @RolesAllowed("ADMIN", "ADVOGADO", "ASSISTENTE")
+    fun exportFichaEntrevista(@Valid request: FichaEntrevistaExportRequest): Response {
+        val generated = fichaEntrevistaExportService.generate(request)
+        return Response.ok(generated.bytes, DOCX_MEDIA_TYPE)
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"FICHA DE ENTREVISTA - " +
+                    "${sanitizeFilename(generated.nomeReclamante).uppercase()}.docx\""
             )
             .build()
     }
