@@ -3948,6 +3948,107 @@ class RtExportResourceTest {
             .body("blocos[-1].id", equalTo(blockId))
     }
 
+    @Test
+    @TestSecurity(user = "advogado", roles = ["ADVOGADO"])
+    fun `should preview and export dynamic conventional fine table immediately before document presentation`() {
+        val blockId = "multa_convencional"
+        val variables = mapOf<String, Any?>(
+            "multaConvencionalCctInicio" to "2024",
+            "multaConvencionalCctFim" to "2025",
+            "multaConvencionalItens" to listOf(
+                mapOf(
+                    "id" to "linha-1",
+                    "clausulaViolada" to "Clausula 12",
+                    "assunto" to "Diarias",
+                    "redacaoCct" to "Primeira linha\nSegunda linha"
+                ),
+                mapOf("id" to "vazia", "clausulaViolada" to " ", "assunto" to "", "redacaoCct" to "\n"),
+                mapOf("id" to "linha-2", "clausulaViolada" to "", "assunto" to "Uniformes", "redacaoCct" to ""),
+                mapOf(
+                    "id" to "linha-3",
+                    "clausulaViolada" to "Clausula 18",
+                    "assunto" to "Seguro",
+                    "redacaoCct" to "\"Texto entre aspas\""
+                )
+            ),
+            "multaConvencionalClausulaMulta" to "45",
+            "multaConvencionalCctMulta" to "2024/2025",
+            "multaConvencionalTextoMulta" to "\"Multa de um piso\npor infracao\""
+        )
+        val selected = listOf("apresentacao_documentos", "baixa_ctps_tutela", blockId)
+        val preview = given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = selected, dadosVariaveis = variables))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[-2].id", equalTo(blockId))
+            .body("blocos[-1].id", equalTo("apresentacao_documentos"))
+            .body("blocos[-2].titulo", equalTo("Multa convencional"))
+            .body("blocos[-2].tabela.cabecalhos[0]", equalTo("CLÁUSULAS\nVIOLADAS"))
+            .body("blocos[-2].tabela.cabecalhos[2]", equalTo("REDAÇÃO NA CCT VIGENTE (2024/2025)"))
+            .body("blocos[-2].tabela.linhas.size()", equalTo(3))
+            .body("blocos[-2].tabela.linhas[0][0].texto", equalTo("Clausula 12"))
+            .body("blocos[-2].tabela.linhas[0][2].texto", equalTo("“Primeira linha\nSegunda linha”"))
+            .body("blocos[-2].tabela.linhas[0][2].italico", equalTo(true))
+            .body("blocos[-2].tabela.linhas[1][0].texto", equalTo(""))
+            .body("blocos[-2].tabela.linhas[1][1].texto", equalTo("Uniformes"))
+            .body("blocos[-2].tabela.linhas[2][2].texto", equalTo("“Texto entre aspas”"))
+            .body("blocos[-2].texto", containsString("*“Multa de um piso\npor infracao”*"))
+            .extract().response()
+        assertFalse(preview.asString().contains("multaConvencionalCctInicio"))
+
+        val payload = objectMapper.writeValueAsString(
+            RtExportRequest(
+                claimantName = "Teste multa convencional",
+                blocosSelecionados = selected,
+                dadosVariaveis = variables
+            )
+        )
+        val docx = given().multiPart("payload", payload, "text/plain")
+            .`when`().post("/rt/export").then().statusCode(200).extract().asByteArray()
+        XWPFDocument(ByteArrayInputStream(docx)).use { document ->
+            assertEquals(1, document.tables.size)
+            val table = document.tables.single()
+            assertEquals(4, table.numberOfRows)
+            assertEquals(listOf("Clausula 12", "", "Clausula 18"), table.rows.drop(1).map { it.getCell(0).text })
+            assertEquals("Primeira linha\nSegunda linha", table.getRow(1).getCell(2).text.removeSurrounding("“", "”"))
+            assertTrue(table.getRow(1).getCell(2).paragraphs.single().runs.all { it.isItalic })
+            assertEquals("“Texto entre aspas”", table.getRow(3).getCell(2).text)
+            assertTrue(table.getRow(0).ctRow.trPr.tblHeaderList.isNotEmpty())
+            assertTrue(table.rows.all { it.ctRow.trPr.cantSplitList.isNotEmpty() })
+            assertTrue(table.rows.flatMap { it.tableCells }.all { it.verticalAlignment != null })
+            assertEquals(
+                listOf("B4C6E7"),
+                table.getRow(0).tableCells.map {
+                    (it.ctTc.tcPr.shd.fill as ByteArray).joinToString("") { byte -> "%02X".format(byte) }
+                }.distinct()
+            )
+            assertEquals(
+                "E7E6E6",
+                (table.getRow(1).getCell(0).ctTc.tcPr.shd.fill as ByteArray)
+                    .joinToString("") { "%02X".format(it) }
+            )
+            assertEquals(
+                "E9EFF7",
+                (table.getRow(2).getCell(0).ctTc.tcPr.shd.fill as ByteArray)
+                    .joinToString("") { "%02X".format(it) }
+            )
+            val clauseParagraph = document.paragraphs.first { it.text.startsWith("A cláusula 45") }
+            val introIndex = document.paragraphs.indexOfFirst { it.text.startsWith("A parte ré descumpriu") }
+            val clauseIndex = document.paragraphs.indexOf(clauseParagraph)
+            val presentationIndex = document.paragraphs.indexOfFirst { it.text == "Apresentação de documentos" }
+            assertTrue(introIndex in 0 until clauseIndex)
+            assertTrue(presentationIndex > clauseIndex)
+            assertTrue(clauseParagraph.runs.any { it.isItalic && it.text().contains("Multa de um piso") })
+            val requestParagraph = document.paragraphs.first { it.text.startsWith("Pelo exposto, REQUER-SE") }
+            assertEquals(listOf("REQUER-SE"), requestParagraph.runs.filter { it.isBold }.map { it.text() })
+        }
+
+        given().contentType("application/json")
+            .body(RtPreviewRequest(blocosSelecionados = listOf(blockId)))
+            .`when`().post("/rt/preview").then().statusCode(200)
+            .body("blocos[0].tabela.cabecalhos[2]", equalTo("REDAÇÃO NA CCT VIGENTE (___/___)"))
+            .body("blocos[0].texto", not(containsString("multaConvencional")))
+    }
+
     private fun assertDocxImages(docx: ByteArray, expectedImages: List<ByteArray>, bodyPrefixes: List<String>) {
         XWPFDocument(ByteArrayInputStream(docx)).use { document ->
             val pictureParagraphs = document.paragraphs.withIndex().filter { (_, paragraph) ->

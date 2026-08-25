@@ -4,6 +4,8 @@ import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtExportBlockRequest
 import com.example.lawyer.dto.request.RtExportImageRequest
 import com.example.lawyer.dto.request.RtExportInlineImageRequest
+import com.example.lawyer.dto.request.RtExportTableCellRequest
+import com.example.lawyer.dto.request.RtExportTableRequest
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.request.ProcuracaoExportRequest
 import com.example.lawyer.dto.response.RtPreviewResponse
@@ -203,7 +205,15 @@ class RtExportResource(
                     anexos = anexos,
                     imagensFixas = fixedInlineImages(block.id),
                     paragrafosAlinhadosDireita = block.paragrafosAlinhadosDireita,
-                    paragrafosRecuados = block.paragrafosRecuados
+                    paragrafosRecuados = block.paragrafosRecuados,
+                    tabela = block.tabela?.let { table ->
+                        RtExportTableRequest(
+                            cabecalhos = table.cabecalhos,
+                            linhas = table.linhas.map { row ->
+                                row.map { cell -> RtExportTableCellRequest(cell.texto, cell.italico) }
+                            }
+                        )
+                    }
                 )
             }
         } else {

@@ -5,6 +5,8 @@ import com.example.lawyer.domain.model.Usuario
 import com.example.lawyer.dto.request.RtPreviewRequest
 import com.example.lawyer.dto.response.RtPreviewBlockResponse
 import com.example.lawyer.dto.response.RtPreviewInlineImageResponse
+import com.example.lawyer.dto.response.RtPreviewTableCellResponse
+import com.example.lawyer.dto.response.RtPreviewTableResponse
 import com.example.lawyer.exception.BusinessException
 import com.example.lawyer.exception.ResourceNotFoundException
 import com.example.lawyer.repository.UsuarioRepository
@@ -310,6 +312,10 @@ class RtTemplateService(
             titulo = { "a. Danos morais decorrentes da não emissão da CAT" },
             generate = { _, _, _, _ -> danosMoraisNaoEmissaoCat() }
         ),
+        MULTA_CONVENCIONAL to RtBlockDefinition(
+            titulo = { "Multa convencional" },
+            generate = { _, _, variaveis, _ -> multaConvencional(variaveis) }
+        ),
         APRESENTACAO_DOCUMENTOS to RtBlockDefinition(
             titulo = { "Apresentação de documentos" },
             generate = { _, _, _, _ -> apresentacaoDocumentos() }
@@ -371,7 +377,10 @@ class RtTemplateService(
                         },
                         imagensFixas = fixedImages(blockId),
                         paragrafosAlinhadosDireita = definition.paragrafosAlinhadosDireita.sorted(),
-                        paragrafosRecuados = definition.paragrafosRecuados.sorted()
+                        paragrafosRecuados = definition.paragrafosRecuados.sorted(),
+                        tabela = if (blockId == MULTA_CONVENCIONAL) {
+                            multaConvencionalTable(request.dadosVariaveis)
+                        } else null
                     )
                 }
             }
@@ -515,6 +524,10 @@ class RtTemplateService(
         if (DANOS_MORAIS_NAO_EMISSAO_CAT in ordered) {
             ordered.remove(DANOS_MORAIS_NAO_EMISSAO_CAT)
             ordered.add(ordered.indexOf(OBRIGATORIEDADE_EMISSAO_CAT) + 1, DANOS_MORAIS_NAO_EMISSAO_CAT)
+        }
+        if (MULTA_CONVENCIONAL in ordered) {
+            ordered.remove(MULTA_CONVENCIONAL)
+            ordered.add(MULTA_CONVENCIONAL)
         }
         if (APRESENTACAO_DOCUMENTOS in ordered) {
             ordered.remove(APRESENTACAO_DOCUMENTOS)
@@ -1391,6 +1404,56 @@ class RtTemplateService(
     private fun apresentacaoDocumentos(): String =
         "Para a devida instrução dos presentes autos, **REQUER-SE** a juntada, pela ré, sob as penas do art. 400 do CPC, dos controles de jornada de trabalho e de tempo de direção da parte autora, incluindo os relatórios dos rastreadores e GPS, conhecimentos rodoviários, relatórios de entrega de carga, bem como recibos de comprovante de pagamento/holerites (devidamente assinados), extrato de FGTS, comprovante de pagamento de diárias de viagem/reembolso de despesas (devidamente assinados), comprovantes de pagamento de vale alimentação e TRCT, sob pena de confissão."
 
+    private fun multaConvencional(variaveis: Map<String, String?>): String {
+        val clausula = visualValue(variaveis["multaConvencionalClausulaMulta"])
+        val cct = visualValue(variaveis["multaConvencionalCctMulta"])
+        val textoMulta = quotedValue(variaveis["multaConvencionalTextoMulta"])
+        return listOf(
+            "A parte ré descumpriu as seguintes cláusulas convencionais:",
+            "A cláusula $clausula da CCT $cct prevê o seguinte: *$textoMulta*.",
+            "Pelo exposto, **REQUER-SE** a condenação da ré ao pagamento de multas convencionais em favor da parte autora, nos termos dos instrumentos coletivos acima indicados, por cada cláusula violada e relativamente a cada instrumento coletivo, ano a ano."
+        ).joinToString("\n\n")
+    }
+
+    private fun multaConvencionalTable(variables: Map<String, Any?>): RtPreviewTableResponse {
+        val inicio = visualValue(variables["multaConvencionalCctInicio"]?.toString())
+        val fim = visualValue(variables["multaConvencionalCctFim"]?.toString())
+        val rows = (variables["multaConvencionalItens"] as? Collection<*>)
+            .orEmpty()
+            .mapNotNull { raw ->
+                val item = raw as? Map<*, *> ?: return@mapNotNull null
+                val clausula = item["clausulaViolada"]?.toString().orEmpty()
+                val assunto = item["assunto"]?.toString().orEmpty()
+                val redacao = item["redacaoCct"]?.toString().orEmpty()
+                if (clausula.isBlank() && assunto.isBlank() && redacao.isBlank()) return@mapNotNull null
+                listOf(
+                    RtPreviewTableCellResponse(clausula),
+                    RtPreviewTableCellResponse(assunto),
+                    RtPreviewTableCellResponse(quotedValue(redacao), italico = true)
+                )
+            }
+        return RtPreviewTableResponse(
+            cabecalhos = listOf(
+                "CLÁUSULAS\nVIOLADAS",
+                "ASSUNTO",
+                "REDAÇÃO NA CCT VIGENTE ($inicio/$fim)"
+            ),
+            linhas = rows
+        )
+    }
+
+    private fun visualValue(value: String?): String = value?.takeIf { it.isNotBlank() } ?: "___"
+
+    private fun quotedValue(value: String?): String {
+        val text = visualValue(value).trim()
+        val unquoted = when {
+            text.length >= 2 && text.first() == '“' && text.last() == '”' -> text.substring(1, text.length - 1)
+            text.length >= 2 && text.first() == '"' && text.last() == '"' -> text.substring(1, text.length - 1)
+            else -> text
+        }
+        return "“$unquoted”"
+    }
+
 
 
     private fun responsabilidadeSolidariaGrupoEconomico(variaveis: Map<String, String?>): String {
@@ -1751,6 +1814,7 @@ class RtTemplateService(
         const val DOENCA_ACIDENTE_DANOS_MORAIS = "doenca_acidente_danos_morais"
         const val OBRIGATORIEDADE_EMISSAO_CAT = "obrigatoriedade_emissao_cat"
         const val DANOS_MORAIS_NAO_EMISSAO_CAT = "danos_morais_nao_emissao_cat"
+        const val MULTA_CONVENCIONAL = "multa_convencional"
         const val APRESENTACAO_DOCUMENTOS = "apresentacao_documentos"
         const val JORNADA_HABITUAL_12H_IMAGE_NAME = "m_Inconstitucionalidade_da_jornad.png"
         const val JORNADA_HABITUAL_12H_IMAGE_PATH = "/assets/$JORNADA_HABITUAL_12H_IMAGE_NAME"

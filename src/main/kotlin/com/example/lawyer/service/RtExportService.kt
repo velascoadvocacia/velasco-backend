@@ -4,6 +4,7 @@ import com.example.lawyer.dto.request.RtExportRequest
 import com.example.lawyer.dto.request.RtExportBlockRequest
 import com.example.lawyer.dto.request.RtExportImageRequest
 import com.example.lawyer.dto.request.RtExportInlineImageRequest
+import com.example.lawyer.dto.request.RtExportTableCellRequest
 import jakarta.enterprise.context.ApplicationScoped
 import org.apache.poi.util.Units
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy
@@ -149,6 +150,10 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
             createIntrajornadaConstitutionalityContent(document, block)
             return
         }
+        if (block.id == RtTemplateService.MULTA_CONVENCIONAL) {
+            createConventionalFineContent(document, block)
+            return
+        }
         logger.infof("DOCX bloco '%s': anexos.size=%d; iniciando criação de parágrafos", block.title, block.anexos.size)
         val paragraphTexts = block.content.split("\n\n")
         paragraphTexts.forEachIndexed { index, paragraphText ->
@@ -198,6 +203,96 @@ class RtExportService(private val docxHeaderService: DocxHeaderService) {
                     )
                     image.caption?.let { createImageCaption(document, it) }
                 }
+        }
+    }
+
+    private fun createConventionalFineContent(document: XWPFDocument, block: RtExportBlockRequest) {
+        val paragraphs = block.content.split("\n\n")
+        require(paragraphs.size == 3) { "Conteúdo inválido para o bloco de multa convencional" }
+        createBodyParagraph(document, paragraphs[0])
+        document.paragraphs.last().ctp.pPr.spacing.after = BigInteger.valueOf(120)
+        createConventionalFineTable(document, block)
+        createBodyParagraph(document, paragraphs[1])
+        document.paragraphs.last().ctp.pPr.spacing.before = BigInteger.valueOf(160)
+        createBodyParagraph(document, paragraphs[2])
+    }
+
+    private fun createConventionalFineTable(document: XWPFDocument, block: RtExportBlockRequest) {
+        val model = requireNotNull(block.tabela) { "Tabela ausente para o bloco de multa convencional" }
+        require(model.cabecalhos.size == 3) { "Cabeçalho inválido para a tabela de multa convencional" }
+        val table = document.createTable(model.linhas.size + 1, 3)
+        table.setWidth(USEFUL_PAGE_WIDTH_TWIPS.toString())
+        configureBlackBorders(table)
+        val widths = listOf(2303, 1566, 5343)
+        table.rows.forEachIndexed { rowIndex, row ->
+            val rowProperties = if (row.ctRow.isSetTrPr) row.ctRow.trPr else row.ctRow.addNewTrPr()
+            rowProperties.addNewCantSplit().`val` = true
+            if (rowIndex == 0) rowProperties.addNewTblHeader().`val` = true
+            row.tableCells.forEachIndexed { columnIndex, cell ->
+                cell.setWidth(widths[columnIndex].toString())
+                configureConventionalFineCellMargins(cell)
+            }
+        }
+        model.cabecalhos.forEachIndexed { index, text ->
+            configureConventionalFineCell(
+                table.getRow(0).getCell(index),
+                RtExportTableCellRequest(text),
+                header = true,
+                fill = "B4C6E7"
+            )
+        }
+        model.linhas.forEachIndexed { rowIndex, cells ->
+            require(cells.size == 3) { "Linha inválida para a tabela de multa convencional" }
+            val fill = if (rowIndex % 2 == 0) "E7E6E6" else "E9EFF7"
+            cells.forEachIndexed { columnIndex, cell ->
+                configureConventionalFineCell(table.getRow(rowIndex + 1).getCell(columnIndex), cell, false, fill)
+            }
+        }
+    }
+
+    private fun configureConventionalFineCell(
+        cell: XWPFTableCell,
+        value: RtExportTableCellRequest,
+        header: Boolean,
+        fill: String
+    ) {
+        cell.verticalAlignment = if (header) XWPFTableCell.XWPFVertAlign.CENTER else XWPFTableCell.XWPFVertAlign.TOP
+        val properties = cell.ctTc.tcPr ?: cell.ctTc.addNewTcPr()
+        val shading = if (properties.isSetShd) properties.shd else properties.addNewShd()
+        shading.fill = fill
+        val paragraph = cell.paragraphs.single()
+        paragraph.alignment = if (header) ParagraphAlignment.CENTER else ParagraphAlignment.LEFT
+        val paragraphProperties = paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()
+        val spacing = if (paragraphProperties.isSetSpacing) paragraphProperties.spacing else paragraphProperties.addNewSpacing()
+        spacing.before = BigInteger.ZERO
+        spacing.after = BigInteger.ZERO
+        addMultilineRun(paragraph, value.texto, bold = header, italic = value.italico)
+    }
+
+    private fun configureConventionalFineCellMargins(cell: XWPFTableCell) {
+        val properties = cell.ctTc.tcPr ?: cell.ctTc.addNewTcPr()
+        val margins = if (properties.isSetTcMar) properties.tcMar else properties.addNewTcMar()
+        listOf(margins.addNewTop(), margins.addNewLeft(), margins.addNewBottom(), margins.addNewRight()).forEach {
+            it.w = BigInteger.valueOf(90)
+            it.type = STTblWidth.DXA
+        }
+    }
+
+    private fun addMultilineRun(
+        paragraph: XWPFParagraph,
+        text: String,
+        bold: Boolean = false,
+        italic: Boolean = false
+    ) {
+        val run = paragraph.createRun().apply {
+            fontFamily = "Garamond"
+            fontSize = 12
+            isBold = bold
+            isItalic = italic
+        }
+        text.split("\n").forEachIndexed { index, line ->
+            if (index > 0) run.addBreak()
+            run.setText(line)
         }
     }
 
