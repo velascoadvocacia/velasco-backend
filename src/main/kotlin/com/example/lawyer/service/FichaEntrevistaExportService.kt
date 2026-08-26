@@ -66,11 +66,7 @@ class FichaEntrevistaExportService(
             left = listOf(Segment("Nome: ", bold = true), Segment(dados.nomeReclamante.orLine(NAME_LINE))),
             right = listOf(Segment("Telefone: ", bold = true), Segment(dados.telefoneReclamante.orLine(PHONE_LINE)))
         )
-        twoColumnLine(
-            document,
-            left = listOf(Segment("________________________________________________")),
-            right = listOf(Segment("Telefone: ___________________"))
-        )
+        secondManualContactLine(document)
         labeledLine(document, "Endereço:", dados.enderecoReclamante.orLine(LONG_LINE))
         threeColumnLine(
             document,
@@ -102,18 +98,24 @@ class FichaEntrevistaExportService(
             "Período sem Registro: ${dados.dataInicioPrestacao}  a  ${dados.dataAnotacaoCtps}    Função: ${dados.funcao.orLine(MEDIUM_LINE)}"
         )
         labeledLine(document, "Valor:", "R$ ${dados.remuneracao}")
-        body(document, "Horário da Jornada: _____:_____  às  _____:_____  (_____:_____)  _____:_____  às  _____:_____")
+        body(
+            document,
+            "Horário da Jornada: _____:_____  às  _____:_____  (_____:_____)  _____:_____  às  _____:_____",
+            keepLines = true
+        )
 
         body(
             document,
             "Histórico: (HE – salário por fora – diferença salarial – equiparação – troca de roupa – menor - Adicionais – férias – 13º salário – FGTS – seguro desemprego – aviso prévio – multa 477 - Saldo de salário – salário atrasado – observações)",
-            boldPrefix = "Histórico:"
+            boldPrefix = "Histórico:",
+            fontSize = SMALL_TEXT_FONT_SIZE
         )
         repeat(HISTORY_LINES) { manualLine(document) }
 
         body(
             document,
-            "Declaro que forneci as informações acima e que estou ciente de que poderei ser condenado(a) às custas processuais no caso de indeferimento ou improcedência da ação."
+            "Declaro que forneci as informações acima e que estou ciente de que poderei ser condenado(a) às custas processuais no caso de indeferimento ou improcedência da ação.",
+            fontSize = SMALL_TEXT_FONT_SIZE
         )
         centered(document, "$CIDADE_ESCRITORIO, ${formatLongDate(dados.dataExportacao)}.", keepNext = true, before = 320)
         signature(document, dados.nomeReclamante.orLine(NAME_LINE))
@@ -184,12 +186,19 @@ class FichaEntrevistaExportService(
         run(paragraph, value)
     }
 
-    private fun body(document: XWPFDocument, text: String, boldPrefix: String? = null) {
+    private fun body(
+        document: XWPFDocument,
+        text: String,
+        boldPrefix: String? = null,
+        fontSize: Int = FONT_SIZE,
+        keepLines: Boolean = false
+    ) {
         val paragraph = baseParagraph(document)
+        if (keepLines) (paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()).addNewKeepLines().`val` = true
         if (boldPrefix != null && text.startsWith(boldPrefix)) {
-            run(paragraph, boldPrefix, bold = true)
-            run(paragraph, text.removePrefix(boldPrefix))
-        } else run(paragraph, text)
+            run(paragraph, boldPrefix, bold = true, fontSize = fontSize)
+            run(paragraph, text.removePrefix(boldPrefix), fontSize = fontSize)
+        } else run(paragraph, text, fontSize = fontSize)
     }
 
     private fun twoColumnLine(document: XWPFDocument, left: List<Segment>, right: List<Segment>) =
@@ -202,7 +211,22 @@ class FichaEntrevistaExportService(
         third: List<Segment>
     ) = formTable(document, listOf(2_900, 2_900, 2_900), listOf(first, second, third))
 
-    private fun formTable(document: XWPFDocument, widths: List<Int>, cells: List<List<Segment>>) {
+    private fun secondManualContactLine(document: XWPFDocument) {
+        val table = twoColumnLine(
+            document,
+            left = listOf(Segment("")),
+            right = listOf(Segment("Telefone: ___________________"))
+        )
+        val paragraph = table.getRow(0).getCell(0).paragraphs.first()
+        val borders = (paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()).addNewPBdr()
+        borders.addNewBottom().apply {
+            `val` = STBorder.SINGLE
+            sz = BigInteger.valueOf(8)
+            space = BigInteger.valueOf(2)
+        }
+    }
+
+    private fun formTable(document: XWPFDocument, widths: List<Int>, cells: List<List<Segment>>): XWPFTable {
         val table = document.createTable(1, cells.size).apply {
             setWidth(widths.sum().toString())
             setTableAlignment(TableRowAlign.LEFT)
@@ -221,6 +245,7 @@ class FichaEntrevistaExportService(
             }
             segments.forEach { run(paragraph, it.text, it.bold) }
         }
+        return table
     }
 
     private fun removeBorders(table: XWPFTable) {
@@ -233,7 +258,12 @@ class FichaEntrevistaExportService(
 
     private fun manualLine(document: XWPFDocument) {
         val paragraph = baseParagraph(document).apply { spacingAfter = 100 }
-        run(paragraph, "________________________________________________________________________________")
+        val borders = (paragraph.ctp.pPr ?: paragraph.ctp.addNewPPr()).addNewPBdr()
+        borders.addNewBottom().apply {
+            `val` = STBorder.SINGLE
+            sz = BigInteger.valueOf(6)
+            space = BigInteger.valueOf(2)
+        }
     }
 
     private fun centered(
@@ -275,13 +305,19 @@ class FichaEntrevistaExportService(
         spacing.lineRule = STLineSpacingRule.AUTO
     }
 
-    private fun run(paragraph: XWPFParagraph, text: String, bold: Boolean = false, underline: Boolean = false) {
+    private fun run(
+        paragraph: XWPFParagraph,
+        text: String,
+        bold: Boolean = false,
+        underline: Boolean = false,
+        fontSize: Int = FONT_SIZE
+    ) {
         paragraph.createRun().apply {
             setText(text)
             isBold = bold
             if (underline) this.underline = UnderlinePatterns.SINGLE
             fontFamily = FONT
-            fontSize = FONT_SIZE
+            this.fontSize = fontSize
         }
     }
 
@@ -403,7 +439,8 @@ class FichaEntrevistaExportService(
         const val CONTRATO_ASPECTOS_GERAIS = "contrato_aspectos_gerais"
         const val PERIODO_SEM_REGISTRO_CTPS = "periodo_sem_registro_ctps"
         const val FONT = "Georgia"
-        const val FONT_SIZE = 11
+        const val FONT_SIZE = 12
+        const val SMALL_TEXT_FONT_SIZE = 8
         const val CIDADE_ESCRITORIO = "Cascavel"
         const val HISTORY_LINES = 6
         const val DATE_LINE = "____/____/______"

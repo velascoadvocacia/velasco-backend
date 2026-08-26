@@ -414,9 +414,34 @@ class RtExportResourceTest {
             assertEquals(2, document.footerList.single().paragraphs.count { paragraph ->
                 paragraph.runs.any { it.embeddedPictures.isNotEmpty() }
             })
-            assertEquals(6, document.paragraphs.count { it.text.startsWith("________") })
+            assertEquals(
+                6,
+                document.paragraphs.count { paragraph ->
+                    paragraph.text.isEmpty() && paragraph.ctp.pPr?.pBdr?.isSetBottom == true
+                }
+            )
             assertTrue(document.paragraphs.first { it.text == "Mariana da Silva" }.runs.single().isBold)
+            val secondContactRow = document.tables.first { table ->
+                table.rows.any { row -> row.tableCells.any { it.text == "Telefone: ___________________" } }
+            }.rows.first { row -> row.tableCells.any { it.text == "Telefone: ___________________" } }
+            val manualNameParagraph = secondContactRow.getCell(0).paragraphs.single()
+            assertTrue(manualNameParagraph.text.isEmpty())
+            assertTrue(manualNameParagraph.ctp.pPr.pBdr.isSetBottom)
+            assertTrue(secondContactRow.getCell(0).paragraphs.flatMap { it.runs }.none { it.text().contains("_") })
+
+            val schedule = document.paragraphs.first { it.text.startsWith("Horário da Jornada:") }
+            assertTrue(schedule.ctp.pPr.isSetKeepLines)
+
+            val history = document.paragraphs.first { it.text.startsWith("Histórico:") }
+            val declaration = document.paragraphs.first { it.text.startsWith("Declaro que forneci") }
+            assertTrue(history.runs.filter { it.text().isNotEmpty() }.all { it.fontSize == 8 })
+            assertTrue(declaration.runs.filter { it.text().isNotEmpty() }.all { it.fontSize == 8 })
+            document.paragraphs.filter { it !== history && it !== declaration }
+                .flatMap { it.runs }
+                .filter { it.text().isNotEmpty() }
+                .forEach { assertEquals(12, it.fontSize) }
         }
+        saveGeneratedDocument("ficha-entrevista-ajustes-visuais.docx", docx)
     }
 
     @Test
