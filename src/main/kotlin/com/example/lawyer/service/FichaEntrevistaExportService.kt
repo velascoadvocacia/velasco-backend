@@ -192,7 +192,7 @@ class FichaEntrevistaExportService(
     }
 
     private fun twoColumnLine(document: XWPFDocument, left: List<Segment>, right: List<Segment>) =
-        formTable(document, listOf(5_750, 3_840), listOf(left, right))
+        formTable(document, TWO_COLUMN_WIDTHS, listOf(left, right))
 
     private fun threeColumnLine(
         document: XWPFDocument,
@@ -217,16 +217,10 @@ class FichaEntrevistaExportService(
     }
 
     private fun employmentDetailsTable(document: XWPFDocument, dados: DadosFicha) {
-        val table = document.createTable(1, 2).apply {
-            setWidth("8700")
-            setTableAlignment(TableRowAlign.LEFT)
-            removeBorders(this)
-            setCellMargins(0, 0, 0, 0)
-        }
+        val table = createFormTable(document, TWO_COLUMN_WIDTHS)
         val row = table.getRow(0)
-        row.ctRow.addNewTrPr().addNewCantSplit().`val` = true
-        val left = row.getCell(0).apply { setWidth("5200") }
-        val right = row.getCell(1).apply { setWidth("3500") }
+        val left = row.getCell(0)
+        val right = row.getCell(1)
 
         employmentCellLine(
             left.paragraphs.first(),
@@ -266,18 +260,10 @@ class FichaEntrevistaExportService(
     }
 
     private fun formTable(document: XWPFDocument, widths: List<Int>, cells: List<List<Segment>>): XWPFTable {
-        val table = document.createTable(1, cells.size).apply {
-            setWidth(widths.sum().toString())
-            setTableAlignment(TableRowAlign.LEFT)
-            removeBorders(this)
-            setCellMargins(0, 0, 0, 0)
-        }
+        val table = createFormTable(document, widths)
         val row = table.getRow(0)
-        row.ctRow.addNewTrPr().addNewCantSplit().`val` = true
         cells.forEachIndexed { index, segments ->
-            val cell = row.getCell(index)
-            cell.setWidth(widths[index].toString())
-            val paragraph = cell.paragraphs.first().apply {
+            val paragraph = row.getCell(index).paragraphs.first().apply {
                 alignment = ParagraphAlignment.LEFT
                 spacingBefore = 0
                 spacingAfter = 40
@@ -286,6 +272,18 @@ class FichaEntrevistaExportService(
         }
         return table
     }
+
+    private fun createFormTable(document: XWPFDocument, widths: List<Int>): XWPFTable =
+        document.createTable(1, widths.size).apply {
+            setWidth(widths.sum().toString())
+            setTableAlignment(TableRowAlign.LEFT)
+            removeBorders(this)
+            setCellMargins(0, 0, 0, 0)
+            getRow(0).apply {
+                ctRow.addNewTrPr().addNewCantSplit().`val` = true
+                tableCells.forEachIndexed { index, cell -> cell.setWidth(widths[index].toString()) }
+            }
+        }
 
     private fun removeBorders(table: XWPFTable) {
         val borders = table.ctTbl.tblPr.tblBorders ?: table.ctTbl.tblPr.addNewTblBorders()
@@ -482,6 +480,7 @@ class FichaEntrevistaExportService(
         const val SMALL_TEXT_FONT_SIZE = 8
         const val CIDADE_ESCRITORIO = "Cascavel"
         const val HISTORY_LINES = 6
+        val TWO_COLUMN_WIDTHS = listOf(5_750, 3_840)
         const val DATE_LINE = "____/____/______"
         const val NAME_LINE = "____________________________"
         const val PHONE_LINE = "___________________"

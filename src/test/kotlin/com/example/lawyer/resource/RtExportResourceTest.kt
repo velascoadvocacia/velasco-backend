@@ -452,6 +452,13 @@ class RtExportResourceTest {
                 table.rows.single().tableCells.any { cell -> cell.text.contains("Período sem Registro:") }
             }
             assertEquals(2, employmentTable.rows.single().tableCells.size)
+            assertEquals(authorDataTable.width, employmentTable.width)
+            assertEquals(
+                authorDataTable.getRow(0).tableCells.map { it.width },
+                employmentTable.getRow(0).tableCells.map { it.width }
+            )
+            assertEquals(9590, employmentTable.width)
+            assertEquals(listOf(5750, 3840), employmentTable.getRow(0).tableCells.map { it.width })
             assertEquals(
                 listOf(
                     "Admissão: 10/01/2020    Demissão: 15/07/2025",
@@ -477,7 +484,7 @@ class RtExportResourceTest {
                 .filter { it.text().isNotEmpty() }
                 .forEach { assertEquals(12, it.fontSize) }
         }
-        saveGeneratedDocument("ficha-entrevista-largura-dados-autora.docx", docx)
+        saveGeneratedDocument("ficha-entrevista-tabelas-mesma-largura.docx", docx)
     }
 
     @Test
