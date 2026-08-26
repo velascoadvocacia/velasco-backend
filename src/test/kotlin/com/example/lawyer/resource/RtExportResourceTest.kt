@@ -421,6 +421,22 @@ class RtExportResourceTest {
                 }
             )
             assertTrue(document.paragraphs.first { it.text == "Mariana da Silva" }.runs.single().isBold)
+            val authorDataTable = document.tables.first { table ->
+                table.rows.single().tableCells.any { it.text == "DADOS DO(A) AUTOR(A):" }
+            }
+            assertEquals(9590, authorDataTable.width)
+            assertEquals(
+                listOf(5750, 3840),
+                authorDataTable.getRow(0).tableCells.map { it.width }
+            )
+            val identityTable = document.tables.first { table ->
+                table.rows.single().tableCells.any { it.text.startsWith("RG: ") }
+            }
+            assertEquals(9590, identityTable.width)
+            assertEquals(
+                listOf(3200, 3200, 3190),
+                identityTable.getRow(0).tableCells.map { it.width }
+            )
             val secondContactRow = document.tables.first { table ->
                 table.rows.any { row -> row.tableCells.any { it.text == "Telefone: ___________________" } }
             }.rows.first { row -> row.tableCells.any { it.text == "Telefone: ___________________" } }
@@ -461,7 +477,7 @@ class RtExportResourceTest {
                 .filter { it.text().isNotEmpty() }
                 .forEach { assertEquals(12, it.fontSize) }
         }
-        saveGeneratedDocument("ficha-entrevista-dados-emprego-duas-colunas.docx", docx)
+        saveGeneratedDocument("ficha-entrevista-largura-dados-autora.docx", docx)
     }
 
     @Test

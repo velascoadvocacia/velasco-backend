@@ -192,14 +192,14 @@ class FichaEntrevistaExportService(
     }
 
     private fun twoColumnLine(document: XWPFDocument, left: List<Segment>, right: List<Segment>) =
-        formTable(document, listOf(5_200, 3_500), listOf(left, right))
+        formTable(document, listOf(5_750, 3_840), listOf(left, right))
 
     private fun threeColumnLine(
         document: XWPFDocument,
         first: List<Segment>,
         second: List<Segment>,
         third: List<Segment>
-    ) = formTable(document, listOf(2_900, 2_900, 2_900), listOf(first, second, third))
+    ) = formTable(document, listOf(3_200, 3_200, 3_190), listOf(first, second, third))
 
     private fun secondManualContactLine(document: XWPFDocument) {
         val table = twoColumnLine(
