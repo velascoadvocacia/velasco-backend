@@ -87,17 +87,7 @@ class FichaEntrevistaExportService(
         labeledLine(document, "CNPJ:", dados.cnpj.orLine(MEDIUM_LINE))
 
         section(document, "DADOS DO EMPREGO:")
-        threeColumnLine(
-            document,
-            listOf(Segment("Admissão: ", bold = true), Segment(dados.dataContratacao)),
-            listOf(Segment("Demissão: ", bold = true), Segment(dados.dataExtincao)),
-            listOf(Segment("Motivo: ", bold = true), Segment(dados.motivoExtincao))
-        )
-        body(
-            document,
-            "Período sem Registro: ${dados.dataInicioPrestacao}  a  ${dados.dataAnotacaoCtps}    Função: ${dados.funcao.orLine(MEDIUM_LINE)}"
-        )
-        labeledLine(document, "Valor:", "R$ ${dados.remuneracao}")
+        employmentDetailsTable(document, dados)
         body(
             document,
             "Horário da Jornada: _____:_____  às  _____:_____  (_____:_____)  _____:_____  às  _____:_____",
@@ -224,6 +214,55 @@ class FichaEntrevistaExportService(
             sz = BigInteger.valueOf(8)
             space = BigInteger.valueOf(2)
         }
+    }
+
+    private fun employmentDetailsTable(document: XWPFDocument, dados: DadosFicha) {
+        val table = document.createTable(1, 2).apply {
+            setWidth("8700")
+            setTableAlignment(TableRowAlign.LEFT)
+            removeBorders(this)
+            setCellMargins(0, 0, 0, 0)
+        }
+        val row = table.getRow(0)
+        row.ctRow.addNewTrPr().addNewCantSplit().`val` = true
+        val left = row.getCell(0).apply { setWidth("5200") }
+        val right = row.getCell(1).apply { setWidth("3500") }
+
+        employmentCellLine(
+            left.paragraphs.first(),
+            listOf(
+                Segment("Admissão: ", bold = true), Segment(dados.dataContratacao),
+                Segment("    Demissão: ", bold = true), Segment(dados.dataExtincao)
+            )
+        )
+        employmentCellLine(
+            left.addParagraph(),
+            listOf(
+                Segment("Período sem Registro: ", bold = true),
+                Segment("${dados.dataInicioPrestacao}  a  ${dados.dataAnotacaoCtps}")
+            )
+        )
+        employmentCellLine(
+            right.paragraphs.first(),
+            listOf(Segment("Motivo: ", bold = true), Segment(dados.motivoExtincao))
+        )
+        employmentCellLine(
+            right.addParagraph(),
+            listOf(Segment("Função: ", bold = true), Segment(dados.funcao.orLine(MEDIUM_LINE)))
+        )
+        employmentCellLine(
+            right.addParagraph(),
+            listOf(Segment("Valor: ", bold = true), Segment("R$ ${dados.remuneracao}"))
+        )
+    }
+
+    private fun employmentCellLine(paragraph: XWPFParagraph, segments: List<Segment>) {
+        paragraph.apply {
+            alignment = ParagraphAlignment.LEFT
+            spacingBefore = 0
+            spacingAfter = 40
+        }
+        segments.forEach { run(paragraph, it.text, it.bold) }
     }
 
     private fun formTable(document: XWPFDocument, widths: List<Int>, cells: List<List<Segment>>): XWPFTable {

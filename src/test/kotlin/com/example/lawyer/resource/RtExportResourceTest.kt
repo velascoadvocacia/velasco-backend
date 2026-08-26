@@ -294,7 +294,7 @@ class RtExportResourceTest {
                 rg = "123456789",
                 pis = "12345678901",
                 nomeMae = "Ana Pereira da Silva",
-                profissao = "Motorista carreteira",
+                profissao = "Auxiliar de produção",
                 tipoPessoa = TipoPessoa.FISICA,
                 dataNascimento = LocalDate.of(1990, 3, 15),
                 endereco = EnderecoRequest(
@@ -402,7 +402,7 @@ class RtExportResourceTest {
                 "Demissão: 15/07/2025",
                 "Motivo: Dispensa sem justa causa",
                 "Período sem Registro: 02/12/2019  a  09/01/2020",
-                "Função: Motorista carreteira",
+                "Função: Auxiliar de produção",
                 "Valor: R$ 4.750,50",
                 "Horário da Jornada: _____:_____  às  _____:_____",
                 "Assinatura do Autor(a)"
@@ -432,6 +432,26 @@ class RtExportResourceTest {
             val schedule = document.paragraphs.first { it.text.startsWith("Horário da Jornada:") }
             assertTrue(schedule.ctp.pPr.isSetKeepLines)
 
+            val employmentTable = document.tables.single { table ->
+                table.rows.single().tableCells.any { cell -> cell.text.contains("Período sem Registro:") }
+            }
+            assertEquals(2, employmentTable.rows.single().tableCells.size)
+            assertEquals(
+                listOf(
+                    "Admissão: 10/01/2020    Demissão: 15/07/2025",
+                    "Período sem Registro: 02/12/2019  a  09/01/2020"
+                ),
+                employmentTable.getRow(0).getCell(0).paragraphs.map { it.text }
+            )
+            assertEquals(
+                listOf(
+                    "Motivo: Dispensa sem justa causa",
+                    "Função: Auxiliar de produção",
+                    "Valor: R$ 4.750,50"
+                ),
+                employmentTable.getRow(0).getCell(1).paragraphs.map { it.text }
+            )
+
             val history = document.paragraphs.first { it.text.startsWith("Histórico:") }
             val declaration = document.paragraphs.first { it.text.startsWith("Declaro que forneci") }
             assertTrue(history.runs.filter { it.text().isNotEmpty() }.all { it.fontSize == 8 })
@@ -441,7 +461,7 @@ class RtExportResourceTest {
                 .filter { it.text().isNotEmpty() }
                 .forEach { assertEquals(12, it.fontSize) }
         }
-        saveGeneratedDocument("ficha-entrevista-ajustes-visuais.docx", docx)
+        saveGeneratedDocument("ficha-entrevista-dados-emprego-duas-colunas.docx", docx)
     }
 
     @Test
