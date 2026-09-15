@@ -83,11 +83,11 @@ class ProcessoService(
             params["numeroProcesso"] = "%${it.lowercase()}%"
         }
         clienteId?.let {
-            where += "reclamantes.id = :clienteId"
+            where += "id in (select p.id from Processo p join p.reclamantes reclamante where reclamante.id = :clienteId)"
             params["clienteId"] = it
         }
         advogadoId?.let {
-            where += "advogados.id = :advogadoId"
+            where += "id in (select p.id from Processo p join p.advogados advogado where advogado.id = :advogadoId)"
             params["advogadoId"] = it
         }
         status?.let {

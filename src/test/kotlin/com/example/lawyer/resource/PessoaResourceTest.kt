@@ -9,6 +9,8 @@ import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import jakarta.inject.Inject
 import org.hamcrest.CoreMatchers.equalTo
+import org.hamcrest.CoreMatchers.containsString
+import org.hamcrest.CoreMatchers.nullValue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
@@ -16,6 +18,69 @@ import java.time.LocalDate
 class PessoaResourceTest {
     @Inject
     lateinit var pessoaService: PessoaService
+
+    @Test
+    @TestSecurity(user = "assistente", roles = ["ASSISTENTE"])
+    fun `should explain invalid address fields in message consumed by frontend`() {
+        given()
+            .contentType("application/json")
+            .body(mapOf("nome" to "Teste", "tipoPessoa" to "FISICA",
+                "endereco" to mapOf("estado" to "Parana", "cep" to "123")))
+            .`when`().post("/pessoas")
+            .then().statusCode(400)
+            .body("status", equalTo(400))
+            .body("message", containsString("endereco.estado: Quando preenchida, informe a UF com 2 letras"))
+            .body("message", containsString("endereco.cep: Quando preenchido, informe o CEP com 8 digitos"))
+    }
+
+    @Test
+    @TestSecurity(user = "assistente", roles = ["ASSISTENTE"])
+    fun `should accept stable union with optional fields empty`() {
+        given()
+            .contentType("application/json")
+            .body(mapOf("nome" to "Cadastro minimo", "email" to "", "cpf" to "",
+                "tipoPessoa" to "FISICA", "estadoCivil" to "UNIAO_ESTAVEL", "endereco" to null))
+            .`when`().post("/pessoas")
+            .then().statusCode(201)
+            .body("nome", equalTo("Cadastro minimo"))
+            .body("estadoCivil", equalTo("UNIAO_ESTAVEL"))
+    }
+
+    @Test
+    @TestSecurity(user = "admin", roles = ["ADMIN"])
+    fun `should create and update multiple people with blank fields without document conflicts`() {
+        for (tipoPessoa in listOf("FISICA", "JURIDICA")) {
+            for (blank in listOf("", "   ")) {
+                val payload = mapOf("nome" to blank, "email" to blank, "cpf" to blank, "cnpj" to blank,
+                    "razaoSocial" to blank, "tipoPessoa" to tipoPessoa,
+                    "endereco" to mapOf("rua" to blank, "estado" to blank, "cep" to blank))
+                val id = given().contentType("application/json").body(payload)
+                    .`when`().post("/pessoas")
+                    .then().statusCode(201)
+                    .body("cpf", nullValue()).body("cnpj", nullValue())
+                    .body("endereco.estado", nullValue()).body("endereco.cep", nullValue())
+                    .extract().path<Int>("id")
+                given().contentType("application/json").body(payload)
+                    .`when`().put("/pessoas/$id")
+                    .then().statusCode(200)
+                    .body("cpf", nullValue()).body("cnpj", nullValue())
+            }
+        }
+        given().contentType("application/json").body(emptyMap<String, Any>())
+            .`when`().post("/pessoas")
+            .then().statusCode(201)
+    }
+
+    @Test
+    @TestSecurity(user = "assistente", roles = ["ASSISTENTE"])
+    fun `should explain invalid CPF`() {
+        given()
+            .contentType("application/json")
+            .body(mapOf("nome" to "Teste CPF", "cpf" to "11111111111", "tipoPessoa" to "FISICA"))
+            .`when`().post("/pessoas")
+            .then().statusCode(400)
+            .body("message", equalTo("CPF invalido"))
+    }
 
     @Test
     @TestSecurity(user = "assistente", roles = ["ASSISTENTE"])

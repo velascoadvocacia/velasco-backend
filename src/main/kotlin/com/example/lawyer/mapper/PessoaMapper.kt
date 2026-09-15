@@ -98,8 +98,8 @@ class PessoaMapper {
             complemento = it.complemento?.trim(),
             bairro = it.bairro?.trim(),
             cidade = it.cidade?.trim(),
-            estado = it.estado?.trim()?.uppercase(),
-            cep = DocumentValidator.onlyDigits(it.cep)
+            estado = it.estado?.trim()?.takeIf(String::isNotEmpty)?.uppercase(),
+            cep = DocumentValidator.onlyDigits(it.cep)?.takeIf(String::isNotEmpty)
         )
     }
 
@@ -118,10 +118,10 @@ class PessoaMapper {
     }
 
     private fun cpfFor(request: PessoaRequestDTO): String? =
-        if (request.tipoPessoa == TipoPessoa.JURIDICA) null else DocumentValidator.onlyDigits(request.cpf)
+        if (request.tipoPessoa == TipoPessoa.JURIDICA) null else DocumentValidator.onlyDigits(request.cpf)?.takeIf(String::isNotEmpty)
 
     private fun cnpjFor(request: PessoaRequestDTO): String? =
-        if (request.tipoPessoa == TipoPessoa.FISICA) null else DocumentValidator.onlyDigits(request.cnpj)
+        if (request.tipoPessoa != TipoPessoa.JURIDICA) null else DocumentValidator.onlyDigits(request.cnpj)?.takeIf(String::isNotEmpty)
 
     private fun <T> fisicaValue(request: PessoaRequestDTO, value: () -> T): T? =
         if (request.tipoPessoa == TipoPessoa.JURIDICA) null else value()

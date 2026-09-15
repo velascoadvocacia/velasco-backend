@@ -12,7 +12,6 @@ import com.example.lawyer.repository.PessoaRepository
 import io.quarkus.panache.common.Page
 import io.quarkus.panache.common.Sort
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.validation.ValidationException
 import jakarta.transaction.Transactional
 import org.jboss.logging.Logger
 
@@ -82,14 +81,14 @@ class PessoaService(
             TipoPessoa.FISICA -> {
                 val cleanCpf = normalizeDocument(request.cpf)
                 if (cleanCpf != null) {
-                    if (!DocumentValidator.isValidCpf(cleanCpf)) throw ValidationException("CPF invalido")
+                    if (!DocumentValidator.isValidCpf(cleanCpf)) throw BusinessException("CPF invalido")
                     if (repository.existsCpfForAnotherPessoa(cleanCpf, id)) throw BusinessException("CPF ja cadastrado")
                 }
             }
             TipoPessoa.JURIDICA -> {
                 val cleanCnpj = normalizeDocument(request.cnpj)
                 if (cleanCnpj != null) {
-                    if (!DocumentValidator.isValidCnpj(cleanCnpj)) throw ValidationException("CNPJ invalido")
+                    if (!DocumentValidator.isValidCnpj(cleanCnpj)) throw BusinessException("CNPJ invalido")
                     if (repository.existsCnpjForAnotherPessoa(cleanCnpj, id)) throw BusinessException("CNPJ ja cadastrado")
                 }
             }
@@ -105,7 +104,7 @@ class PessoaService(
 
     private fun normalizeEmail(value: String?): String {
         val email = value.trimToNull() ?: return ""
-        if (!EMAIL_REGEX.matches(email)) throw ValidationException("Email invalido")
+        if (!EMAIL_REGEX.matches(email)) throw BusinessException("Email invalido")
         return email.lowercase()
     }
 
