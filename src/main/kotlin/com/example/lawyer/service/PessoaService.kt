@@ -24,6 +24,16 @@ class PessoaService(
 
     @Transactional
     fun create(request: PessoaRequestDTO): PessoaResponseDTO {
+        val existing = when (request.tipoPessoa ?: TipoPessoa.FISICA) {
+            TipoPessoa.FISICA -> normalizeDocument(request.cpf)?.let(repository::findByCpf)
+            TipoPessoa.JURIDICA -> normalizeDocument(request.cnpj)?.let(repository::findByCnpj)
+        }
+        if (existing != null && !existing.ativo && request.ativo) {
+            validatePessoa(request, existing.id)
+            pessoaMapper.updateEntity(existing, request)
+            logger.infof("Pessoa reativada id=%s", existing.id)
+            return pessoaMapper.toResponse(existing)
+        }
         validatePessoa(request, null)
         val pessoa = pessoaMapper.toEntity(request)
         repository.persist(pessoa)

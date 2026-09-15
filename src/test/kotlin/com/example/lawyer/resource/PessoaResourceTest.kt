@@ -20,6 +20,45 @@ class PessoaResourceTest {
     lateinit var pessoaService: PessoaService
 
     @Test
+    @TestSecurity(user = "admin", roles = ["ADMIN"])
+    fun `should reactivate inactive document owner on create while rejecting conflicting updates`() {
+        for ((tipoPessoa, field, document) in listOf(
+            Triple("FISICA", "cpf", validCpf(300010)),
+            Triple("JURIDICA", "cnpj", "11222333000181")
+        )) {
+            val payload = mapOf("nome" to "Documento reservado", "tipoPessoa" to tipoPessoa, field to document)
+            val originalId = given().contentType("application/json").body(payload)
+                .`when`().post("/pessoas").then().statusCode(201).extract().path<Int>("id")
+            // The owner's own document must remain valid during editing.
+            given().contentType("application/json").body(payload)
+                .`when`().put("/pessoas/$originalId").then().statusCode(200)
+            given().`when`().delete("/pessoas/$originalId").then().statusCode(204)
+
+            val otherId = given().contentType("application/json")
+                .body(mapOf("nome" to "Sem documento", "tipoPessoa" to tipoPessoa))
+                .`when`().post("/pessoas").then().statusCode(201).extract().path<Int>("id")
+            given().contentType("application/json").body(payload)
+                .`when`().put("/pessoas/$otherId").then().statusCode(400)
+                .body("message", equalTo("${field.uppercase()} ja cadastrado"))
+            given().`when`().get("/pessoas/$otherId").then().statusCode(200)
+                .body(field, nullValue())
+
+            val correctedPayload = payload + mapOf("nome" to "Cadastro corrigido", "ativo" to true)
+            given().contentType("application/json").body(correctedPayload)
+                .`when`().post("/pessoas").then().statusCode(201)
+                .body("id", equalTo(originalId))
+                .body("ativo", equalTo(true))
+                .body("nome", equalTo("Cadastro corrigido"))
+                .body(field, equalTo(document))
+            given().`when`().get("/pessoas/$originalId").then().statusCode(200)
+                .body("nome", equalTo("Cadastro corrigido"))
+            given().contentType("application/json").body(correctedPayload)
+                .`when`().post("/pessoas").then().statusCode(400)
+                .body("message", equalTo("${field.uppercase()} ja cadastrado"))
+        }
+    }
+
+    @Test
     @TestSecurity(user = "assistente", roles = ["ASSISTENTE"])
     fun `should explain invalid address fields in message consumed by frontend`() {
         given()

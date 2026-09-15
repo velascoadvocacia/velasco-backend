@@ -13,13 +13,13 @@ class PessoaRepository : PanacheRepositoryBase<Pessoa, Long> {
     fun findActiveById(id: Long): Pessoa? = find("id = ?1 and ativo = true", id).firstResult()
 
     fun existsCpfForAnotherPessoa(cpf: String, id: Long? = null): Boolean {
-        val query = if (id == null) "cpf = ?1 and ativo = true" else "cpf = ?1 and id <> ?2 and ativo = true"
+        val query = if (id == null) "cpf = ?1" else "cpf = ?1 and id <> ?2"
         val params = if (id == null) arrayOf(cpf) else arrayOf(cpf, id)
         return count(query, *params) > 0
     }
 
     fun existsCnpjForAnotherPessoa(cnpj: String, id: Long? = null): Boolean {
-        val query = if (id == null) "cnpj = ?1 and ativo = true" else "cnpj = ?1 and id <> ?2 and ativo = true"
+        val query = if (id == null) "cnpj = ?1" else "cnpj = ?1 and id <> ?2"
         val params = if (id == null) arrayOf(cnpj) else arrayOf(cnpj, id)
         return count(query, *params) > 0
     }
